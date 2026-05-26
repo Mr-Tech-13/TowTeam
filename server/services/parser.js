@@ -33,6 +33,10 @@ function spotNeedsReview(spot) {
   return Boolean(spot && /^(NL|BB|WR)$/.test(spot));
 }
 
+export function hasKnownTowSpot(tow) {
+  return /^(NL|BB|WR)\d+$/i.test(tow?.towSpot || "");
+}
+
 function locationType(value) {
   const upper = value.toUpperCase();
   if (/^(NL|BB|WR|BIRD BATH|WEST RAMP|NORTH LOT)/.test(upper)) return "spot";
@@ -155,11 +159,13 @@ function parseBlock(block) {
   }));
 }
 
-export function parseTowPlan(text) {
-  return String(text)
+export function parseTowPlan(text, options = {}) {
+  const tows = String(text)
     .split(/\n\s*\n/g)
     .map((block) => block.trim())
     .filter(Boolean)
     .filter((block) => !/^RONS$/i.test(block))
     .flatMap(parseBlock);
+
+  return options.onlyKnownTowSpots ? tows.filter(hasKnownTowSpot) : tows;
 }

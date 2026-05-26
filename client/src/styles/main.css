@@ -86,13 +86,13 @@ h3 {
   z-index: 10;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  padding: 8px 0 14px;
+  gap: 0;
+  padding: 8px 0 0;
   background: rgba(17, 24, 39, 0.92);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.24);
   backdrop-filter: blur(8px);
 }
 
-.tabs button,
 .icon-btn,
 .btn {
   min-height: 44px;
@@ -101,18 +101,31 @@ h3 {
   color: #f8fafc;
 }
 
-.tabs button {
+.tabs a {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 10px 8px;
-  background: #1f2937;
+  min-height: 48px;
+  border: 1px solid transparent;
+  border-bottom: 3px solid transparent;
+  border-radius: 8px 8px 0 0;
+  padding: 11px 8px 9px;
+  color: #cbd5e1;
+  text-decoration: none;
+  font-weight: 800;
 }
 
-.tabs button.active {
-  background: #2563eb;
-  border-color: #60a5fa;
+.tabs a.active {
+  background: rgba(31, 41, 55, 0.96);
+  border-color: rgba(148, 163, 184, 0.24);
+  border-bottom-color: #22c55e;
+  color: #f8fafc;
+}
+
+.tabs a:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: -2px;
 }
 
 .icon-btn {
@@ -359,6 +372,11 @@ textarea {
   color: #fecaca;
 }
 
+.muted {
+  color: #cbd5e1;
+  margin: 10px 0 0;
+}
+
 .warning-text {
   border: 1px solid rgba(248, 113, 113, 0.35);
   border-radius: 8px;
@@ -410,6 +428,10 @@ textarea {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 12px;
+}
+
+.summary-panel {
+  margin-top: 14px;
 }
 
 pre {
@@ -480,7 +502,7 @@ pre {
     grid-template-columns: 1fr;
   }
 
-  .tabs button {
+  .tabs a {
     font-size: 0.92rem;
   }
 

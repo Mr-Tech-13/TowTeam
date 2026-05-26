@@ -1,7 +1,7 @@
 const fields = [
   ["airline", "Airline"],
   ["inboundFlightNumber", "Inbound flight number"],
-  ["inboundStation", "Inbound station"],
+  ["inboundStation", "From station"],
   ["eta", "ETA"],
   ["gate", "Gate"],
   ["fromLocation", "From location"],

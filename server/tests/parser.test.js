@@ -55,6 +55,18 @@ test("parses messy copied tow plan into candidates", () => {
   assert.match(multi[0].parserWarnings.join(" "), /Multiple flights|Tow spot missing/);
 });
 
+test("import mode only returns flights with exact tow spots", () => {
+  const tows = parseTowPlan(messySample, { onlyKnownTowSpots: true });
+  assert.deepEqual(
+    tows.map((tow) => tow.inboundFlightNumber),
+    ["606", "607"]
+  );
+  assert.deepEqual(
+    tows.map((tow) => tow.towSpot),
+    ["BB113", "BB113"]
+  );
+});
+
 test("parses outbound shorthand gate to north lot", () => {
   const [tow] = parseTowPlan("MX100 ILM 1234\n34 > NL");
   assert.equal(tow.gate, "Gate 34");

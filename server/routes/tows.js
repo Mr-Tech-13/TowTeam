@@ -1,5 +1,5 @@
 import express from "express";
-import { parseTowPlan } from "../services/parser.js";
+import { hasKnownTowSpot, parseTowPlan } from "../services/parser.js";
 import { createTow, deleteTow, getTow, listTows, logStep, updateTow } from "../services/tows.js";
 
 export const router = express.Router();
@@ -38,7 +38,7 @@ router.get("/export.csv", (req, res) => {
 });
 
 router.post("/parse", (req, res) => {
-  res.json({ candidates: parseTowPlan(req.body.text || "") });
+  res.json({ candidates: parseTowPlan(req.body.text || "", { onlyKnownTowSpots: true }) });
 });
 
 router.post("/", (req, res) => {
@@ -50,7 +50,7 @@ router.post("/", (req, res) => {
 });
 
 router.post("/bulk", (req, res) => {
-  const items = Array.isArray(req.body.tows) ? req.body.tows : [];
+  const items = Array.isArray(req.body.tows) ? req.body.tows.filter(hasKnownTowSpot) : [];
   res.status(201).json(items.map(createTow));
 });
 

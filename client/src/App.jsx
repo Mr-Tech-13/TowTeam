@@ -55,8 +55,10 @@ export default function App() {
   const [activeTow, setActiveTow] = useState(null);
   const [manualTow, setManualTow] = useState(emptyTow);
   const [pasteText, setPasteText] = useState("");
+  const [parseAttempted, setParseAttempted] = useState(false);
   const [candidates, setCandidates] = useState([]);
   const [historyFilters, setHistoryFilters] = useState({});
+  const [selectedSummary, setSelectedSummary] = useState(null);
   const filters = tab === "history" ? historyFilters : tab === "summary" ? { status: "completed" } : { status: "active" };
   const { tows, error, loading, load } = useTows(filters);
   const activeTows = useMemo(() => tows.filter((tow) => tow.status !== "completed"), [tows]);
@@ -72,13 +74,15 @@ export default function App() {
   async function parseImport() {
     const result = await api.parsePlan(pasteText);
     setCandidates(result.candidates);
+    setParseAttempted(true);
   }
 
   async function saveCandidates() {
     await api.createBulk(candidates);
     setCandidates([]);
     setPasteText("");
-    setTab("dashboard");
+    setParseAttempted(false);
+    openTab("dashboard");
     await load();
   }
 
@@ -109,6 +113,28 @@ export default function App() {
     await load();
   }
 
+  function openTab(nextTab) {
+    setTab(nextTab);
+    setSelectedSummary(null);
+  }
+
+  function tabLink(id, label, Icon) {
+    return (
+      <a
+        aria-selected={tab === id}
+        className={tab === id ? "active" : ""}
+        href={`#${id}`}
+        onClick={(event) => {
+          event.preventDefault();
+          openTab(id);
+        }}
+        role="tab"
+      >
+        <Icon size={18} /> {label}
+      </a>
+    );
+  }
+
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -121,19 +147,11 @@ export default function App() {
         </button>
       </header>
 
-      <nav className="tabs">
-        <button className={tab === "dashboard" ? "active" : ""} onClick={() => setTab("dashboard")}>
-          <LayoutDashboard size={18} /> Active
-        </button>
-        <button className={tab === "setup" ? "active" : ""} onClick={() => setTab("setup")}>
-          <Plus size={18} /> Setup
-        </button>
-        <button className={tab === "summary" ? "active" : ""} onClick={() => setTab("summary")}>
-          <Save size={18} /> Summary
-        </button>
-        <button className={tab === "history" ? "active" : ""} onClick={() => setTab("history")}>
-          <History size={18} /> History
-        </button>
+      <nav aria-label="Primary" className="tabs" role="tablist">
+        {tabLink("dashboard", "Active", LayoutDashboard)}
+        {tabLink("setup", "Setup", Plus)}
+        {tabLink("summary", "Summary", Save)}
+        {tabLink("history", "History", History)}
       </nav>
 
       {error && <div className="notice error">{error}</div>}
@@ -161,7 +179,14 @@ export default function App() {
             </div>
             <div className="panel">
               <h2>Bulk Import</h2>
-              <textarea className="paste-box" value={pasteText} onChange={(event) => setPasteText(event.target.value)} />
+              <textarea
+                className="paste-box"
+                value={pasteText}
+                onChange={(event) => {
+                  setPasteText(event.target.value);
+                  setParseAttempted(false);
+                }}
+              />
               <button className="btn blue wide" onClick={parseImport}><Upload size={18} />Parse Import</button>
               {candidates.length > 0 && (
                 <div className="candidate-list">
@@ -174,6 +199,9 @@ export default function App() {
                   <button className="btn green wide" onClick={saveCandidates}>Save Imported Tows</button>
                 </div>
               )}
+              {parseAttempted && candidates.length === 0 && (
+                <p className="muted">No importable tows found. Only flights with exact tow spots like BB113, NL614, or WR22 are imported.</p>
+              )}
             </div>
           </section>
         )}
@@ -184,14 +212,18 @@ export default function App() {
               <h2>Completed Tow Summary</h2>
               <span>{completedTows.length} complete</span>
             </div>
-            <div className="summary-list">
-              {completedTows.map((tow) => (
-                <article className="panel" key={tow.id}>
-                  <h3>{tow.tailNumber || `${tow.airline}${tow.inboundFlightNumber}`}</h3>
-                  <pre>{completedSummary(tow)}</pre>
-                </article>
-              ))}
+            <div className="tow-grid">
+              {completedTows.map((tow) => <TowCard key={tow.id} tow={tow} onOpen={setSelectedSummary} />)}
             </div>
+            {selectedSummary && (
+              <article className="panel summary-panel">
+                <div className="section-head">
+                  <h3>{selectedSummary.tailNumber || `${selectedSummary.airline}${selectedSummary.inboundFlightNumber}`}</h3>
+                  <button className="btn ghost" onClick={() => setSelectedSummary(null)}>Close</button>
+                </div>
+                <pre>{completedSummary(selectedSummary)}</pre>
+              </article>
+            )}
           </section>
         )}
 

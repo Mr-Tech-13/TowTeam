@@ -11,7 +11,7 @@ export function TowCard({ tow, onOpen }) {
         <span className={`status status-${tow.status}`}>{tow.status.replaceAll("_", " ")}</span>
       </div>
       <div className="tile-grid">
-        <span><Plane size={17} />{tow.inboundStation || "Station ?"}</span>
+        <span><Plane size={17} />From {tow.inboundStation || "?"}</span>
         <span><Clock size={17} />ETA {tow.eta || "?"}</span>
         <span><MapPin size={17} />{tow.gate || "Gate ?"}</span>
         <span><MapPin size={17} />{tow.towSpot || "Spot ?"}</span>
