@@ -40,17 +40,22 @@ function StepSlider({ label, disabled, onComplete }) {
     }
   }
 
+  function resetIfIncomplete() {
+    if (value < 100 && !logging) setValue(0);
+  }
+
   return (
     <div className="slide-control">
       <div className="slide-label">
         <span>{logging ? "Logging..." : `Slide to log ${label}`}</span>
-        <strong>{value}%</strong>
       </div>
       <input
         aria-label={`Slide to log ${label}`}
         disabled={disabled || logging}
         max="100"
         min="0"
+        onMouseUp={resetIfIncomplete}
+        onTouchEnd={resetIfIncomplete}
         onChange={handleChange}
         type="range"
         value={value}
