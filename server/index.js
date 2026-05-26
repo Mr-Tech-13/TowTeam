@@ -19,11 +19,36 @@ const port = Number(process.env.PORT || 8080);
 const host = process.env.HOST || "0.0.0.0";
 const distDir = path.join(rootDir, "dist");
 const indexHtml = path.join(distDir, "index.html");
+const isProduction = process.env.NODE_ENV === "production";
+const corsOrigins = (process.env.CORS_ORIGIN || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const devCorsOrigins = ["http://localhost:5173", "http://127.0.0.1:5173"];
 
-app.use(helmet({ contentSecurityPolicy: false }));
-app.use(cors());
+if (isProduction && process.env.ENABLE_LOCAL_AUTH !== "true" && process.env.ALLOW_UNAUTHENTICATED !== "true") {
+  throw new Error("Refusing to start production without auth. Set ENABLE_LOCAL_AUTH=true or ALLOW_UNAUTHENTICATED=true.");
+}
+
+if (isProduction && process.env.ENABLE_LOCAL_AUTH === "true") {
+  if (!process.env.LOCAL_AUTH_USERNAME || !process.env.LOCAL_AUTH_PASSWORD || process.env.LOCAL_AUTH_PASSWORD === "change-me") {
+    throw new Error("Refusing to start production auth without a real LOCAL_AUTH_USERNAME and LOCAL_AUTH_PASSWORD.");
+  }
+}
+
+app.use(helmet());
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+    const allowedOrigins = isProduction ? corsOrigins : [...devCorsOrigins, ...corsOrigins];
+    callback(null, allowedOrigins.includes(origin));
+  }
+}));
 app.use(express.json({ limit: "1mb" }));
-app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
+app.use(morgan(isProduction ? "combined" : "dev"));
 app.use(optionalLocalAuth);
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));

@@ -47,7 +47,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-The app is exposed at `http://localhost:8080`. SQLite data is stored in `./data`.
+Before hosting with Docker, edit `.env` and replace `LOCAL_AUTH_PASSWORD=change-me`. The app is exposed at `http://localhost:8080`. SQLite data is stored in `./data`.
 
 ## Configuration
 
@@ -61,9 +61,11 @@ NODE_ENV=development
 ENABLE_LOCAL_AUTH=false
 LOCAL_AUTH_USERNAME=admin
 LOCAL_AUTH_PASSWORD=change-me
+CORS_ORIGIN=
+ALLOW_UNAUTHENTICATED=false
 ```
 
-Local auth is intentionally not enforced yet, but the environment keys are reserved so auth can be added without changing deployment shape.
+For hosted production deployments, set `NODE_ENV=production`, `ENABLE_LOCAL_AUTH=true`, and replace `LOCAL_AUTH_PASSWORD` with a strong password. Production startup refuses unauthenticated hosting unless you explicitly set `ALLOW_UNAUTHENTICATED=true`. Same-origin browser use does not require `CORS_ORIGIN`; set it only when a separate frontend origin must call the API.
 
 ## Tests
 

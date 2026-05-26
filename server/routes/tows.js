@@ -30,7 +30,11 @@ router.get("/export.csv", (req, res) => {
     "towCompletedAt",
     "createdAt"
   ];
-  const escape = (value) => `"${String(value ?? "").replaceAll("\"", "\"\"")}"`;
+  const escape = (value) => {
+    const text = String(value ?? "");
+    const safeText = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+    return `"${safeText.replaceAll("\"", "\"\"")}"`;
+  };
   const csv = [columns.join(","), ...rows.map((row) => columns.map((column) => escape(row[column])).join(","))].join("\n");
   res.header("Content-Type", "text/csv");
   res.attachment("tow-history.csv");

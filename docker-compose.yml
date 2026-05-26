@@ -11,5 +11,7 @@ services:
       PORT: 8080
       HOST: 0.0.0.0
       DATABASE_URL: /app/data/towteam.sqlite
+      NODE_ENV: production
+      ENABLE_LOCAL_AUTH: "true"
     volumes:
       - ./data:/app/data
