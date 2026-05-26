@@ -4,5 +4,17 @@ data/*.sqlite
 data/*.sqlite-shm
 data/*.sqlite-wal
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.jks
+*.keystore
+id_rsa*
+id_ed25519*
+secrets/
 .DS_Store
 npm-debug.log*
