@@ -1,11 +1,33 @@
 function fmtTime(value) {
   if (!value) return "--:--";
-  return new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(value));
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "America/New_York"
+  }).format(new Date(value));
 }
 
 function fmtDate(value) {
   if (!value) return "";
-  return new Intl.DateTimeFormat(undefined, { month: "numeric", day: "numeric", year: "2-digit" }).format(new Date(value));
+  return new Intl.DateTimeFormat("en-US", {
+    month: "numeric",
+    day: "numeric",
+    year: "2-digit",
+    timeZone: "America/New_York"
+  }).format(new Date(value));
+}
+
+export function fmtDateTime(value) {
+  if (!value) return "Waiting";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "America/New_York"
+  }).format(new Date(value));
 }
 
 export function completedSummary(tow) {

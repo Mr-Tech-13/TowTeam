@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Download, History, LayoutDashboard, Plus, RefreshCcw, Save, Trash2, Upload } from "lucide-react";
+import { ArrowLeft, Download, History, LayoutDashboard, Plus, RefreshCcw, Save, Trash2, Upload } from "lucide-react";
 import { api, exportUrl } from "./lib/api.js";
 import { completedSummary } from "./lib/summary.js";
 import { TowCard } from "./components/TowCard.jsx";
@@ -58,16 +58,15 @@ export default function App() {
   const [parseAttempted, setParseAttempted] = useState(false);
   const [candidates, setCandidates] = useState([]);
   const [historyFilters, setHistoryFilters] = useState({});
-  const [selectedSummary, setSelectedSummary] = useState(null);
-  const filters = tab === "history" ? historyFilters : tab === "summary" ? { status: "completed" } : { status: "active" };
+  const [towPage, setTowPage] = useState("confirm");
+  const filters = tab === "history" ? historyFilters : { status: "active" };
   const { tows, error, loading, load } = useTows(filters);
   const activeTows = useMemo(() => tows.filter((tow) => tow.status !== "completed"), [tows]);
-  const completedTows = useMemo(() => tows.filter((tow) => tow.status === "completed"), [tows]);
 
   async function saveManual() {
     await api.createTow(manualTow);
     setManualTow(emptyTow);
-    setTab("dashboard");
+    openTab("dashboard");
     await load();
   }
 
@@ -93,7 +92,9 @@ export default function App() {
 
   async function logStep(step) {
     if (step === "towCompletedAt" && !window.confirm("Complete this tow and move it to summary/history?")) return;
-    await refreshTow(await api.logStep(activeTow.id, step));
+    const nextTow = await api.logStep(activeTow.id, step);
+    await refreshTow(nextTow);
+    if (step === "towCompletedAt") setTowPage("complete");
   }
 
   async function editTimestamp(field) {
@@ -106,6 +107,12 @@ export default function App() {
     await refreshTow(await api.updateTow(activeTow.id, activeTow));
   }
 
+  async function saveDetailsAndContinue() {
+    const saved = await api.updateTow(activeTow.id, activeTow);
+    await refreshTow(saved);
+    setTowPage(saved.status === "completed" ? "complete" : "workflow");
+  }
+
   async function deleteActiveTow() {
     if (!window.confirm("Delete this tow record?")) return;
     await api.deleteTow(activeTow.id);
@@ -113,9 +120,25 @@ export default function App() {
     await load();
   }
 
+  function openTow(tow) {
+    setActiveTow(tow);
+    if (tow.status === "completed") setTowPage("complete");
+    else if (tow.status === "planned") setTowPage("confirm");
+    else setTowPage("workflow");
+  }
+
+  async function returnToMenu(nextTab = tab) {
+    if (activeTow && towPage === "confirm") {
+      await saveActiveTow();
+    }
+    setActiveTow(null);
+    setTowPage("confirm");
+    setTab(nextTab);
+    await load();
+  }
+
   function openTab(nextTab) {
     setTab(nextTab);
-    setSelectedSummary(null);
   }
 
   function tabLink(id, label, Icon) {
@@ -126,7 +149,8 @@ export default function App() {
         href={`#${id}`}
         onClick={(event) => {
           event.preventDefault();
-          openTab(id);
+          if (activeTow) void returnToMenu(id);
+          else openTab(id);
         }}
         role="tab"
       >
@@ -150,7 +174,6 @@ export default function App() {
       <nav aria-label="Primary" className="tabs" role="tablist">
         {tabLink("dashboard", "Active", LayoutDashboard)}
         {tabLink("setup", "Setup", Plus)}
-        {tabLink("summary", "Summary", Save)}
         {tabLink("history", "History", History)}
       </nav>
 
@@ -158,19 +181,94 @@ export default function App() {
       {loading && <div className="notice">Loading...</div>}
 
       <main>
-        {tab === "dashboard" && (
+        {activeTow && towPage === "confirm" && (
+          <section className="page-panel">
+            <div className="section-head">
+              <div>
+                <h2>Confirm Tow Details</h2>
+                <p className="muted">
+                  {activeTow.airline}
+                  {activeTow.inboundFlightNumber} from {activeTow.inboundStation || "unknown"}
+                </p>
+              </div>
+              <button className="btn ghost" onClick={() => void returnToMenu()}>
+                <ArrowLeft size={18} /> Menu
+              </button>
+            </div>
+            {activeTow.parserWarnings?.length > 0 && <div className="notice warn">{activeTow.parserWarnings.join(" ")}</div>}
+            <TowForm value={activeTow} onChange={setActiveTow} />
+            <div className="page-actions">
+              <button className="btn green" onClick={saveDetailsAndContinue}>
+                <Save size={18} /> Save and Continue
+              </button>
+              <button className="btn red" onClick={deleteActiveTow}>
+                <Trash2 size={18} /> Delete
+              </button>
+            </div>
+          </section>
+        )}
+
+        {activeTow && towPage === "workflow" && (
+          <section className="page-panel">
+            <div className="section-head">
+              <div>
+                <h2>
+                  {activeTow.airline}
+                  {activeTow.inboundFlightNumber} Workflow
+                </h2>
+                <p className="muted">
+                  {activeTow.fromLocation || "Unknown"} to {activeTow.toLocation || activeTow.towSpot || "Unknown"}
+                </p>
+              </div>
+              <button className="btn ghost" onClick={() => void returnToMenu()}>
+                <ArrowLeft size={18} /> Menu
+              </button>
+            </div>
+            <Workflow tow={activeTow} onLog={logStep} onEditTimestamp={editTimestamp} />
+            <div className="page-actions">
+              <button className="btn blue" onClick={() => setTowPage("confirm")}>
+                Edit Details
+              </button>
+            </div>
+          </section>
+        )}
+
+        {activeTow && towPage === "complete" && (
+          <section className="page-panel">
+            <div className="section-head">
+              <div>
+                <h2>Completed Tow Summary</h2>
+                <p className="muted">
+                  {activeTow.airline}
+                  {activeTow.inboundFlightNumber}
+                </p>
+              </div>
+              <button className="btn ghost" onClick={() => void returnToMenu("history")}>
+                <ArrowLeft size={18} /> Menu
+              </button>
+            </div>
+            <pre>{completedSummary(activeTow)}</pre>
+            <div className="page-actions">
+              <button className="btn blue" onClick={() => setTowPage("confirm")}>
+                Edit Historical Details
+              </button>
+            </div>
+          </section>
+        )}
+
+        {!activeTow && tab === "dashboard" && (
           <section>
             <div className="section-head">
               <h2>Active Tows</h2>
               <span>{activeTows.length} open</span>
             </div>
             <div className="tow-grid">
-              {activeTows.map((tow) => <TowCard key={tow.id} tow={tow} onOpen={setActiveTow} />)}
+              {activeTows.map((tow) => <TowCard key={tow.id} tow={tow} onOpen={openTow} />)}
             </div>
           </section>
         )}
 
-        {tab === "setup" && (
+        {!activeTow && tab === "setup" && (
           <section className="setup-grid">
             <div className="panel">
               <h2>Manual Tow</h2>
@@ -206,28 +304,7 @@ export default function App() {
           </section>
         )}
 
-        {tab === "summary" && (
-          <section>
-            <div className="section-head">
-              <h2>Completed Tow Summary</h2>
-              <span>{completedTows.length} complete</span>
-            </div>
-            <div className="tow-grid">
-              {completedTows.map((tow) => <TowCard key={tow.id} tow={tow} onOpen={setSelectedSummary} />)}
-            </div>
-            {selectedSummary && (
-              <article className="panel summary-panel">
-                <div className="section-head">
-                  <h3>{selectedSummary.tailNumber || `${selectedSummary.airline}${selectedSummary.inboundFlightNumber}`}</h3>
-                  <button className="btn ghost" onClick={() => setSelectedSummary(null)}>Close</button>
-                </div>
-                <pre>{completedSummary(selectedSummary)}</pre>
-              </article>
-            )}
-          </section>
-        )}
-
-        {tab === "history" && (
+        {!activeTow && tab === "history" && (
           <section>
             <div className="section-head">
               <h2>Tow History Database</h2>
@@ -239,33 +316,11 @@ export default function App() {
               ))}
             </div>
             <div className="tow-grid">
-              {tows.map((tow) => <TowCard key={tow.id} tow={tow} onOpen={setActiveTow} />)}
+              {tows.map((tow) => <TowCard key={tow.id} tow={tow} onOpen={openTow} />)}
             </div>
           </section>
         )}
       </main>
-
-      {activeTow && (
-        <div className="modal-backdrop" role="presentation">
-          <section className="modal">
-            <div className="section-head">
-              <h2>
-                {activeTow.airline}
-                {activeTow.inboundFlightNumber}
-              </h2>
-              <button className="icon-btn" onClick={() => setActiveTow(null)}>x</button>
-            </div>
-            {activeTow.parserWarnings?.length > 0 && <div className="notice warn">{activeTow.parserWarnings.join(" ")}</div>}
-            <TowForm value={activeTow} onChange={setActiveTow} />
-            <Workflow tow={activeTow} onLog={logStep} onEditTimestamp={editTimestamp} />
-            {activeTow.status === "completed" && <pre>{completedSummary(activeTow)}</pre>}
-            <div className="modal-actions">
-              <button className="btn green" onClick={saveActiveTow}><Save size={18} />Save</button>
-              <button className="btn red" onClick={deleteActiveTow}><Trash2 size={18} />Delete</button>
-            </div>
-          </section>
-        </div>
-      )}
     </div>
   );
 }
