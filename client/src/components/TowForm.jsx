@@ -4,8 +4,6 @@ const fields = [
   ["inboundStation", "From station"],
   ["eta", "ETA"],
   ["gate", "Gate"],
-  ["fromLocation", "From location"],
-  ["toLocation", "To location"],
   ["towSpot", "Tow spot"],
   ["tailNumber", "Tail number"],
   ["driver", "Driver"],

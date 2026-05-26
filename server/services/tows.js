@@ -36,14 +36,24 @@ export const workflowSteps = {
 };
 
 export function sanitizeTow(input) {
+  const normalizedInput = deriveLocations(input);
   const tow = {};
   for (const field of fields) {
-    if (!(field in input)) continue;
+    if (!(field in normalizedInput)) continue;
     if (field === "needsReview") tow[field] = input[field] ? 1 : 0;
-    else if (field === "parserWarnings") tow[field] = JSON.stringify(input[field] || []);
-    else tow[field] = input[field] ?? "";
+    else if (field === "parserWarnings") tow[field] = JSON.stringify(normalizedInput[field] || []);
+    else tow[field] = normalizedInput[field] ?? "";
   }
   return tow;
+}
+
+function deriveLocations(input) {
+  if (!input.gate || !input.towSpot || input.fromLocation || input.toLocation) return input;
+  return {
+    ...input,
+    fromLocation: input.gate,
+    toLocation: input.towSpot
+  };
 }
 
 export function listTows(filters = {}) {

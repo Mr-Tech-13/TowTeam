@@ -26,6 +26,22 @@ const emptyTow = {
   parserWarnings: []
 };
 
+function deriveLocations(tow) {
+  const gate = tow.gate || "";
+  const towSpot = tow.towSpot || "";
+  const hasExistingDirection = Boolean(tow.fromLocation || tow.toLocation);
+  if (!gate || !towSpot || hasExistingDirection) return tow;
+  return {
+    ...tow,
+    fromLocation: gate,
+    toLocation: towSpot
+  };
+}
+
+function prepareTow(tow) {
+  return deriveLocations(tow);
+}
+
 function useTows(filters) {
   const [tows, setTows] = useState([]);
   const [error, setError] = useState("");
@@ -64,7 +80,7 @@ export default function App() {
   const activeTows = useMemo(() => tows.filter((tow) => tow.status !== "completed"), [tows]);
 
   async function saveManual() {
-    await api.createTow(manualTow);
+    await api.createTow(prepareTow(manualTow));
     setManualTow(emptyTow);
     openTab("dashboard");
     await load();
@@ -77,7 +93,7 @@ export default function App() {
   }
 
   async function saveCandidates() {
-    await api.createBulk(candidates);
+    await api.createBulk(candidates.map(prepareTow));
     setCandidates([]);
     setPasteText("");
     setParseAttempted(false);
@@ -104,11 +120,11 @@ export default function App() {
   }
 
   async function saveActiveTow() {
-    await refreshTow(await api.updateTow(activeTow.id, activeTow));
+    await refreshTow(await api.updateTow(activeTow.id, prepareTow(activeTow)));
   }
 
   async function saveDetailsAndContinue() {
-    const saved = await api.updateTow(activeTow.id, activeTow);
+    const saved = await api.updateTow(activeTow.id, prepareTow(activeTow));
     await refreshTow(saved);
     setTowPage(saved.status === "completed" ? "complete" : "workflow");
   }
