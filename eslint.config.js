@@ -12,6 +12,11 @@ export default [
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "module",
+      parserOptions: {
+        ecmaFeatures: {
+          jsx: true
+        }
+      },
       globals: {
         ...globals.browser,
         ...globals.node
@@ -22,6 +27,8 @@ export default [
     rules: {
       "no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
       "react/react-in-jsx-scope": "off",
+      "react/jsx-uses-vars": "error",
+      "react/jsx-uses-react": "off",
       "react/prop-types": "off"
     }
   }
