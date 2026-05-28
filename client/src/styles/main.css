@@ -278,7 +278,8 @@ label {
 }
 
 input,
-textarea {
+textarea,
+select {
   width: 100%;
   min-height: 44px;
   border: 1px solid rgba(148, 163, 184, 0.24);
@@ -286,6 +287,43 @@ textarea {
   background: #111827;
   color: #f8fafc;
   padding: 10px 12px;
+}
+
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-pill {
+  color: #cbd5e1;
+  font-size: 0.86rem;
+  white-space: nowrap;
+}
+
+.login-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.login-panel {
+  width: min(420px, 100%);
+  display: grid;
+  gap: 12px;
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.app-loading {
+  width: min(420px, calc(100% - 24px));
+  margin: 24px auto;
 }
 
 textarea {
@@ -325,6 +363,39 @@ textarea {
   border-radius: 8px;
   padding: 12px;
   background: rgba(15, 23, 42, 0.7);
+}
+
+.user-create {
+  display: grid;
+  grid-template-columns: 1fr 1fr 140px auto;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.user-list {
+  display: grid;
+  gap: 10px;
+}
+
+.user-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) 120px minmax(160px, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 8px;
+  padding: 10px;
+  background: #111827;
+}
+
+.user-row > div {
+  display: grid;
+  gap: 3px;
+}
+
+.user-row span {
+  color: #cbd5e1;
+  font-size: 0.86rem;
 }
 
 .btn {
@@ -546,7 +617,9 @@ pre {
   .setup-grid,
   .form-grid,
   .form-grid.compact,
-  .filters {
+  .filters,
+  .user-create,
+  .user-row {
     grid-template-columns: 1fr;
   }
 

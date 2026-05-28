@@ -7,8 +7,11 @@ import morgan from "morgan";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { optionalLocalAuth } from "./middleware/auth.js";
+import { requireAuth } from "./middleware/auth.js";
+import { router as authRoutes } from "./routes/auth.js";
 import { router as towRoutes } from "./routes/tows.js";
+import { router as userRoutes } from "./routes/users.js";
+import { deleteExpiredSessions, ensureDefaultAdmin } from "./services/users.js";
 
 dotenv.config();
 
@@ -26,15 +29,8 @@ const corsOrigins = (process.env.CORS_ORIGIN || "")
   .filter(Boolean);
 const devCorsOrigins = ["http://localhost:5173", "http://127.0.0.1:5173"];
 
-if (isProduction && process.env.ENABLE_LOCAL_AUTH !== "true" && process.env.ALLOW_UNAUTHENTICATED !== "true") {
-  throw new Error("Refusing to start production without auth. Set ENABLE_LOCAL_AUTH=true or ALLOW_UNAUTHENTICATED=true.");
-}
-
-if (isProduction && process.env.ENABLE_LOCAL_AUTH === "true") {
-  if (!process.env.LOCAL_AUTH_USERNAME || !process.env.LOCAL_AUTH_PASSWORD || process.env.LOCAL_AUTH_PASSWORD === "change-me") {
-    throw new Error("Refusing to start production auth without a real LOCAL_AUTH_USERNAME and LOCAL_AUTH_PASSWORD.");
-  }
-}
+ensureDefaultAdmin();
+deleteExpiredSessions();
 
 app.use(helmet());
 app.use(cors({
@@ -45,13 +41,16 @@ app.use(cors({
     }
     const allowedOrigins = isProduction ? corsOrigins : [...devCorsOrigins, ...corsOrigins];
     callback(null, allowedOrigins.includes(origin));
-  }
+  },
+  credentials: true
 }));
 app.use(express.json({ limit: "1mb" }));
 app.use(morgan(isProduction ? "combined" : "dev"));
-app.use(optionalLocalAuth);
+app.use(requireAuth);
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
+app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
 app.use("/api/tows", towRoutes);
 
 if (fs.existsSync(indexHtml)) {

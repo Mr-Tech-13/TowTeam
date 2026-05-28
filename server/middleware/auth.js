@@ -1,22 +1,28 @@
-export function optionalLocalAuth(req, res, next) {
-  if (process.env.ENABLE_LOCAL_AUTH !== "true") {
+import { getUserForToken, parseCookie, sessionCookieName } from "../services/users.js";
+
+const publicApiPaths = new Set(["/api/health", "/api/auth/login", "/api/auth/logout", "/api/auth/me"]);
+
+export function requireAuth(req, res, next) {
+  if (!req.path.startsWith("/api") || publicApiPaths.has(req.path)) {
     next();
     return;
   }
 
-  const header = req.get("authorization") || "";
-  const [scheme, encoded] = header.split(" ");
-  if (scheme !== "Basic" || !encoded) {
-    res.set("WWW-Authenticate", "Basic realm=\"TowTeam\"");
+  const token = parseCookie(req.get("cookie"), sessionCookieName());
+  const user = getUserForToken(token);
+  if (!user) {
     res.status(401).json({ error: "Authentication required." });
     return;
   }
 
-  const [username, password] = Buffer.from(encoded, "base64").toString("utf8").split(":");
-  if (username === process.env.LOCAL_AUTH_USERNAME && password === process.env.LOCAL_AUTH_PASSWORD) {
-    next();
+  req.user = user;
+  next();
+}
+
+export function requireAdmin(req, res, next) {
+  if (req.user?.role !== "admin") {
+    res.status(403).json({ error: "Admin role required." });
     return;
   }
-
-  res.status(403).json({ error: "Invalid credentials." });
+  next();
 }
