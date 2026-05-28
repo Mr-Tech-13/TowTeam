@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Download, History, LayoutDashboard, Plus, RefreshCcw, Save, Trash2, Upload } from "lucide-react";
-import { api, exportUrl } from "./lib/api.js";
+import { ArrowLeft, Download, History, LayoutDashboard, LogOut, Plus, RefreshCcw, Save, Trash2, Upload, Users } from "lucide-react";
+import { api, exportExcelUrl, exportUrl } from "./lib/api.js";
 import { completedSummary } from "./lib/summary.js";
 import { TowCard } from "./components/TowCard.jsx";
 import { TowForm } from "./components/TowForm.jsx";
@@ -42,7 +42,7 @@ function prepareTow(tow) {
   return deriveLocations(tow);
 }
 
-function useTows(filters) {
+function useTows(filters, enabled = true) {
   const [tows, setTows] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -60,13 +60,164 @@ function useTows(filters) {
   };
 
   useEffect(() => {
-    load();
-  }, [JSON.stringify(filters)]);
+    if (enabled) load();
+  }, [enabled, JSON.stringify(filters)]);
 
   return { tows, error, loading, load };
 }
 
+function LoginPage({ onLogin }) {
+  const [username, setUsername] = useState("admin");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+
+  async function submit(event) {
+    event.preventDefault();
+    setError("");
+    try {
+      const result = await api.login({ username, password });
+      onLogin(result.user);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  return (
+    <div className="login-shell">
+      <form className="panel login-panel" onSubmit={submit}>
+        <div className="login-brand">
+          <span className="brand-dot" />
+          <h1>TowTeam</h1>
+        </div>
+        <label>
+          <span>Username</span>
+          <input autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} />
+        </label>
+        <label>
+          <span>Password</span>
+          <input autoComplete="current-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
+        </label>
+        {error && <div className="notice error">{error}</div>}
+        <button className="btn green wide" type="submit">Log In</button>
+      </form>
+    </div>
+  );
+}
+
+function AdminUsersPage({ currentUser, onBack }) {
+  const [users, setUsers] = useState([]);
+  const [newUser, setNewUser] = useState({ username: "", password: "", role: "user" });
+  const [passwords, setPasswords] = useState({});
+  const [error, setError] = useState("");
+
+  async function loadUsers() {
+    setError("");
+    try {
+      setUsers(await api.listUsers());
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  async function createUser(event) {
+    event.preventDefault();
+    setError("");
+    try {
+      await api.createUser(newUser);
+      setNewUser({ username: "", password: "", role: "user" });
+      await loadUsers();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function changeRole(user, role) {
+    setError("");
+    try {
+      await api.updateUser(user.id, { role });
+      await loadUsers();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function changePassword(user) {
+    setError("");
+    try {
+      await api.updatePassword(user.id, passwords[user.id]);
+      setPasswords({ ...passwords, [user.id]: "" });
+      await loadUsers();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function removeUser(user) {
+    if (!window.confirm(`Delete user ${user.username}?`)) return;
+    setError("");
+    try {
+      await api.deleteUser(user.id);
+      await loadUsers();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  return (
+    <main>
+      <section className="page-panel">
+        <div className="section-head">
+          <div>
+            <h2>User Accounts</h2>
+            <p className="muted">Admins can create users, change roles, reset passwords, and delete accounts.</p>
+          </div>
+          <button className="btn ghost" onClick={onBack}><ArrowLeft size={18} /> Menu</button>
+        </div>
+        {error && <div className="notice error">{error}</div>}
+        <form className="user-create" onSubmit={createUser}>
+          <input placeholder="Username" value={newUser.username} onChange={(event) => setNewUser({ ...newUser, username: event.target.value })} />
+          <input placeholder="Password" type="password" value={newUser.password} onChange={(event) => setNewUser({ ...newUser, password: event.target.value })} />
+          <select value={newUser.role} onChange={(event) => setNewUser({ ...newUser, role: event.target.value })}>
+            <option value="user">User</option>
+            <option value="admin">Admin</option>
+          </select>
+          <button className="btn green" type="submit">Create User</button>
+        </form>
+        <div className="user-list">
+          {users.map((user) => (
+            <article className="user-row" key={user.id}>
+              <div>
+                <strong>{user.username}</strong>
+                <span>{user.role}{user.id === currentUser.id ? " - you" : ""}</span>
+              </div>
+              <select value={user.role} onChange={(event) => changeRole(user, event.target.value)}>
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+              </select>
+              <input
+                placeholder="New password"
+                type="password"
+                value={passwords[user.id] || ""}
+                onChange={(event) => setPasswords({ ...passwords, [user.id]: event.target.value })}
+              />
+              <button className="btn blue" onClick={() => changePassword(user)}>Change Password</button>
+              <button className="btn red" disabled={user.id === currentUser.id} onClick={() => removeUser(user)}>Delete</button>
+            </article>
+          ))}
+        </div>
+      </section>
+    </main>
+  );
+}
+
 export default function App() {
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [adminPanel, setAdminPanel] = useState(false);
   const [tab, setTab] = useState("dashboard");
   const [activeTow, setActiveTow] = useState(null);
   const [manualTow, setManualTow] = useState(emptyTow);
@@ -75,9 +226,31 @@ export default function App() {
   const [candidates, setCandidates] = useState([]);
   const [historyFilters, setHistoryFilters] = useState({});
   const [towPage, setTowPage] = useState("confirm");
-  const filters = tab === "history" ? historyFilters : { status: "active" };
-  const { tows, error, loading, load } = useTows(filters);
+  const historyQuery = { ...historyFilters, status: "completed" };
+  const filters = tab === "history" ? historyQuery : { status: "active" };
+  const { tows, error, loading, load } = useTows(filters, Boolean(user) && !adminPanel);
   const activeTows = useMemo(() => tows.filter((tow) => tow.status !== "completed"), [tows]);
+
+  useEffect(() => {
+    async function loadSession() {
+      try {
+        const result = await api.me();
+        setUser(result.user);
+      } catch {
+        setUser(null);
+      } finally {
+        setAuthLoading(false);
+      }
+    }
+    loadSession();
+  }, []);
+
+  async function logout() {
+    await api.logout();
+    setUser(null);
+    setActiveTow(null);
+    setAdminPanel(false);
+  }
 
   async function saveManual() {
     await api.createTow(prepareTow(manualTow));
@@ -107,10 +280,10 @@ export default function App() {
   }
 
   async function logStep(step) {
-    if (step === "towCompletedAt" && !window.confirm("Complete this tow and move it to summary/history?")) return;
+    if (step === "towPaperCompletedAt" && !window.confirm("Mark tow paperwork complete and move this tow to history?")) return;
     const nextTow = await api.logStep(activeTow.id, step);
     await refreshTow(nextTow);
-    if (step === "towCompletedAt") setTowPage("complete");
+    if (step === "towPaperCompletedAt") setTowPage("complete");
   }
 
   async function editTimestamp(field) {
@@ -155,6 +328,7 @@ export default function App() {
 
   function openTab(nextTab) {
     setTab(nextTab);
+    setAdminPanel(false);
   }
 
   function tabLink(id, label, Icon) {
@@ -175,6 +349,14 @@ export default function App() {
     );
   }
 
+  if (authLoading) {
+    return <div className="notice app-loading">Loading...</div>;
+  }
+
+  if (!user) {
+    return <LoginPage onLogin={setUser} />;
+  }
+
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -182,9 +364,20 @@ export default function App() {
           <span className="brand-dot" />
           <h1>TowTeam</h1>
         </div>
-        <button className="icon-btn" onClick={load} title="Refresh" type="button">
-          <RefreshCcw size={20} />
-        </button>
+        <div className="top-actions">
+          <span className="user-pill">{user.username} ({user.role})</span>
+          {user.role === "admin" && (
+            <button className="icon-btn" onClick={() => { setActiveTow(null); setAdminPanel(true); }} title="Users" type="button">
+              <Users size={20} />
+            </button>
+          )}
+          <button className="icon-btn" onClick={load} title="Refresh" type="button">
+            <RefreshCcw size={20} />
+          </button>
+          <button className="icon-btn" onClick={logout} title="Log out" type="button">
+            <LogOut size={20} />
+          </button>
+        </div>
       </header>
 
       <nav aria-label="Primary" className="tabs" role="tablist">
@@ -196,6 +389,9 @@ export default function App() {
       {error && <div className="notice error">{error}</div>}
       {loading && <div className="notice">Loading...</div>}
 
+      {adminPanel ? (
+        <AdminUsersPage currentUser={user} onBack={() => setAdminPanel(false)} />
+      ) : (
       <main>
         {activeTow && towPage === "confirm" && (
           <section className="page-panel">
@@ -241,6 +437,18 @@ export default function App() {
               </button>
             </div>
             <Workflow tow={activeTow} onLog={logStep} onEditTimestamp={editTimestamp} />
+            {activeTow.towCompletedAt && !activeTow.towPaperCompletedAt && (
+              <div className="paper-gate">
+                <div>
+                  <strong>Tow Paper Complete</strong>
+                  <span>Required to save and complete this tow.</span>
+                </div>
+                <label className="paper-check">
+                  <input type="checkbox" onChange={(event) => event.target.checked && logStep("towPaperCompletedAt")} />
+                  Complete
+                </label>
+              </div>
+            )}
             <div className="page-actions">
               <button className="btn blue" onClick={() => setTowPage("confirm")}>
                 Edit Details
@@ -324,11 +532,26 @@ export default function App() {
           <section>
             <div className="section-head">
               <h2>Tow History Database</h2>
-              <a className="btn blue" href={exportUrl(historyFilters)}><Download size={18} />CSV</a>
+              <div className="export-actions">
+                <a className="btn blue" href={exportUrl(historyQuery)}><Download size={18} />CSV</a>
+                <a className="btn green" href={exportExcelUrl(historyQuery)}><Download size={18} />Excel</a>
+              </div>
             </div>
             <div className="filters">
-              {["date", "tailNumber", "inboundFlightNumber", "gate", "towSpot"].map((field) => (
-                <input key={field} type={field === "date" ? "date" : "search"} placeholder={field} onChange={(event) => setHistoryFilters({ ...historyFilters, [field]: event.target.value })} />
+              {[
+                ["dateFrom", "From date"],
+                ["dateTo", "To date"],
+                ["tailNumber", "Tail number"],
+                ["inboundFlightNumber", "Flight number"],
+                ["gate", "Gate"],
+                ["towSpot", "Tow spot"]
+              ].map(([field, label]) => (
+                <input
+                  key={field}
+                  type={field.startsWith("date") ? "date" : "search"}
+                  placeholder={label}
+                  onChange={(event) => setHistoryFilters({ ...historyFilters, [field]: event.target.value })}
+                />
               ))}
             </div>
             <div className="tow-grid">
@@ -337,6 +560,7 @@ export default function App() {
           </section>
         )}
       </main>
+      )}
     </div>
   );
 }

@@ -31,6 +31,7 @@ export function fmtDateTime(value) {
 }
 
 export function completedSummary(tow) {
+  const otherTeam = cleanOptionalNameList(tow.otherTeamMembers);
   return [
     tow.tailNumber || "Tail unknown",
     `From ${tow.fromLocation || "Unknown"} to ${tow.toLocation || tow.towSpot || "Unknown"}`,
@@ -38,11 +39,19 @@ export function completedSummary(tow) {
     `Tow Conductor ${tow.driver || ""}`.trim(),
     `LWW ${tow.leftWingWalker || ""}`.trim(),
     `RWW ${tow.rightWingWalker || ""}`.trim(),
-    `Other Team: ${tow.otherTeamMembers || ""}`.trim(),
+    otherTeam ? `Other Team: ${otherTeam}` : "",
     fmtDate(tow.towCompletedAt || tow.updatedAt)
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+function cleanOptionalNameList(value) {
+  const cleaned = String(value || "")
+    .replace(/^other\s+team\s*:?\s*/i, "")
+    .trim();
+  if (!cleaned || ["none", "n/a", "na", "-", "--"].includes(cleaned.toLowerCase())) return "";
+  return cleaned;
 }
 
 export function isWestRamp(tow) {

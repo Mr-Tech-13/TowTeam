@@ -4,41 +4,93 @@ import { createTow, deleteTow, getTow, listTows, logStep, updateTow } from "../s
 
 export const router = express.Router();
 
+const exportColumns = [
+  ["id", "ID"],
+  ["airline", "Airline"],
+  ["inboundFlightNumber", "Flight"],
+  ["inboundStation", "From Station"],
+  ["eta", "ETA"],
+  ["gate", "Gate"],
+  ["fromLocation", "From Location"],
+  ["toLocation", "To Location"],
+  ["towSpot", "Tow Spot"],
+  ["tailNumber", "Tail Number"],
+  ["driver", "Tow Conductor"],
+  ["leftWingWalker", "LWW"],
+  ["rightWingWalker", "RWW"],
+  ["otherTeamMembers", "Other Team"],
+  ["status", "Status"],
+  ["needsReview", "Needs Review"],
+  ["setupStartedAt", "Setup Started"],
+  ["goaaCalledAt", "GOAA Called"],
+  ["goaaArrivalAt", "GOAA Arrival"],
+  ["pushStartedAt", "Push Started"],
+  ["towStartedAt", "Tow Started"],
+  ["towCompletedAt", "Tow Completed"],
+  ["towPaperCompletedAt", "Tow Paper Complete"],
+  ["createdAt", "Created"]
+];
+
+function safeSpreadsheetText(value) {
+  const text = String(value ?? "");
+  return /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+}
+
+function escapeCsv(value) {
+  return `"${safeSpreadsheetText(value).replaceAll("\"", "\"\"")}"`;
+}
+
+function escapeHtml(value) {
+  return safeSpreadsheetText(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll("\"", "&quot;");
+}
+
 router.get("/", (req, res) => {
   res.json(listTows(req.query));
 });
 
 router.get("/export.csv", (req, res) => {
   const rows = listTows(req.query);
-  const columns = [
-    "id",
-    "airline",
-    "inboundFlightNumber",
-    "inboundStation",
-    "eta",
-    "gate",
-    "fromLocation",
-    "toLocation",
-    "towSpot",
-    "tailNumber",
-    "driver",
-    "leftWingWalker",
-    "rightWingWalker",
-    "otherTeamMembers",
-    "status",
-    "needsReview",
-    "towCompletedAt",
-    "createdAt"
-  ];
-  const escape = (value) => {
-    const text = String(value ?? "");
-    const safeText = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
-    return `"${safeText.replaceAll("\"", "\"\"")}"`;
-  };
-  const csv = [columns.join(","), ...rows.map((row) => columns.map((column) => escape(row[column])).join(","))].join("\n");
+  const csv = [
+    exportColumns.map(([_field, label]) => escapeCsv(label)).join(","),
+    ...rows.map((row) => exportColumns.map(([field]) => escapeCsv(row[field])).join(","))
+  ].join("\n");
   res.header("Content-Type", "text/csv");
   res.attachment("tow-history.csv");
   res.send(csv);
+});
+
+router.get("/export.xls", (req, res) => {
+  const rows = listTows(req.query);
+  const title = "TowTeam History Export";
+  const header = exportColumns.map(([_field, label]) => `<th>${escapeHtml(label)}</th>`).join("");
+  const body = rows
+    .map((row) => `<tr>${exportColumns.map(([field]) => `<td style="mso-number-format:'\\@';">${escapeHtml(row[field])}</td>`).join("")}</tr>`)
+    .join("");
+  const workbook = `<!doctype html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    table { border-collapse: collapse; font-family: Arial, sans-serif; }
+    th { background: #1f2937; color: #ffffff; font-weight: bold; }
+    th, td { border: 1px solid #94a3b8; padding: 6px 8px; white-space: nowrap; }
+  </style>
+</head>
+<body>
+  <table>
+    <caption>${escapeHtml(title)}</caption>
+    <thead><tr>${header}</tr></thead>
+    <tbody>${body}</tbody>
+  </table>
+</body>
+</html>`;
+  res.header("Content-Type", "application/vnd.ms-excel; charset=utf-8");
+  res.attachment("tow-history.xls");
+  res.send(workbook);
 });
 
 router.post("/parse", (req, res) => {

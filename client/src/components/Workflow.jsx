@@ -3,17 +3,17 @@ import { Check, PhoneCall, Play, ShieldCheck } from "lucide-react";
 import { fmtDateTime, isWestRamp } from "../lib/summary.js";
 
 const baseSteps = [
-  ["setupStartedAt", "Start Tow Setup", "setupStartedAt", ShieldCheck],
-  ["pushStartedAt", "Push Started", "pushStartedAt", Play],
-  ["towStartedAt", "Tow Started", "towStartedAt", Play],
-  ["towCompletedAt", "Tow Completed", "towCompletedAt", Check]
+  ["setupStartedAt", "Start Tow Setup", "setupStartedAt", ShieldCheck, "slider"],
+  ["pushStartedAt", "Push Started", "pushStartedAt", Play, "slider"],
+  ["towStartedAt", "Tow Started", "towStartedAt", Play, "slider"],
+  ["towCompletedAt", "Tow Completed", "towCompletedAt", Check, "slider"]
 ];
 
 export function workflowFor(tow) {
   const steps = [...baseSteps];
   if (isWestRamp(tow)) {
-    steps.splice(1, 0, ["goaaCalledAt", "GOAA Called", "goaaCalledAt", PhoneCall]);
-    steps.splice(2, 0, ["goaaArrivalAt", "GOAA Arrival", "goaaArrivalAt", ShieldCheck]);
+    steps.splice(1, 0, ["goaaCalledAt", "GOAA Called", "goaaCalledAt", PhoneCall, "slider"]);
+    steps.splice(2, 0, ["goaaArrivalAt", "GOAA Arrival", "goaaArrivalAt", ShieldCheck, "slider"]);
   }
   return steps;
 }

@@ -23,7 +23,8 @@ const fields = [
   "goaaArrivalAt",
   "pushStartedAt",
   "towStartedAt",
-  "towCompletedAt"
+  "towCompletedAt",
+  "towPaperCompletedAt"
 ];
 
 export const workflowSteps = {
@@ -32,7 +33,8 @@ export const workflowSteps = {
   goaaArrivalAt: "goaa_arrival",
   pushStartedAt: "push_started",
   towStartedAt: "tow_started",
-  towCompletedAt: "completed"
+  towCompletedAt: "tow_completed",
+  towPaperCompletedAt: "completed"
 };
 
 export function sanitizeTow(input) {
@@ -76,6 +78,16 @@ export function listTows(filters = {}) {
   if (filters.date) {
     clauses.push("date(COALESCE(towCompletedAt, createdAt)) = @date");
     params.date = filters.date;
+  }
+
+  if (filters.dateFrom) {
+    clauses.push("date(COALESCE(towCompletedAt, createdAt)) >= @dateFrom");
+    params.dateFrom = filters.dateFrom;
+  }
+
+  if (filters.dateTo) {
+    clauses.push("date(COALESCE(towCompletedAt, createdAt)) <= @dateTo");
+    params.dateTo = filters.dateTo;
   }
 
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";

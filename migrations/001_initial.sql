@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS tows (
   pushStartedAt TEXT,
   towStartedAt TEXT,
   towCompletedAt TEXT,
+  towPaperCompletedAt TEXT,
   createdAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updatedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
