@@ -226,7 +226,7 @@ export default function App() {
   const [candidates, setCandidates] = useState([]);
   const [historyFilters, setHistoryFilters] = useState({});
   const [towPage, setTowPage] = useState("confirm");
-  const filters = tab === "history" ? historyFilters : { status: "active" };
+  const filters = tab === "history" ? { ...historyFilters, status: "completed" } : { status: "active" };
   const { tows, error, loading, load } = useTows(filters, Boolean(user) && !adminPanel);
   const activeTows = useMemo(() => tows.filter((tow) => tow.status !== "completed"), [tows]);
 
