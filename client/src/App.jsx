@@ -67,7 +67,7 @@ function useTows(filters, enabled = true) {
 }
 
 function LoginPage({ onLogin }) {
-  const [username, setUsername] = useState("admin");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
@@ -205,7 +205,7 @@ function AdminUsersPage({ currentUser, onBack }) {
                 onChange={(event) => setPasswords({ ...passwords, [user.id]: event.target.value })}
               />
               <button className="btn blue" onClick={() => changePassword(user)}>Change Password</button>
-              <button className="btn red" disabled={user.id === currentUser.id} onClick={() => removeUser(user)}>Delete</button>
+              <button className="btn red" disabled={user.id === currentUser.id || user.username.toLowerCase() === "admin"} onClick={() => removeUser(user)}>Delete</button>
             </article>
           ))}
         </div>

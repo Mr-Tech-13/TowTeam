@@ -94,6 +94,7 @@ export function deleteUser(id, currentUserId) {
   const user = getUserById(id);
   if (!user) return false;
   if (Number(id) === Number(currentUserId)) throw new Error("You cannot delete your own account.");
+  if (user.username.toLowerCase() === "admin") throw new Error("The admin account cannot be deleted.");
   if (user.role === "admin" && adminCount() <= 1) throw new Error("At least one admin user is required.");
   return db.prepare("DELETE FROM users WHERE id = ?").run(id).changes > 0;
 }
