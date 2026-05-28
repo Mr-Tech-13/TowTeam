@@ -11,7 +11,7 @@
     "start": "node server/index.js",
     "build": "vite build",
     "lint": "eslint .",
-    "test": "node --test server/tests/*.test.js",
+    "test": "node --test --test-concurrency=1 server/tests/*.test.js",
     "db:migrate": "node server/db/migrate.js",
     "db:seed": "node seed/seed.js"
   },

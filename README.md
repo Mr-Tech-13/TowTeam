@@ -15,6 +15,7 @@ TowTeam is a self-hostable aircraft tow planning, workflow tracking, completion 
 - Searchable history by date, tail number, flight number, gate, and tow spot
 - Historical edit/delete with confirmation
 - CSV export
+- Excel-compatible history export with date range and tow filters
 - Login with session-based local users
 - Admin user management for creating users, deleting users, changing passwords, and assigning roles
 - SQLite database with migrations and seed data
@@ -123,6 +124,7 @@ Spot codes without a number are saved but flagged `Needs Review`.
 - `GET /api/tows`
 - `GET /api/tows?status=active`
 - `GET /api/tows/export.csv`
+- `GET /api/tows/export.xls`
 - `POST /api/tows/parse`
 - `POST /api/tows`
 - `POST /api/tows/bulk`

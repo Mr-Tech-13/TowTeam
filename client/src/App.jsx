@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Download, History, LayoutDashboard, LogOut, Plus, RefreshCcw, Save, Trash2, Upload, Users } from "lucide-react";
-import { api, exportUrl } from "./lib/api.js";
+import { api, exportExcelUrl, exportUrl } from "./lib/api.js";
 import { completedSummary } from "./lib/summary.js";
 import { TowCard } from "./components/TowCard.jsx";
 import { TowForm } from "./components/TowForm.jsx";
@@ -226,7 +226,8 @@ export default function App() {
   const [candidates, setCandidates] = useState([]);
   const [historyFilters, setHistoryFilters] = useState({});
   const [towPage, setTowPage] = useState("confirm");
-  const filters = tab === "history" ? { ...historyFilters, status: "completed" } : { status: "active" };
+  const historyQuery = { ...historyFilters, status: "completed" };
+  const filters = tab === "history" ? historyQuery : { status: "active" };
   const { tows, error, loading, load } = useTows(filters, Boolean(user) && !adminPanel);
   const activeTows = useMemo(() => tows.filter((tow) => tow.status !== "completed"), [tows]);
 
@@ -279,10 +280,10 @@ export default function App() {
   }
 
   async function logStep(step) {
-    if (step === "towCompletedAt" && !window.confirm("Complete this tow and move it to summary/history?")) return;
+    if (step === "towPaperCompletedAt" && !window.confirm("Mark tow paperwork complete and move this tow to history?")) return;
     const nextTow = await api.logStep(activeTow.id, step);
     await refreshTow(nextTow);
-    if (step === "towCompletedAt") setTowPage("complete");
+    if (step === "towPaperCompletedAt") setTowPage("complete");
   }
 
   async function editTimestamp(field) {
@@ -436,6 +437,18 @@ export default function App() {
               </button>
             </div>
             <Workflow tow={activeTow} onLog={logStep} onEditTimestamp={editTimestamp} />
+            {activeTow.towCompletedAt && !activeTow.towPaperCompletedAt && (
+              <div className="paper-gate">
+                <div>
+                  <strong>Tow Paper Complete</strong>
+                  <span>Required to save and complete this tow.</span>
+                </div>
+                <label className="paper-check">
+                  <input type="checkbox" onChange={(event) => event.target.checked && logStep("towPaperCompletedAt")} />
+                  Complete
+                </label>
+              </div>
+            )}
             <div className="page-actions">
               <button className="btn blue" onClick={() => setTowPage("confirm")}>
                 Edit Details
@@ -519,11 +532,26 @@ export default function App() {
           <section>
             <div className="section-head">
               <h2>Tow History Database</h2>
-              <a className="btn blue" href={exportUrl(historyFilters)}><Download size={18} />CSV</a>
+              <div className="export-actions">
+                <a className="btn blue" href={exportUrl(historyQuery)}><Download size={18} />CSV</a>
+                <a className="btn green" href={exportExcelUrl(historyQuery)}><Download size={18} />Excel</a>
+              </div>
             </div>
             <div className="filters">
-              {["date", "tailNumber", "inboundFlightNumber", "gate", "towSpot"].map((field) => (
-                <input key={field} type={field === "date" ? "date" : "search"} placeholder={field} onChange={(event) => setHistoryFilters({ ...historyFilters, [field]: event.target.value })} />
+              {[
+                ["dateFrom", "From date"],
+                ["dateTo", "To date"],
+                ["tailNumber", "Tail number"],
+                ["inboundFlightNumber", "Flight number"],
+                ["gate", "Gate"],
+                ["towSpot", "Tow spot"]
+              ].map(([field, label]) => (
+                <input
+                  key={field}
+                  type={field.startsWith("date") ? "date" : "search"}
+                  placeholder={label}
+                  onChange={(event) => setHistoryFilters({ ...historyFilters, [field]: event.target.value })}
+                />
               ))}
             </div>
             <div className="tow-grid">

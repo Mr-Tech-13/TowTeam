@@ -36,3 +36,7 @@ export const api = {
 export function exportUrl(filters = {}) {
   return `/api/tows/export.csv?${new URLSearchParams(filters)}`;
 }
+
+export function exportExcelUrl(filters = {}) {
+  return `/api/tows/export.xls?${new URLSearchParams(filters)}`;
+}
