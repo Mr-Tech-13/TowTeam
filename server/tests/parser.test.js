@@ -90,3 +90,11 @@ test("flags shorthand and written direction conflicts", () => {
   assert.equal(tow.needsReview, true);
   assert.match(tow.parserWarnings.join(" "), /Shorthand says/);
 });
+
+test("imports 30A and 32A tow spots", () => {
+  const tows = parseTowPlan("MX300 TPA 1200\nGate 30\nTows to 30A\n\nMX320 JAX 1300\nfrom 32A to Gate 32", { onlyKnownTowSpots: true });
+  assert.deepEqual(
+    tows.map((tow) => tow.towSpot),
+    ["30A", "32A"]
+  );
+});

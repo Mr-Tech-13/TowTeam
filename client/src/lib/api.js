@@ -23,6 +23,7 @@ export const api = {
   updateUser: (id, user) => request(`/users/${id}`, { method: "PUT", body: JSON.stringify(user) }),
   updatePassword: (id, password) => request(`/users/${id}/password`, { method: "PUT", body: JSON.stringify({ password }) }),
   deleteUser: (id) => request(`/users/${id}`, { method: "DELETE" }),
+  reportIssue: (issue) => request("/issues", { method: "POST", body: JSON.stringify(issue) }),
   listTows: (params = {}) => request(`/tows?${new URLSearchParams(params)}`),
   getTow: (id) => request(`/tows/${id}`),
   createTow: (tow) => request("/tows", { method: "POST", body: JSON.stringify(tow) }),

@@ -655,10 +655,52 @@ pre {
   margin-bottom: 12px;
 }
 
+.spot-quick-filters {
+  display: flex;
+  gap: 8px;
+}
+
 .export-actions {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.issue-button {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  z-index: 15;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: rgba(15, 23, 42, 0.94);
+  color: #cbd5e1;
+  font-size: 0.84rem;
+  font-weight: 800;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.34);
+}
+
+.issue-panel {
+  position: fixed;
+  right: 14px;
+  bottom: 62px;
+  z-index: 16;
+  width: min(380px, calc(100% - 28px));
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 8px;
+  padding: 12px;
+  background: #1f2937;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.36);
+}
+
+.issue-panel form {
+  display: grid;
+  gap: 10px;
 }
 
 .modal-backdrop {

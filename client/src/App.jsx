@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Download, History, LayoutDashboard, LogOut, Plus, RefreshCcw, Save, Trash2, Upload, Users } from "lucide-react";
+import { ArrowLeft, Bug, Download, History, LayoutDashboard, LogOut, Plus, RefreshCcw, Save, Trash2, Upload, Users } from "lucide-react";
 import { api, exportExcelUrl, exportUrl } from "./lib/api.js";
 import { completedSummary } from "./lib/summary.js";
 import { TowCard } from "./components/TowCard.jsx";
@@ -8,7 +8,7 @@ import { Workflow } from "./components/Workflow.jsx";
 import "./styles/main.css";
 
 const emptyTow = {
-  airline: "MX",
+  airline: "",
   inboundFlightNumber: "",
   inboundStation: "",
   eta: "",
@@ -226,6 +226,9 @@ export default function App() {
   const [candidates, setCandidates] = useState([]);
   const [historyFilters, setHistoryFilters] = useState({});
   const [towPage, setTowPage] = useState("confirm");
+  const [issueOpen, setIssueOpen] = useState(false);
+  const [issueText, setIssueText] = useState("");
+  const [issueStatus, setIssueStatus] = useState("");
   const historyQuery = { ...historyFilters, status: "completed" };
   const filters = tab === "history" ? historyQuery : { status: "active" };
   const { tows, error, loading, load } = useTows(filters, Boolean(user) && !adminPanel);
@@ -250,6 +253,23 @@ export default function App() {
     setUser(null);
     setActiveTow(null);
     setAdminPanel(false);
+  }
+
+  async function submitIssue(event) {
+    event.preventDefault();
+    setIssueStatus("");
+    try {
+      await api.reportIssue({
+        message: issueText,
+        page: window.location.href,
+        userAgent: window.navigator.userAgent
+      });
+      setIssueText("");
+      setIssueStatus("Issue report saved.");
+      setIssueOpen(false);
+    } catch (err) {
+      setIssueStatus(err.message);
+    }
   }
 
   async function saveManual() {
@@ -538,6 +558,18 @@ export default function App() {
               </div>
             </div>
             <div className="filters">
+              <div className="spot-quick-filters">
+                {["30A", "32A"].map((spot) => (
+                  <button
+                    className={historyFilters.towSpot === spot ? "btn green" : "btn ghost"}
+                    key={spot}
+                    onClick={() => setHistoryFilters({ ...historyFilters, towSpot: historyFilters.towSpot === spot ? "" : spot })}
+                    type="button"
+                  >
+                    {spot}
+                  </button>
+                ))}
+              </div>
               {[
                 ["dateFrom", "From date"],
                 ["dateTo", "To date"],
@@ -560,6 +592,28 @@ export default function App() {
           </section>
         )}
       </main>
+      )}
+      <button className="issue-button" onClick={() => setIssueOpen(true)} type="button">
+        <Bug size={16} /> Report Issue
+      </button>
+      {issueOpen && (
+        <div className="issue-panel">
+          <form onSubmit={submitIssue}>
+            <div className="section-head">
+              <h3>Report Issue</h3>
+              <button className="icon-btn" onClick={() => setIssueOpen(false)} type="button">x</button>
+            </div>
+            <textarea
+              autoFocus
+              maxLength="2000"
+              placeholder="What went wrong?"
+              value={issueText}
+              onChange={(event) => setIssueText(event.target.value)}
+            />
+            {issueStatus && <p className="muted">{issueStatus}</p>}
+            <button className="btn green wide" type="submit">Submit Issue</button>
+          </form>
+        </div>
       )}
     </div>
   );

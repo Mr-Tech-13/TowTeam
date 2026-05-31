@@ -9,6 +9,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { requireAuth } from "./middleware/auth.js";
 import { router as authRoutes } from "./routes/auth.js";
+import { router as issueRoutes } from "./routes/issues.js";
 import { router as towRoutes } from "./routes/tows.js";
 import { router as userRoutes } from "./routes/users.js";
 import { deleteExpiredSessions, ensureDefaultAdmin } from "./services/users.js";
@@ -50,6 +51,7 @@ app.use(requireAuth);
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 app.use("/api/auth", authRoutes);
+app.use("/api/issues", issueRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/tows", towRoutes);
 

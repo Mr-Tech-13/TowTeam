@@ -4,7 +4,8 @@ const SPOT_MAP = {
   "NORTH LOT": "NL"
 };
 
-const spotPattern = "(?:NL|BB|WR|BIRD\\s+BATH|WEST\\s+RAMP|NORTH\\s+LOT)\\s*\\d*";
+const standSpotPattern = "30A|32A";
+const spotPattern = `(?:NL|BB|WR|BIRD\\s+BATH|WEST\\s+RAMP|NORTH\\s+LOT)\\s*\\d*|${standSpotPattern}`;
 
 export function normalizeTime(value) {
   const digits = value.replace(/\D/g, "").padStart(4, "0").slice(-4);
@@ -25,6 +26,8 @@ export function normalizeSpot(value) {
       return `${code}${num}`;
     }
   }
+  const standMatch = clean.match(/\b(30A|32A)\b/);
+  if (standMatch) return standMatch[1];
   const match = clean.match(/\b(NL|BB|WR)\s*(\d*)\b/);
   return match ? `${match[1]}${match[2] || ""}` : "";
 }
@@ -34,11 +37,12 @@ function spotNeedsReview(spot) {
 }
 
 export function hasKnownTowSpot(tow) {
-  return /^(NL|BB|WR)\d+$/i.test(tow?.towSpot || "");
+  return /^(?:(NL|BB|WR)\d+|30A|32A)$/i.test(tow?.towSpot || "");
 }
 
 function locationType(value) {
   const upper = value.toUpperCase();
+  if (/^(30A|32A)$/.test(upper)) return "spot";
   if (/^(NL|BB|WR|BIRD BATH|WEST RAMP|NORTH LOT)/.test(upper)) return "spot";
   if (/^(G|GATE)\s*\d+$|^\d+$/.test(upper)) return "gate";
   return "other";
@@ -94,7 +98,7 @@ function parseWrittenDirection(block, gate) {
   if (fromToMatch) {
     const fromLocation = normalizeLocation(fromToMatch[1]);
     const toLocation = normalizeLocation(fromToMatch[2]);
-    const towSpot = [fromLocation, toLocation].find((item) => /^(NL|BB|WR)/.test(item)) || "";
+    const towSpot = [fromLocation, toLocation].find((item) => /^(NL|BB|WR|30A|32A)/.test(item)) || "";
     return { fromLocation, toLocation, towSpot, source: "written" };
   }
 
