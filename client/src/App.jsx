@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Bug, Download, History, LayoutDashboard, LogOut, Plus, RefreshCcw, Save, Trash2, Upload, Users } from "lucide-react";
+import { ArrowLeft, Bug, Clipboard, Download, History, LayoutDashboard, LogOut, Plus, RefreshCcw, RotateCcw, Save, Trash2, Upload, Users } from "lucide-react";
 import { api, exportExcelUrl, exportUrl } from "./lib/api.js";
 import { completedSummary } from "./lib/summary.js";
 import { TowCard } from "./components/TowCard.jsx";
@@ -105,7 +105,10 @@ function LoginPage({ onLogin }) {
 }
 
 function AdminUsersPage({ currentUser, onBack }) {
+  const [adminView, setAdminView] = useState("users");
   const [users, setUsers] = useState([]);
+  const [issues, setIssues] = useState([]);
+  const [auditLogs, setAuditLogs] = useState([]);
   const [newUser, setNewUser] = useState({ username: "", password: "", role: "user" });
   const [passwords, setPasswords] = useState({});
   const [error, setError] = useState("");
@@ -121,7 +124,25 @@ function AdminUsersPage({ currentUser, onBack }) {
 
   useEffect(() => {
     loadUsers();
+    loadIssues();
+    loadAudit();
   }, []);
+
+  async function loadIssues() {
+    try {
+      setIssues(await api.listIssues());
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function loadAudit() {
+    try {
+      setAuditLogs(await api.listAudit());
+    } catch (err) {
+      setError(err.message);
+    }
+  }
 
   async function createUser(event) {
     event.preventDefault();
@@ -167,6 +188,17 @@ function AdminUsersPage({ currentUser, onBack }) {
     }
   }
 
+  async function closeIssue(issue) {
+    setError("");
+    try {
+      await api.updateIssue(issue.id, { status: issue.status === "closed" ? "open" : "closed" });
+      await loadIssues();
+      await loadAudit();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   return (
     <main>
       <section className="page-panel">
@@ -178,37 +210,77 @@ function AdminUsersPage({ currentUser, onBack }) {
           <button className="btn ghost" onClick={onBack}><ArrowLeft size={18} /> Menu</button>
         </div>
         {error && <div className="notice error">{error}</div>}
-        <form className="user-create" onSubmit={createUser}>
-          <input placeholder="Username" value={newUser.username} onChange={(event) => setNewUser({ ...newUser, username: event.target.value })} />
-          <input placeholder="Password" type="password" value={newUser.password} onChange={(event) => setNewUser({ ...newUser, password: event.target.value })} />
-          <select value={newUser.role} onChange={(event) => setNewUser({ ...newUser, role: event.target.value })}>
-            <option value="user">User</option>
-            <option value="admin">Admin</option>
-          </select>
-          <button className="btn green" type="submit">Create User</button>
-        </form>
-        <div className="user-list">
-          {users.map((user) => (
-            <article className="user-row" key={user.id}>
-              <div>
-                <strong>{user.username}</strong>
-                <span>{user.role}{user.id === currentUser.id ? " - you" : ""}</span>
-              </div>
-              <select value={user.role} onChange={(event) => changeRole(user, event.target.value)}>
+        <div className="admin-subtabs">
+          {["users", "issues", "audit"].map((view) => (
+            <button className={adminView === view ? "btn green" : "btn ghost"} key={view} onClick={() => setAdminView(view)} type="button">
+              {view}
+            </button>
+          ))}
+        </div>
+        {adminView === "users" && (
+          <>
+            <form className="user-create" onSubmit={createUser}>
+              <input placeholder="Username" value={newUser.username} onChange={(event) => setNewUser({ ...newUser, username: event.target.value })} />
+              <input placeholder="Password" type="password" value={newUser.password} onChange={(event) => setNewUser({ ...newUser, password: event.target.value })} />
+              <select value={newUser.role} onChange={(event) => setNewUser({ ...newUser, role: event.target.value })}>
                 <option value="user">User</option>
                 <option value="admin">Admin</option>
               </select>
-              <input
-                placeholder="New password"
-                type="password"
-                value={passwords[user.id] || ""}
-                onChange={(event) => setPasswords({ ...passwords, [user.id]: event.target.value })}
-              />
-              <button className="btn blue" onClick={() => changePassword(user)}>Change Password</button>
-              <button className="btn red" disabled={user.id === currentUser.id || user.username.toLowerCase() === "admin"} onClick={() => removeUser(user)}>Delete</button>
-            </article>
-          ))}
-        </div>
+              <button className="btn green" type="submit">Create User</button>
+            </form>
+            <div className="user-list">
+              {users.map((user) => (
+                <article className="user-row" key={user.id}>
+                  <div>
+                    <strong>{user.username}</strong>
+                    <span>{user.role}{user.id === currentUser.id ? " - you" : ""}</span>
+                  </div>
+                  <select value={user.role} onChange={(event) => changeRole(user, event.target.value)}>
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                  <input
+                    placeholder="New password"
+                    type="password"
+                    value={passwords[user.id] || ""}
+                    onChange={(event) => setPasswords({ ...passwords, [user.id]: event.target.value })}
+                  />
+                  <button className="btn blue" onClick={() => changePassword(user)}>Change Password</button>
+                  <button className="btn red" disabled={user.id === currentUser.id || user.username.toLowerCase() === "admin"} onClick={() => removeUser(user)}>Delete</button>
+                </article>
+              ))}
+            </div>
+          </>
+        )}
+        {adminView === "issues" && (
+          <div className="admin-list">
+            {issues.map((issue) => (
+              <article className="admin-row" key={issue.id}>
+                <div>
+                  <strong>#{issue.id} {issue.status}</strong>
+                  <span>{issue.username || "unknown"} - {issue.createdAt}</span>
+                  <p>{issue.message}</p>
+                </div>
+                <button className={issue.status === "closed" ? "btn ghost" : "btn green"} onClick={() => closeIssue(issue)}>
+                  {issue.status === "closed" ? "Reopen" : "Close"}
+                </button>
+              </article>
+            ))}
+          </div>
+        )}
+        {adminView === "audit" && (
+          <div className="admin-list">
+            {auditLogs.map((log) => (
+              <article className="admin-row" key={log.id}>
+                <div>
+                  <strong>{log.action}</strong>
+                  <span>{log.username || "system"} - {log.createdAt}</span>
+                  <p>{log.entityType} {log.entityId}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
     </main>
   );
@@ -229,6 +301,8 @@ export default function App() {
   const [issueOpen, setIssueOpen] = useState(false);
   const [issueText, setIssueText] = useState("");
   const [issueStatus, setIssueStatus] = useState("");
+  const [importMeta, setImportMeta] = useState(null);
+  const [copyStatus, setCopyStatus] = useState("");
   const historyQuery = { ...historyFilters, status: "completed" };
   const filters = tab === "history" ? historyQuery : { status: "active" };
   const { tows, error, loading, load } = useTows(filters, Boolean(user) && !adminPanel);
@@ -282,6 +356,7 @@ export default function App() {
   async function parseImport() {
     const result = await api.parsePlan(pasteText);
     setCandidates(result.candidates);
+    setImportMeta({ ignoredCount: result.ignoredCount || 0, totalParsed: result.totalParsed || result.candidates.length });
     setParseAttempted(true);
   }
 
@@ -290,6 +365,7 @@ export default function App() {
     setCandidates([]);
     setPasteText("");
     setParseAttempted(false);
+    setImportMeta(null);
     openTab("dashboard");
     await load();
   }
@@ -304,6 +380,22 @@ export default function App() {
     const nextTow = await api.logStep(activeTow.id, step);
     await refreshTow(nextTow);
     if (step === "towPaperCompletedAt") setTowPage("complete");
+  }
+
+  async function undoWorkflowStep() {
+    if (!window.confirm("Undo the last logged workflow step?")) return;
+    await refreshTow(await api.undoLastStep(activeTow.id));
+    setTowPage("workflow");
+  }
+
+  async function copySummary() {
+    const text = completedSummary(activeTow);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyStatus("Copied.");
+    } catch {
+      setCopyStatus("Copy failed. Select the summary text and copy it manually.");
+    }
   }
 
   async function editTimestamp(field) {
@@ -470,6 +562,9 @@ export default function App() {
               </div>
             )}
             <div className="page-actions">
+              <button className="btn ghost" onClick={undoWorkflowStep}>
+                <RotateCcw size={18} /> Undo Last Step
+              </button>
               <button className="btn blue" onClick={() => setTowPage("confirm")}>
                 Edit Details
               </button>
@@ -493,10 +588,14 @@ export default function App() {
             </div>
             <pre>{completedSummary(activeTow)}</pre>
             <div className="page-actions">
+              <button className="btn green" onClick={copySummary}>
+                <Clipboard size={18} /> Copy Summary
+              </button>
               <button className="btn blue" onClick={() => setTowPage("confirm")}>
                 Edit Historical Details
               </button>
             </div>
+            {copyStatus && <p className="muted">{copyStatus}</p>}
           </section>
         )}
 
@@ -540,6 +639,11 @@ export default function App() {
                   ))}
                   <button className="btn green wide" onClick={saveCandidates}>Save Imported Tows</button>
                 </div>
+              )}
+              {parseAttempted && importMeta && (
+                <p className="muted">
+                  Parsed {importMeta.totalParsed} possible tow records. Imported {candidates.length}. Ignored {importMeta.ignoredCount} without known tow spots.
+                </p>
               )}
               {parseAttempted && candidates.length === 0 && (
                 <p className="muted">No importable tows found. Only flights with exact tow spots like BB113, NL614, or WR22 are imported.</p>

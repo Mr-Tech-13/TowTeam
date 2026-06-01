@@ -1,6 +1,7 @@
 import express from "express";
+import { writeAudit } from "../services/audit.js";
 import { hasKnownTowSpot, parseTowPlan } from "../services/parser.js";
-import { createTow, deleteTow, getTow, listTows, logStep, updateTow } from "../services/tows.js";
+import { createTow, deleteTow, getTow, listTows, logStep, undoLastStep, updateTow } from "../services/tows.js";
 
 export const router = express.Router();
 
@@ -94,7 +95,9 @@ router.get("/export.xls", (req, res) => {
 });
 
 router.post("/parse", (req, res) => {
-  res.json({ candidates: parseTowPlan(req.body.text || "", { onlyKnownTowSpots: true }) });
+  const allCandidates = parseTowPlan(req.body.text || "");
+  const candidates = allCandidates.filter(hasKnownTowSpot);
+  res.json({ candidates, ignoredCount: allCandidates.length - candidates.length, totalParsed: allCandidates.length });
 });
 
 router.post("/", (req, res) => {
@@ -102,12 +105,16 @@ router.post("/", (req, res) => {
     res.status(400).json({ error: "Inbound flight number is required." });
     return;
   }
-  res.status(201).json(createTow(req.body));
+  const tow = createTow(req.body);
+  writeAudit(req.user, "tow.create", { entityType: "tow", entityId: tow.id, details: { flight: `${tow.airline}${tow.inboundFlightNumber}` } });
+  res.status(201).json(tow);
 });
 
 router.post("/bulk", (req, res) => {
   const items = Array.isArray(req.body.tows) ? req.body.tows.filter(hasKnownTowSpot) : [];
-  res.status(201).json(items.map(createTow));
+  const tows = items.map(createTow);
+  writeAudit(req.user, "tow.bulk_create", { entityType: "tow", details: { count: tows.length } });
+  res.status(201).json(tows);
 });
 
 router.get("/:id", (req, res) => {
@@ -119,14 +126,33 @@ router.get("/:id", (req, res) => {
 router.put("/:id", (req, res) => {
   const tow = updateTow(req.params.id, req.body);
   if (!tow) res.status(404).json({ error: "Tow not found." });
-  else res.json(tow);
+  else {
+    writeAudit(req.user, "tow.update", { entityType: "tow", entityId: tow.id });
+    res.json(tow);
+  }
 });
 
 router.post("/:id/steps/:step", (req, res) => {
   try {
     const tow = logStep(req.params.id, req.params.step, req.body.timestamp, req.body.force);
     if (!tow) res.status(404).json({ error: "Tow not found." });
-    else res.json(tow);
+    else {
+      writeAudit(req.user, "tow.step", { entityType: "tow", entityId: tow.id, details: { step: req.params.step } });
+      res.json(tow);
+    }
+  } catch (error) {
+    res.status(409).json({ error: error.message });
+  }
+});
+
+router.post("/:id/steps/undo", (req, res) => {
+  try {
+    const result = undoLastStep(req.params.id);
+    if (!result) res.status(404).json({ error: "Tow not found." });
+    else {
+      writeAudit(req.user, "tow.undo_step", { entityType: "tow", entityId: req.params.id, details: { step: result.undoneStep } });
+      res.json(result.tow);
+    }
   } catch (error) {
     res.status(409).json({ error: error.message });
   }
@@ -134,5 +160,8 @@ router.post("/:id/steps/:step", (req, res) => {
 
 router.delete("/:id", (req, res) => {
   if (!deleteTow(req.params.id)) res.status(404).json({ error: "Tow not found." });
-  else res.status(204).end();
+  else {
+    writeAudit(req.user, "tow.delete", { entityType: "tow", entityId: req.params.id });
+    res.status(204).end();
+  }
 });

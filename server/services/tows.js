@@ -37,6 +37,14 @@ export const workflowSteps = {
   towPaperCompletedAt: "completed"
 };
 
+const baseWorkflowOrder = [
+  ["setupStartedAt", "planned"],
+  ["pushStartedAt", "setup_started"],
+  ["towStartedAt", "push_started"],
+  ["towCompletedAt", "tow_started"],
+  ["towPaperCompletedAt", "tow_completed"]
+];
+
 export function sanitizeTow(input) {
   const normalizedInput = deriveLocations(input);
   const tow = {};
@@ -130,6 +138,36 @@ export function logStep(id, step, timestamp = nowIso(), force = false) {
     updatedAt: nowIso()
   });
   return getTow(id);
+}
+
+export function undoLastStep(id) {
+  const tow = getTow(id);
+  if (!tow) return null;
+  const workflowOrder = workflowOrderFor(tow);
+  const last = [...workflowOrder].reverse().find(([field]) => Boolean(tow[field]));
+  if (!last) throw new Error("No workflow step to undo.");
+  const [field, previousStatus] = last;
+  db.prepare(`UPDATE tows SET ${field} = NULL, status = @status, updatedAt = @updatedAt WHERE id = @id`).run({
+    id,
+    status: previousStatus,
+    updatedAt: nowIso()
+  });
+  return { tow: getTow(id), undoneStep: field };
+}
+
+function workflowOrderFor(tow) {
+  if (![tow.toLocation, tow.towSpot].some((value) => String(value || "").toUpperCase().startsWith("WR"))) {
+    return baseWorkflowOrder;
+  }
+  return [
+    ["setupStartedAt", "planned"],
+    ["goaaCalledAt", "setup_started"],
+    ["goaaArrivalAt", "goaa_called"],
+    ["pushStartedAt", "goaa_arrival"],
+    ["towStartedAt", "push_started"],
+    ["towCompletedAt", "tow_started"],
+    ["towPaperCompletedAt", "tow_completed"]
+  ];
 }
 
 export function deleteTow(id) {

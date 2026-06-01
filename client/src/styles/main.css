@@ -391,6 +391,13 @@ textarea {
   margin-bottom: 14px;
 }
 
+.admin-subtabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
 .user-list {
   display: grid;
   gap: 10px;
@@ -415,6 +422,34 @@ textarea {
 .user-row span {
   color: #cbd5e1;
   font-size: 0.86rem;
+}
+
+.admin-list {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 8px;
+  padding: 10px;
+  background: #111827;
+}
+
+.admin-row > div {
+  display: grid;
+  gap: 4px;
+}
+
+.admin-row span,
+.admin-row p {
+  color: #cbd5e1;
+  font-size: 0.86rem;
+  margin: 0;
 }
 
 .btn {
@@ -726,8 +761,13 @@ pre {
   .form-grid.compact,
   .filters,
   .user-create,
-  .user-row {
+  .user-row,
+  .admin-row {
     grid-template-columns: 1fr;
+  }
+
+  .admin-row {
+    display: grid;
   }
 
   .workflow-step {
