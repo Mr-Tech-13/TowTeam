@@ -1,9 +1,16 @@
 import express from "express";
+import rateLimit from "express-rate-limit";
 import { db } from "../db/database.js";
-import { issueRateLimit } from "../middleware/rateLimit.js";
 import { writeAudit } from "../services/audit.js";
 
 export const router = express.Router();
+const issueRateLimit = rateLimit({
+  windowMs: Number(process.env.ISSUE_RATE_LIMIT_WINDOW_MS || 60_000),
+  limit: Number(process.env.ISSUE_RATE_LIMIT_MAX || 10),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many issue requests. Try again later." }
+});
 
 router.use(issueRateLimit);
 

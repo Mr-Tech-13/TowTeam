@@ -4,6 +4,7 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
+import rateLimit from "express-rate-limit";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,7 +14,6 @@ import { router as authRoutes } from "./routes/auth.js";
 import { router as issueRoutes } from "./routes/issues.js";
 import { router as towRoutes } from "./routes/tows.js";
 import { router as userRoutes } from "./routes/users.js";
-import { apiRateLimit } from "./middleware/rateLimit.js";
 import { deleteExpiredSessions, ensureDefaultAdmin } from "./services/users.js";
 
 dotenv.config();
@@ -31,6 +31,13 @@ const corsOrigins = (process.env.CORS_ORIGIN || "")
   .map((origin) => origin.trim())
   .filter(Boolean);
 const devCorsOrigins = ["http://localhost:5173", "http://127.0.0.1:5173"];
+const apiRateLimit = rateLimit({
+  windowMs: Number(process.env.API_RATE_LIMIT_WINDOW_MS || 60_000),
+  limit: Number(process.env.API_RATE_LIMIT_MAX || 300),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests. Try again later." }
+});
 
 ensureDefaultAdmin();
 deleteExpiredSessions();

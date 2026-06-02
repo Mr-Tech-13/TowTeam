@@ -1,4 +1,5 @@
 import express from "express";
+import rateLimit from "express-rate-limit";
 import {
   authenticate,
   clearSessionCookie,
@@ -9,9 +10,15 @@ import {
   sessionCookie,
   sessionCookieName
 } from "../services/users.js";
-import { loginRateLimit } from "../middleware/rateLimit.js";
 
 export const router = express.Router();
+const loginRateLimit = rateLimit({
+  windowMs: Number(process.env.LOGIN_RATE_LIMIT_WINDOW_MS || 15 * 60_000),
+  limit: Number(process.env.LOGIN_RATE_LIMIT_MAX || 20),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many login attempts. Try again later." }
+});
 
 router.post("/login", loginRateLimit, (req, res) => {
   const user = authenticate(req.body.username, req.body.password);
