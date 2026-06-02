@@ -45,11 +45,7 @@ export function ensureDefaultAdmin() {
   const password = usesGeneratedPassword ? crypto.randomBytes(12).toString("base64url") : configuredPassword;
   db.prepare("INSERT INTO users (username, passwordHash, role) VALUES (?, ?, 'admin')").run(username, hashPassword(password));
   if (usesGeneratedPassword) writeInitialAdminPassword(username, password);
-  console.warn(
-    usesGeneratedPassword
-      ? `Created default admin user '${username}'. Initial password saved to ${initialAdminPasswordPath()}. Change it after first login.`
-      : `Created default admin user '${username}'. Change the password after first login.`
-  );
+  console.warn("Created initial admin account. Change the password after first login.");
 }
 
 export function listUsers() {
