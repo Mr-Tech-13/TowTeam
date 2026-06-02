@@ -27,6 +27,48 @@ const fields = [
   "towPaperCompletedAt"
 ];
 
+const createTowStatement = db.prepare(
+  `INSERT INTO tows (
+    airline, inboundFlightNumber, inboundStation, eta, gate, fromLocation, toLocation, towSpot, tailNumber,
+    driver, leftWingWalker, rightWingWalker, otherTeamMembers, notes, status, needsReview, parserWarnings,
+    setupStartedAt, goaaCalledAt, goaaArrivalAt, pushStartedAt, towStartedAt, towCompletedAt, towPaperCompletedAt
+  ) VALUES (
+    @airline, @inboundFlightNumber, @inboundStation, @eta, @gate, @fromLocation, @toLocation, @towSpot, @tailNumber,
+    @driver, @leftWingWalker, @rightWingWalker, @otherTeamMembers, @notes, @status, @needsReview, @parserWarnings,
+    @setupStartedAt, @goaaCalledAt, @goaaArrivalAt, @pushStartedAt, @towStartedAt, @towCompletedAt, @towPaperCompletedAt
+  )`
+);
+
+const updateTowStatement = db.prepare(
+  `UPDATE tows SET
+    airline = @airline,
+    inboundFlightNumber = @inboundFlightNumber,
+    inboundStation = @inboundStation,
+    eta = @eta,
+    gate = @gate,
+    fromLocation = @fromLocation,
+    toLocation = @toLocation,
+    towSpot = @towSpot,
+    tailNumber = @tailNumber,
+    driver = @driver,
+    leftWingWalker = @leftWingWalker,
+    rightWingWalker = @rightWingWalker,
+    otherTeamMembers = @otherTeamMembers,
+    notes = @notes,
+    status = @status,
+    needsReview = @needsReview,
+    parserWarnings = @parserWarnings,
+    setupStartedAt = @setupStartedAt,
+    goaaCalledAt = @goaaCalledAt,
+    goaaArrivalAt = @goaaArrivalAt,
+    pushStartedAt = @pushStartedAt,
+    towStartedAt = @towStartedAt,
+    towCompletedAt = @towCompletedAt,
+    towPaperCompletedAt = @towPaperCompletedAt,
+    updatedAt = @updatedAt
+  WHERE id = @id`
+);
+
 export const workflowSteps = {
   setupStartedAt: "setup_started",
   goaaCalledAt: "goaa_called",
@@ -35,6 +77,26 @@ export const workflowSteps = {
   towStartedAt: "tow_started",
   towCompletedAt: "tow_completed",
   towPaperCompletedAt: "completed"
+};
+
+const stepUpdateStatements = {
+  setupStartedAt: db.prepare("UPDATE tows SET setupStartedAt = @timestamp, status = @status, updatedAt = @updatedAt WHERE id = @id"),
+  goaaCalledAt: db.prepare("UPDATE tows SET goaaCalledAt = @timestamp, status = @status, updatedAt = @updatedAt WHERE id = @id"),
+  goaaArrivalAt: db.prepare("UPDATE tows SET goaaArrivalAt = @timestamp, status = @status, updatedAt = @updatedAt WHERE id = @id"),
+  pushStartedAt: db.prepare("UPDATE tows SET pushStartedAt = @timestamp, status = @status, updatedAt = @updatedAt WHERE id = @id"),
+  towStartedAt: db.prepare("UPDATE tows SET towStartedAt = @timestamp, status = @status, updatedAt = @updatedAt WHERE id = @id"),
+  towCompletedAt: db.prepare("UPDATE tows SET towCompletedAt = @timestamp, status = @status, updatedAt = @updatedAt WHERE id = @id"),
+  towPaperCompletedAt: db.prepare("UPDATE tows SET towPaperCompletedAt = @timestamp, status = @status, updatedAt = @updatedAt WHERE id = @id")
+};
+
+const undoStepStatements = {
+  setupStartedAt: db.prepare("UPDATE tows SET setupStartedAt = NULL, status = @status, updatedAt = @updatedAt WHERE id = @id"),
+  goaaCalledAt: db.prepare("UPDATE tows SET goaaCalledAt = NULL, status = @status, updatedAt = @updatedAt WHERE id = @id"),
+  goaaArrivalAt: db.prepare("UPDATE tows SET goaaArrivalAt = NULL, status = @status, updatedAt = @updatedAt WHERE id = @id"),
+  pushStartedAt: db.prepare("UPDATE tows SET pushStartedAt = NULL, status = @status, updatedAt = @updatedAt WHERE id = @id"),
+  towStartedAt: db.prepare("UPDATE tows SET towStartedAt = NULL, status = @status, updatedAt = @updatedAt WHERE id = @id"),
+  towCompletedAt: db.prepare("UPDATE tows SET towCompletedAt = NULL, status = @status, updatedAt = @updatedAt WHERE id = @id"),
+  towPaperCompletedAt: db.prepare("UPDATE tows SET towPaperCompletedAt = NULL, status = @status, updatedAt = @updatedAt WHERE id = @id")
 };
 
 const baseWorkflowOrder = [
@@ -57,6 +119,10 @@ export function sanitizeTow(input) {
   return tow;
 }
 
+function completeTowParams(tow) {
+  return Object.fromEntries(fields.map((field) => [field, field in tow ? tow[field] : field === "needsReview" ? 0 : field === "parserWarnings" ? "[]" : ""]));
+}
+
 function deriveLocations(input) {
   if (!input.gate || !input.towSpot || input.fromLocation || input.toLocation) return input;
   return {
@@ -67,39 +133,42 @@ function deriveLocations(input) {
 }
 
 export function listTows(filters = {}) {
-  const clauses = [];
-  const params = {};
+  const params = {
+    activeStatus: filters.status === "active" ? 1 : 0,
+    hasStatus: filters.status && filters.status !== "active" ? 1 : 0,
+    status: filters.status || "",
+    tailNumber: filters.tailNumber ? `%${filters.tailNumber}%` : "",
+    hasTailNumber: filters.tailNumber ? 1 : 0,
+    inboundFlightNumber: filters.inboundFlightNumber ? `%${filters.inboundFlightNumber}%` : "",
+    hasInboundFlightNumber: filters.inboundFlightNumber ? 1 : 0,
+    gate: filters.gate ? `%${filters.gate}%` : "",
+    hasGate: filters.gate ? 1 : 0,
+    towSpot: filters.towSpot ? `%${filters.towSpot}%` : "",
+    hasTowSpot: filters.towSpot ? 1 : 0,
+    date: filters.date || "",
+    hasDate: filters.date ? 1 : 0,
+    dateFrom: filters.dateFrom || "",
+    hasDateFrom: filters.dateFrom ? 1 : 0,
+    dateTo: filters.dateTo || "",
+    hasDateTo: filters.dateTo ? 1 : 0
+  };
 
-  if (filters.status === "active") clauses.push("status != 'completed'");
-  else if (filters.status) {
-    clauses.push("status = @status");
-    params.status = filters.status;
-  }
-
-  for (const field of ["tailNumber", "inboundFlightNumber", "gate", "towSpot"]) {
-    if (filters[field]) {
-      clauses.push(`${field} LIKE @${field}`);
-      params[field] = `%${filters[field]}%`;
-    }
-  }
-
-  if (filters.date) {
-    clauses.push("date(COALESCE(towCompletedAt, createdAt)) = @date");
-    params.date = filters.date;
-  }
-
-  if (filters.dateFrom) {
-    clauses.push("date(COALESCE(towCompletedAt, createdAt)) >= @dateFrom");
-    params.dateFrom = filters.dateFrom;
-  }
-
-  if (filters.dateTo) {
-    clauses.push("date(COALESCE(towCompletedAt, createdAt)) <= @dateTo");
-    params.dateTo = filters.dateTo;
-  }
-
-  const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
-  return db.prepare(`SELECT * FROM tows ${where} ORDER BY COALESCE(towCompletedAt, createdAt) DESC`).all(params).map(rowToTow);
+  return db
+    .prepare(
+      `SELECT * FROM tows
+       WHERE (@activeStatus = 0 OR status != 'completed')
+         AND (@hasStatus = 0 OR status = @status)
+         AND (@hasTailNumber = 0 OR tailNumber LIKE @tailNumber)
+         AND (@hasInboundFlightNumber = 0 OR inboundFlightNumber LIKE @inboundFlightNumber)
+         AND (@hasGate = 0 OR gate LIKE @gate)
+         AND (@hasTowSpot = 0 OR towSpot LIKE @towSpot)
+         AND (@hasDate = 0 OR date(COALESCE(towCompletedAt, createdAt)) = @date)
+         AND (@hasDateFrom = 0 OR date(COALESCE(towCompletedAt, createdAt)) >= @dateFrom)
+         AND (@hasDateTo = 0 OR date(COALESCE(towCompletedAt, createdAt)) <= @dateTo)
+       ORDER BY COALESCE(towCompletedAt, createdAt) DESC`
+    )
+    .all(params)
+    .map(rowToTow);
 }
 
 export function getTow(id) {
@@ -107,21 +176,18 @@ export function getTow(id) {
 }
 
 export function createTow(input) {
-  const tow = sanitizeTow({ status: "planned", ...input });
-  const keys = Object.keys(tow);
-  const placeholders = keys.map((key) => `@${key}`).join(", ");
-  const result = db.prepare(`INSERT INTO tows (${keys.join(", ")}) VALUES (${placeholders})`).run(tow);
+  const tow = completeTowParams(sanitizeTow({ status: "planned", ...input }));
+  const result = createTowStatement.run(tow);
   return getTow(result.lastInsertRowid);
 }
 
 export function updateTow(id, input) {
-  const tow = sanitizeTow(input);
-  const keys = Object.keys(tow);
-  if (keys.length === 0) return getTow(id);
+  const existing = getTow(id);
+  if (!existing) return null;
+  const tow = completeTowParams(sanitizeTow({ ...existing, ...input }));
   tow.updatedAt = nowIso();
   tow.id = id;
-  const setClause = [...keys.map((key) => `${key} = @${key}`), "updatedAt = @updatedAt"].join(", ");
-  db.prepare(`UPDATE tows SET ${setClause} WHERE id = @id`).run(tow);
+  updateTowStatement.run(tow);
   return getTow(id);
 }
 
@@ -131,7 +197,7 @@ export function logStep(id, step, timestamp = nowIso(), force = false) {
   if (!tow) return null;
   if (tow[step] && !force) throw new Error("Step has already been logged.");
   const status = workflowSteps[step];
-  db.prepare(`UPDATE tows SET ${step} = @timestamp, status = @status, updatedAt = @updatedAt WHERE id = @id`).run({
+  stepUpdateStatements[step].run({
     id,
     timestamp,
     status,
@@ -147,7 +213,7 @@ export function undoLastStep(id) {
   const last = [...workflowOrder].reverse().find(([field]) => Boolean(tow[field]));
   if (!last) throw new Error("No workflow step to undo.");
   const [field, previousStatus] = last;
-  db.prepare(`UPDATE tows SET ${field} = NULL, status = @status, updatedAt = @updatedAt WHERE id = @id`).run({
+  undoStepStatements[field].run({
     id,
     status: previousStatus,
     updatedAt: nowIso()

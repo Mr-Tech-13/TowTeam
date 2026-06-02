@@ -8,7 +8,7 @@ dotenv.config();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "../..");
-const dbPath = path.resolve(rootDir, process.env.DATABASE_URL || "./data/towteam.sqlite");
+export const dbPath = path.resolve(rootDir, process.env.DATABASE_URL || "./data/towteam.sqlite");
 
 fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 

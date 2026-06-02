@@ -13,6 +13,7 @@ import { router as authRoutes } from "./routes/auth.js";
 import { router as issueRoutes } from "./routes/issues.js";
 import { router as towRoutes } from "./routes/tows.js";
 import { router as userRoutes } from "./routes/users.js";
+import { apiRateLimit } from "./middleware/rateLimit.js";
 import { deleteExpiredSessions, ensureDefaultAdmin } from "./services/users.js";
 
 dotenv.config();
@@ -48,6 +49,7 @@ app.use(cors({
 }));
 app.use(express.json({ limit: "1mb" }));
 app.use(morgan(isProduction ? "combined" : "dev"));
+app.use("/api", apiRateLimit);
 app.use(requireAuth);
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));

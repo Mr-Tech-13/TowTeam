@@ -1,8 +1,11 @@
 import express from "express";
 import { db } from "../db/database.js";
+import { issueRateLimit } from "../middleware/rateLimit.js";
 import { writeAudit } from "../services/audit.js";
 
 export const router = express.Router();
+
+router.use(issueRateLimit);
 
 router.post("/", (req, res) => {
   const message = String(req.body.message || "").trim();

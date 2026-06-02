@@ -132,19 +132,6 @@ router.put("/:id", (req, res) => {
   }
 });
 
-router.post("/:id/steps/:step", (req, res) => {
-  try {
-    const tow = logStep(req.params.id, req.params.step, req.body.timestamp, req.body.force);
-    if (!tow) res.status(404).json({ error: "Tow not found." });
-    else {
-      writeAudit(req.user, "tow.step", { entityType: "tow", entityId: tow.id, details: { step: req.params.step } });
-      res.json(tow);
-    }
-  } catch (error) {
-    res.status(409).json({ error: error.message });
-  }
-});
-
 router.post("/:id/steps/undo", (req, res) => {
   try {
     const result = undoLastStep(req.params.id);
@@ -152,6 +139,19 @@ router.post("/:id/steps/undo", (req, res) => {
     else {
       writeAudit(req.user, "tow.undo_step", { entityType: "tow", entityId: req.params.id, details: { step: result.undoneStep } });
       res.json(result.tow);
+    }
+  } catch (error) {
+    res.status(409).json({ error: error.message });
+  }
+});
+
+router.post("/:id/steps/:step", (req, res) => {
+  try {
+    const tow = logStep(req.params.id, req.params.step, req.body.timestamp, req.body.force);
+    if (!tow) res.status(404).json({ error: "Tow not found." });
+    else {
+      writeAudit(req.user, "tow.step", { entityType: "tow", entityId: tow.id, details: { step: req.params.step } });
+      res.json(tow);
     }
   } catch (error) {
     res.status(409).json({ error: error.message });

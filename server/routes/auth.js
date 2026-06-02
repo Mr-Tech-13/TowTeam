@@ -9,10 +9,11 @@ import {
   sessionCookie,
   sessionCookieName
 } from "../services/users.js";
+import { loginRateLimit } from "../middleware/rateLimit.js";
 
 export const router = express.Router();
 
-router.post("/login", (req, res) => {
+router.post("/login", loginRateLimit, (req, res) => {
   const user = authenticate(req.body.username, req.body.password);
   if (!user) {
     res.status(401).json({ error: "Invalid username or password." });

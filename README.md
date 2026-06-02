@@ -50,7 +50,7 @@ cp .env.example .env
 docker compose up -d
 ```
 
-Before hosting with Docker, edit `.env` and replace `ADMIN_PASSWORD=change-me-now`. The first startup creates the initial admin account if no users exist. If the password is left blank or as a placeholder, TowTeam generates a random password and prints it in the server logs. The app is exposed at `http://localhost:8080`. SQLite data is stored in `./data`.
+Before hosting with Docker, edit `.env` and replace `ADMIN_PASSWORD=change-me-now`. The first startup creates the initial admin account if no users exist. If the password is left blank or as a placeholder, TowTeam generates a random password and saves it to `data/initial-admin-password.txt` instead of printing it in server logs. The app is exposed at `http://localhost:8080`. SQLite data is stored in `./data`.
 
 The default Compose setup does not build a custom image. It runs the official Node image, mounts this project into the container, stores container dependencies in a named volume, builds the web UI on startup, and starts the server. After pulling code changes, use:
 
@@ -82,9 +82,17 @@ NODE_ENV=development
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=change-me-now
 CORS_ORIGIN=
+API_RATE_LIMIT_WINDOW_MS=60000
+API_RATE_LIMIT_MAX=300
+LOGIN_RATE_LIMIT_WINDOW_MS=900000
+LOGIN_RATE_LIMIT_MAX=20
+ISSUE_RATE_LIMIT_WINDOW_MS=60000
+ISSUE_RATE_LIMIT_MAX=10
 ```
 
-On first startup, TowTeam creates an admin user from `ADMIN_USERNAME` and `ADMIN_PASSWORD` when the users table is empty. If `ADMIN_PASSWORD` is unset or still a placeholder, a random password is printed in the server logs. Log in as that user, then change the password from the admin user-management screen. Same-origin browser use does not require `CORS_ORIGIN`; set it only when a separate frontend origin must call the API.
+On first startup, TowTeam creates an admin user from `ADMIN_USERNAME` and `ADMIN_PASSWORD` when the users table is empty. If `ADMIN_PASSWORD` is unset or still a placeholder, a random password is saved to `data/initial-admin-password.txt`. Log in as that user, then change the password from the admin user-management screen and remove the password file. Same-origin browser use does not require `CORS_ORIGIN`; set it only when a separate frontend origin must call the API.
+
+Basic in-memory rate limiting is enabled by default for API requests, login attempts, and issue reporting. The rate limit values above can be adjusted for your deployment.
 
 ## Tests
 

@@ -1,5 +1,7 @@
 import crypto from "node:crypto";
-import { db, nowIso } from "../db/database.js";
+import fs from "node:fs";
+import path from "node:path";
+import { db, dbPath, nowIso } from "../db/database.js";
 
 const SESSION_COOKIE = "towteam_session";
 const SESSION_DAYS = 14;
@@ -39,11 +41,15 @@ export function ensureDefaultAdmin() {
   if (count > 0) return;
   const username = process.env.ADMIN_USERNAME || process.env.LOCAL_AUTH_USERNAME || "admin";
   const configuredPassword = process.env.ADMIN_PASSWORD || process.env.LOCAL_AUTH_PASSWORD || "";
-  const password = ["", "admin", "change-me", "change-me-now"].includes(configuredPassword)
-    ? crypto.randomBytes(12).toString("base64url")
-    : configuredPassword;
+  const usesGeneratedPassword = ["", "admin", "change-me", "change-me-now"].includes(configuredPassword);
+  const password = usesGeneratedPassword ? crypto.randomBytes(12).toString("base64url") : configuredPassword;
   db.prepare("INSERT INTO users (username, passwordHash, role) VALUES (?, ?, 'admin')").run(username, hashPassword(password));
-  console.warn(`Created default admin user '${username}' with password '${password}'. Change it after first login.`);
+  if (usesGeneratedPassword) writeInitialAdminPassword(username, password);
+  console.warn(
+    usesGeneratedPassword
+      ? `Created default admin user '${username}'. Initial password saved to ${initialAdminPasswordPath()}. Change it after first login.`
+      : `Created default admin user '${username}'. Change the password after first login.`
+  );
 }
 
 export function listUsers() {
@@ -164,4 +170,15 @@ export function parseCookie(header, name) {
 
 function adminCount() {
   return db.prepare("SELECT COUNT(*) AS count FROM users WHERE role = 'admin'").get().count;
+}
+
+function initialAdminPasswordPath() {
+  return path.join(path.dirname(dbPath), "initial-admin-password.txt");
+}
+
+function writeInitialAdminPassword(username, password) {
+  const filePath = initialAdminPasswordPath();
+  fs.mkdirSync(path.dirname(filePath), { recursive: true, mode: 0o700 });
+  fs.writeFileSync(filePath, `username=${username}\npassword=${password}\n`, { mode: 0o600 });
+  fs.chmodSync(filePath, 0o600);
 }
