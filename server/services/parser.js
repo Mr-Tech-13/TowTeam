@@ -1,11 +1,33 @@
-const SPOT_MAP = {
-  "BIRD BATH": "BB",
-  "WEST RAMP": "WR",
-  "NORTH LOT": "NL"
-};
+import { TOW_SPOTS } from "../../shared/towSpots.js";
 
-const standSpotPattern = "30A|32A";
-const spotPattern = `(?:NL|BB|WR|BIRD\\s+BATH|WEST\\s+RAMP|NORTH\\s+LOT)\\s*\\d*|${standSpotPattern}`;
+const numberedSpots = TOW_SPOTS.filter((spot) => spot.numberRequired);
+const exactSpots = TOW_SPOTS.filter((spot) => !spot.numberRequired);
+const numberedCodes = numberedSpots.map((spot) => spot.code);
+const exactCodes = exactSpots.map((spot) => spot.code);
+const aliasMap = numberedSpots.flatMap((spot) => [spot.name, ...(spot.aliases || [])].map((alias) => [alias.toUpperCase(), spot.code]));
+const hardstandPattern = "254\\s*[A-P](?:\\s*-\\s*[A-P])?";
+const spotPattern = buildSpotPattern();
+const groundLocationPattern = "tuck";
+const directionLocationPattern = `${spotPattern}|${hardstandPattern}|gate\\s*\\d+|g\\s*\\d+|\\d+|${groundLocationPattern}`;
+
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
+}
+
+function flexibleCodeRegex(value) {
+  return String(value)
+    .split("")
+    .map((char) => escapeRegex(char))
+    .join("\\s*");
+}
+
+function buildSpotPattern() {
+  const numberedPattern = [...numberedCodes, ...aliasMap.map(([alias]) => alias)]
+    .map(escapeRegex)
+    .join("|");
+  const exactPattern = exactCodes.map(flexibleCodeRegex).join("|");
+  return [numberedPattern && `(?:${numberedPattern})\\s*\\d*`, exactPattern, hardstandPattern].filter(Boolean).join("|");
+}
 
 export function normalizeTime(value) {
   const digits = value.replace(/\D/g, "").padStart(4, "0").slice(-4);
@@ -20,36 +42,48 @@ export function normalizeGate(value) {
 export function normalizeSpot(value) {
   if (!value) return "";
   const clean = value.toUpperCase().replace(/\s+/g, " ").trim();
-  for (const [longName, code] of Object.entries(SPOT_MAP)) {
+  const hardstandMatch = clean.match(new RegExp(`\\b(${hardstandPattern})\\b`, "i"));
+  if (hardstandMatch) return hardstandMatch[1].toUpperCase().replace(/\s+/g, "").replace(/\s*-\s*/g, "-");
+  for (const [longName, code] of aliasMap) {
     if (clean.startsWith(longName)) {
       const num = clean.replace(longName, "").replace(/\D/g, "");
       return `${code}${num}`;
     }
   }
-  const standMatch = clean.match(/\b(30A|32A)\b/);
-  if (standMatch) return standMatch[1];
-  const match = clean.match(/\b(NL|BB|WR)\s*(\d*)\b/);
+  const exactMatch = exactCodes.find((code) => new RegExp(`\\b${flexibleCodeRegex(code)}\\b`).test(clean));
+  if (exactMatch) return exactMatch;
+  const match = numberedCodes.length ? clean.match(new RegExp(`\\b(${numberedCodes.map(escapeRegex).join("|")})\\s*(\\d*)\\b`)) : null;
   return match ? `${match[1]}${match[2] || ""}` : "";
 }
 
 function spotNeedsReview(spot) {
-  return Boolean(spot && /^(NL|BB|WR)$/.test(spot));
+  return numberedCodes.includes(String(spot || "").toUpperCase());
 }
 
 export function hasKnownTowSpot(tow) {
-  return /^(?:(NL|BB|WR)\d+|30A|32A)$/i.test(tow?.towSpot || "");
+  const spot = String(tow?.towSpot || "").toUpperCase();
+  return new RegExp(`^${hardstandPattern}$`, "i").test(spot) || exactCodes.includes(spot) || numberedCodes.some((code) => new RegExp(`^${escapeRegex(code)}\\d+$`).test(spot));
 }
 
 function locationType(value) {
   const upper = value.toUpperCase();
-  if (/^(30A|32A)$/.test(upper)) return "spot";
-  if (/^(NL|BB|WR|BIRD BATH|WEST RAMP|NORTH LOT)/.test(upper)) return "spot";
+  if (new RegExp(`^${hardstandPattern}$`, "i").test(upper)) return "spot";
+  if (exactCodes.includes(upper)) return "spot";
+  if ([...numberedCodes, ...aliasMap.map(([alias]) => alias)].some((spot) => upper.startsWith(spot))) return "spot";
   if (/^(G|GATE)\s*\d+$|^\d+$/.test(upper)) return "gate";
   return "other";
 }
 
+function normalizePlanGate(value) {
+  const clean = String(value || "").trim().toUpperCase();
+  if (!clean) return "";
+  if (/^[A-Z]\d+[A-Z]?$/.test(clean)) return clean;
+  return normalizeGate(clean) || clean;
+}
+
 function normalizeLocation(value) {
   const trimmed = value.trim();
+  if (/^tuck$/i.test(trimmed)) return "Tuck";
   if (locationType(trimmed) === "gate") return normalizeGate(trimmed);
   return normalizeSpot(trimmed) || trimmed;
 }
@@ -93,13 +127,21 @@ function parseShorthand(block) {
 }
 
 function parseWrittenDirection(block, gate) {
-  const fromTo = new RegExp(`\\bfrom\\s+(${spotPattern}|gate\\s*\\d+|g\\s*\\d+|\\d+)\\s+to\\s+(${spotPattern}|gate\\s*\\d+|g\\s*\\d+|\\d+)\\b`, "i");
+  const fromTo = new RegExp(`\\bfrom\\s+(${directionLocationPattern})\\s+to\\s+(${directionLocationPattern})\\b`, "i");
   const fromToMatch = block.match(fromTo);
   if (fromToMatch) {
     const fromLocation = normalizeLocation(fromToMatch[1]);
     const toLocation = normalizeLocation(fromToMatch[2]);
-    const towSpot = [fromLocation, toLocation].find((item) => /^(NL|BB|WR|30A|32A)/.test(item)) || "";
+    const towSpot = [fromLocation, toLocation].find((item) => locationType(item) === "spot") || "";
     return { fromLocation, toLocation, towSpot, source: "written" };
+  }
+
+  const sourceToSpot = new RegExp(`\\b(${groundLocationPattern})\\s+to\\s+(${spotPattern})\\b`, "i");
+  const sourceToSpotMatch = block.match(sourceToSpot);
+  if (sourceToSpotMatch) {
+    const fromLocation = normalizeLocation(sourceToSpotMatch[1]);
+    const towSpot = normalizeSpot(sourceToSpotMatch[2]);
+    return { fromLocation, toLocation: towSpot, towSpot, source: "written" };
   }
 
   const toSpot = new RegExp(`\\bto\\s+(${spotPattern})\\b`, "i");
@@ -141,6 +183,7 @@ function parseBlock(block) {
   const resolvedGate = direction.gate || gate;
   const towSpot = direction.towSpot || "";
 
+  if (!resolvedGate) warnings.push("Gate missing.");
   if (!towSpot) warnings.push("Tow spot missing.");
   if (spotNeedsReview(towSpot)) warnings.push("Exact tow spot number missing.");
   if (flights.length > 1) warnings.push("Multiple flights shared one block; review before starting.");
@@ -163,8 +206,70 @@ function parseBlock(block) {
   }));
 }
 
+function parseStructuredAirlinePlan(text) {
+  const source = String(text || "");
+  const arrivalMatch = source.match(/\bArrival\b[\s\S]*?\b([A-Z]{2})\s*(\d{2,4})\s*:\s*([A-Z]?\d+[A-Z]?)\b/i);
+  const departureMatch = source.match(/\bDeparture\b[\s\S]*?\b([A-Z]{2})\s*(\d{2,4})\s*:\s*([A-Z]?\d+[A-Z]?)\b/i);
+  const towOffMatch = source.match(/\bTow\s+off\s*:\s*([^\r\n]+)/i);
+  const towingBackMatch = source.match(/\bTowing\s+back\s*:\s*(\d{3,4})\s*H?\b/i);
+  if (!arrivalMatch || !towOffMatch) return [];
+
+  const airline = arrivalMatch[1].toUpperCase();
+  const arrivalFlightNumber = arrivalMatch[2];
+  const arrivalGate = normalizePlanGate(arrivalMatch[3]);
+  const towSpot = normalizeSpot(towOffMatch[1]);
+  const tows = [
+    {
+      airline,
+      inboundFlightNumber: arrivalFlightNumber,
+      inboundStation: "",
+      eta: "",
+      gate: arrivalGate,
+      fromLocation: arrivalGate,
+      toLocation: towSpot,
+      towSpot,
+      tailNumber: "",
+      driver: "",
+      leftWingWalker: "",
+      rightWingWalker: "",
+      otherTeamMembers: "",
+      notes: "Parsed from tow off plan.",
+      status: "planned",
+      needsReview: !hasKnownTowSpot({ towSpot }),
+      parserWarnings: hasKnownTowSpot({ towSpot }) ? [] : ["Tow spot missing or unknown."]
+    }
+  ];
+
+  if (departureMatch && towingBackMatch) {
+    const departureAirline = departureMatch[1].toUpperCase();
+    const departureGate = normalizePlanGate(departureMatch[3]);
+    tows.push({
+      airline: departureAirline,
+      inboundFlightNumber: departureMatch[2],
+      inboundStation: "",
+      eta: normalizeTime(towingBackMatch[1]),
+      gate: departureGate,
+      fromLocation: towSpot,
+      toLocation: departureGate,
+      towSpot,
+      tailNumber: "",
+      driver: "",
+      leftWingWalker: "",
+      rightWingWalker: "",
+      otherTeamMembers: "",
+      notes: "Parsed from towing back plan.",
+      status: "planned",
+      needsReview: !hasKnownTowSpot({ towSpot }),
+      parserWarnings: hasKnownTowSpot({ towSpot }) ? [] : ["Tow spot missing or unknown."]
+    });
+  }
+
+  return tows;
+}
+
 export function parseTowPlan(text, options = {}) {
-  const tows = String(text)
+  const structuredTows = parseStructuredAirlinePlan(text);
+  const tows = structuredTows.length ? structuredTows : String(text)
     .split(/\n\s*\n/g)
     .map((block) => block.trim())
     .filter(Boolean)

@@ -5,6 +5,7 @@ import { completedSummary } from "./lib/summary.js";
 import { TowCard } from "./components/TowCard.jsx";
 import { TowForm } from "./components/TowForm.jsx";
 import { Workflow } from "./components/Workflow.jsx";
+import { QUICK_FILTER_TOW_SPOTS } from "../../shared/towSpots.js";
 import "./styles/main.css";
 
 const emptyTow = {
@@ -663,7 +664,7 @@ export default function App() {
             </div>
             <div className="filters">
               <div className="spot-quick-filters">
-                {["30A", "32A"].map((spot) => (
+                {QUICK_FILTER_TOW_SPOTS.map((spot) => (
                   <button
                     className={historyFilters.towSpot === spot ? "btn green" : "btn ghost"}
                     key={spot}

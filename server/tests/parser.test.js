@@ -98,3 +98,61 @@ test("imports 30A and 32A tow spots", () => {
     ["30A", "32A"]
   );
 });
+
+test("parses tuck to tow spot directions", () => {
+  const [tow] = parseTowPlan("MX321 JAX 1300\ntuck to 32A", { onlyKnownTowSpots: true });
+  assert.equal(tow.fromLocation, "Tuck");
+  assert.equal(tow.toLocation, "32A");
+  assert.equal(tow.towSpot, "32A");
+  assert.equal(tow.needsReview, true);
+  assert.match(tow.parserWarnings.join(" "), /Gate missing/);
+});
+
+test("parses gate tuck to spaced exact tow spot", () => {
+  const [tow] = parseTowPlan("MX322 JAX 1300\nGate 32 tuck to 30 A", { onlyKnownTowSpots: true });
+  assert.equal(tow.gate, "Gate 32");
+  assert.equal(tow.fromLocation, "Tuck");
+  assert.equal(tow.toLocation, "30A");
+  assert.equal(tow.towSpot, "30A");
+});
+
+test("parses structured arrival departure tow off plans", () => {
+  const plan = `Good Morning Team and Happy Monday!
+
+Arrival 
+EK219: C244
+Tow off: 254D-P
+Departing:1230H
+Carousel: C67(may change)
+
+Departure 
+EK220: C244
+Towing back:1815H`;
+
+  const tows = parseTowPlan(plan, { onlyKnownTowSpots: true });
+  assert.equal(tows.length, 2);
+  assert.deepEqual(
+    tows.map((tow) => [tow.airline, tow.inboundFlightNumber, tow.gate, tow.fromLocation, tow.toLocation, tow.towSpot, tow.eta]),
+    [
+      ["EK", "219", "C244", "C244", "254D-P", "254D-P", ""],
+      ["EK", "220", "C244", "254D-P", "C244", "254D-P", "18:15"]
+    ]
+  );
+});
+
+test("only accepts 254A through 254P as hardstand tow spots", () => {
+  const valid = parseTowPlan("EK219 ILM 1200\nGate 32\nTows to 254 p", { onlyKnownTowSpots: true });
+  assert.equal(valid[0].towSpot, "254P");
+
+  const range = parseTowPlan("EK219 ILM 1200\nGate 32\nTows to 254d-p", { onlyKnownTowSpots: true });
+  assert.equal(range[0].towSpot, "254D-P");
+
+  const invalid = parseTowPlan("EK219 ILM 1200\nGate 32\nTows to 254Q", { onlyKnownTowSpots: true });
+  assert.equal(invalid.length, 0);
+});
+
+test("flags missing gate for review", () => {
+  const [tow] = parseTowPlan("MX400 TPA 1200\nTows to BB113");
+  assert.equal(tow.needsReview, true);
+  assert.match(tow.parserWarnings.join(" "), /Gate missing/);
+});

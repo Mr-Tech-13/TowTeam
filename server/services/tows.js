@@ -101,22 +101,47 @@ const undoStepStatements = {
 
 const baseWorkflowOrder = [
   ["setupStartedAt", "planned"],
-  ["pushStartedAt", "setup_started"],
-  ["towStartedAt", "push_started"],
+  ["towStartedAt", "setup_started"],
   ["towCompletedAt", "tow_started"],
   ["towPaperCompletedAt", "tow_completed"]
 ];
+const automaticMissingDetailWarnings = ["Gate missing.", "Tow spot missing."];
 
 export function sanitizeTow(input) {
   const normalizedInput = deriveLocations(input);
   const tow = {};
   for (const field of fields) {
     if (!(field in normalizedInput)) continue;
-    if (field === "needsReview") tow[field] = input[field] ? 1 : 0;
-    else if (field === "parserWarnings") tow[field] = JSON.stringify(normalizedInput[field] || []);
+    if (field === "needsReview") continue;
+    if (field === "parserWarnings") continue;
     else tow[field] = normalizedInput[field] ?? "";
   }
+  const warnings = normalizeWarnings(normalizedInput.parserWarnings);
+  addMissingDetailWarnings(normalizedInput, warnings);
+  tow.needsReview = warnings.length > 0 ? 1 : 0;
+  tow.parserWarnings = JSON.stringify(warnings);
   return tow;
+}
+
+function normalizeWarnings(value) {
+  const withoutAutomaticWarnings = (warnings) => warnings.filter((warning) => !automaticMissingDetailWarnings.includes(warning));
+  if (Array.isArray(value)) return withoutAutomaticWarnings(value);
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? withoutAutomaticWarnings(parsed) : [];
+  } catch {
+    return [];
+  }
+}
+
+function addWarning(warnings, message) {
+  if (!warnings.includes(message)) warnings.push(message);
+}
+
+function addMissingDetailWarnings(tow, warnings) {
+  if (!String(tow.gate || "").trim()) addWarning(warnings, automaticMissingDetailWarnings[0]);
+  if (!String(tow.towSpot || "").trim()) addWarning(warnings, automaticMissingDetailWarnings[1]);
 }
 
 function completeTowParams(tow) {
@@ -229,8 +254,7 @@ function workflowOrderFor(tow) {
     ["setupStartedAt", "planned"],
     ["goaaCalledAt", "setup_started"],
     ["goaaArrivalAt", "goaa_called"],
-    ["pushStartedAt", "goaa_arrival"],
-    ["towStartedAt", "push_started"],
+    ["towStartedAt", "goaa_arrival"],
     ["towCompletedAt", "tow_started"],
     ["towPaperCompletedAt", "tow_completed"]
   ];

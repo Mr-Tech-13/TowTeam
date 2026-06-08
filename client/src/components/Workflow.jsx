@@ -4,7 +4,6 @@ import { fmtDateTime, isWestRamp } from "../lib/summary.js";
 
 const baseSteps = [
   ["setupStartedAt", "Start Tow Setup", "setupStartedAt", ShieldCheck, "slider"],
-  ["pushStartedAt", "Push Started", "pushStartedAt", Play, "slider"],
   ["towStartedAt", "Tow Started", "towStartedAt", Play, "slider"],
   ["towCompletedAt", "Tow Completed", "towCompletedAt", Check, "slider"]
 ];
