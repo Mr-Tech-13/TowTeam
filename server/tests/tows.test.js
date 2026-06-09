@@ -70,3 +70,41 @@ test("missing gate or tow spot automatically needs review", () => {
     deleteTow(tow.id);
   }
 });
+
+test("editing gate or tow spot updates derived summary locations", () => {
+  const outbound = createTow({
+    airline: "MX",
+    inboundFlightNumber: `O${Date.now()}`,
+    inboundStation: "TST",
+    eta: "12:00",
+    gate: "Gate 1",
+    towSpot: "NL614"
+  });
+  const inbound = createTow({
+    airline: "MX",
+    inboundFlightNumber: `I${Date.now()}`,
+    inboundStation: "TST",
+    eta: "12:00",
+    gate: "Gate 2",
+    fromLocation: "BB113",
+    toLocation: "Gate 2",
+    towSpot: "BB113"
+  });
+
+  try {
+    const movedOutbound = updateTow(outbound.id, { gate: "Gate 3", towSpot: "NL615" });
+    assert.equal(movedOutbound.fromLocation, "Gate 3");
+    assert.equal(movedOutbound.toLocation, "NL615");
+
+    const movedInbound = updateTow(inbound.id, { gate: "Gate 4", towSpot: "BB114" });
+    assert.equal(movedInbound.fromLocation, "BB114");
+    assert.equal(movedInbound.toLocation, "Gate 4");
+
+    const movedTuck = updateTow(inbound.id, { gate: "Gate 5", fromLocation: "Tuck", toLocation: "30A", towSpot: "30A" });
+    assert.equal(movedTuck.fromLocation, "Gate 5");
+    assert.equal(movedTuck.toLocation, "30A");
+  } finally {
+    deleteTow(outbound.id);
+    deleteTow(inbound.id);
+  }
+});

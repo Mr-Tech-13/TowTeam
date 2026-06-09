@@ -111,7 +111,7 @@ test("parses tuck to tow spot directions", () => {
 test("parses gate tuck to spaced exact tow spot", () => {
   const [tow] = parseTowPlan("MX322 JAX 1300\nGate 32 tuck to 30 A", { onlyKnownTowSpots: true });
   assert.equal(tow.gate, "Gate 32");
-  assert.equal(tow.fromLocation, "Tuck");
+  assert.equal(tow.fromLocation, "Gate 32");
   assert.equal(tow.toLocation, "30A");
   assert.equal(tow.towSpot, "30A");
 });
@@ -132,10 +132,10 @@ Towing back:1815H`;
   const tows = parseTowPlan(plan, { onlyKnownTowSpots: true });
   assert.equal(tows.length, 2);
   assert.deepEqual(
-    tows.map((tow) => [tow.airline, tow.inboundFlightNumber, tow.gate, tow.fromLocation, tow.toLocation, tow.towSpot, tow.eta]),
+    tows.map((tow) => [tow.airline, tow.inboundFlightNumber, tow.gate, tow.fromLocation, tow.toLocation, tow.towSpot, tow.eta, tow.notes]),
     [
-      ["EK", "219", "C244", "C244", "254D-P", "254D-P", ""],
-      ["EK", "220", "C244", "254D-P", "C244", "254D-P", "18:15"]
+      ["EK", "219", "C244", "C244", "254D-P", "254D-P", "", ""],
+      ["EK", "220", "C244", "254D-P", "C244", "254D-P", "18:15", ""]
     ]
   );
 });

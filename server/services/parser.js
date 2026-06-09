@@ -139,7 +139,7 @@ function parseWrittenDirection(block, gate) {
   const sourceToSpot = new RegExp(`\\b(${groundLocationPattern})\\s+to\\s+(${spotPattern})\\b`, "i");
   const sourceToSpotMatch = block.match(sourceToSpot);
   if (sourceToSpotMatch) {
-    const fromLocation = normalizeLocation(sourceToSpotMatch[1]);
+    const fromLocation = gate || normalizeLocation(sourceToSpotMatch[1]);
     const towSpot = normalizeSpot(sourceToSpotMatch[2]);
     return { fromLocation, toLocation: towSpot, towSpot, source: "written" };
   }
@@ -233,7 +233,7 @@ function parseStructuredAirlinePlan(text) {
       leftWingWalker: "",
       rightWingWalker: "",
       otherTeamMembers: "",
-      notes: "Parsed from tow off plan.",
+      notes: "",
       status: "planned",
       needsReview: !hasKnownTowSpot({ towSpot }),
       parserWarnings: hasKnownTowSpot({ towSpot }) ? [] : ["Tow spot missing or unknown."]
@@ -257,7 +257,7 @@ function parseStructuredAirlinePlan(text) {
       leftWingWalker: "",
       rightWingWalker: "",
       otherTeamMembers: "",
-      notes: "Parsed from towing back plan.",
+      notes: "",
       status: "planned",
       needsReview: !hasKnownTowSpot({ towSpot }),
       parserWarnings: hasKnownTowSpot({ towSpot }) ? [] : ["Tow spot missing or unknown."]

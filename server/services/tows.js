@@ -209,11 +209,25 @@ export function createTow(input) {
 export function updateTow(id, input) {
   const existing = getTow(id);
   if (!existing) return null;
-  const tow = completeTowParams(sanitizeTow({ ...existing, ...input }));
+  const tow = completeTowParams(sanitizeTow(syncEditedLocations(existing, input)));
   tow.updatedAt = nowIso();
   tow.id = id;
   updateTowStatement.run(tow);
   return getTow(id);
+}
+
+function syncEditedLocations(existing, input) {
+  const merged = { ...existing, ...input };
+  if (merged.gate && merged.fromLocation === "Tuck") merged.fromLocation = merged.gate;
+  if (input.gate !== undefined && input.gate !== existing.gate) {
+    if (existing.fromLocation === existing.gate && merged.fromLocation === existing.fromLocation) merged.fromLocation = input.gate;
+    if (existing.toLocation === existing.gate && merged.toLocation === existing.toLocation) merged.toLocation = input.gate;
+  }
+  if (input.towSpot !== undefined && input.towSpot !== existing.towSpot) {
+    if (existing.fromLocation === existing.towSpot && merged.fromLocation === existing.fromLocation) merged.fromLocation = input.towSpot;
+    if (existing.toLocation === existing.towSpot && merged.toLocation === existing.toLocation) merged.toLocation = input.towSpot;
+  }
+  return merged;
 }
 
 export function logStep(id, step, timestamp = nowIso(), force = false) {
