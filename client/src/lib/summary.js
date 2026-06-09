@@ -34,7 +34,7 @@ export function completedSummary(tow) {
   const otherTeam = cleanOptionalNameList(tow.otherTeamMembers);
   return [
     tow.tailNumber || "Tail unknown",
-    `From ${tow.fromLocation || "Unknown"} to ${tow.toLocation || tow.towSpot || "Unknown"}`,
+    `From ${tow.gate || "Unknown"} to ${tow.towSpot || "Unknown"}`,
     `${fmtTime(tow.pushStartedAt || tow.towStartedAt)}-${fmtTime(tow.towCompletedAt)}`,
     `Tow Conductor ${tow.driver || ""}`.trim(),
     `LWW ${tow.leftWingWalker || ""}`.trim(),

@@ -120,6 +120,8 @@ Tow spots normalize these forms:
 
 Spot codes without a number are saved but flagged `Needs Review`.
 
+To add or remove tow spots in code, edit `shared/towSpots.js`. Use `numberRequired: true` for spot families like `NL614`, where plain `NL` should be flagged for review. Use `numberRequired: false` for exact hardstand-style spots like `30A`.
+
 ## API
 
 - `GET /api/health`
@@ -148,6 +150,5 @@ Workflow step names:
 - `setupStartedAt`
 - `goaaCalledAt`
 - `goaaArrivalAt`
-- `pushStartedAt`
 - `towStartedAt`
 - `towCompletedAt`
