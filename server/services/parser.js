@@ -41,9 +41,9 @@ export function normalizeGate(value) {
 
 export function normalizeSpot(value) {
   if (!value) return "";
+  const hardstand = normalizeHardstand(value);
+  if (hardstand) return hardstand;
   const clean = value.toUpperCase().replace(/\s+/g, " ").trim();
-  const hardstandMatch = clean.match(new RegExp(`\\b(${hardstandPattern})\\b`, "i"));
-  if (hardstandMatch) return hardstandMatch[1].toUpperCase().replace(/\s+/g, "").replace(/\s*-\s*/g, "-");
   for (const [longName, code] of aliasMap) {
     if (clean.startsWith(longName)) {
       const num = clean.replace(longName, "").replace(/\D/g, "");
@@ -56,18 +56,51 @@ export function normalizeSpot(value) {
   return match ? `${match[1]}${match[2] || ""}` : "";
 }
 
+function normalizeHardstand(value) {
+  const text = String(value || "").toUpperCase();
+  for (let index = 0; index < text.length; index += 1) {
+    if (text.slice(index, index + 3) !== "254") continue;
+    const before = text[index - 1] || "";
+    if (/[A-Z0-9]/.test(before)) continue;
+
+    let cursor = index + 3;
+    while (text[cursor] === " ") cursor += 1;
+
+    const startSpot = text[cursor];
+    if (!/[A-P]/.test(startSpot || "")) continue;
+    cursor += 1;
+
+    while (text[cursor] === " ") cursor += 1;
+
+    let endSpot = "";
+    if (text[cursor] === "-") {
+      cursor += 1;
+      while (text[cursor] === " ") cursor += 1;
+      endSpot = text[cursor];
+      if (!/[A-P]/.test(endSpot || "")) continue;
+      cursor += 1;
+    }
+
+    const after = text[cursor] || "";
+    if (/[A-Z0-9]/.test(after)) continue;
+    return `254${startSpot}${endSpot ? `-${endSpot}` : ""}`;
+  }
+  return "";
+}
+
 function spotNeedsReview(spot) {
   return numberedCodes.includes(String(spot || "").toUpperCase());
 }
 
 export function hasKnownTowSpot(tow) {
   const spot = String(tow?.towSpot || "").toUpperCase();
-  return new RegExp(`^${hardstandPattern}$`, "i").test(spot) || exactCodes.includes(spot) || numberedCodes.some((code) => new RegExp(`^${escapeRegex(code)}\\d+$`).test(spot));
+  if (!spot) return false;
+  return normalizeHardstand(spot) === spot || exactCodes.includes(spot) || numberedCodes.some((code) => new RegExp(`^${escapeRegex(code)}\\d+$`).test(spot));
 }
 
 function locationType(value) {
   const upper = value.toUpperCase();
-  if (new RegExp(`^${hardstandPattern}$`, "i").test(upper)) return "spot";
+  if (normalizeHardstand(upper) === upper) return "spot";
   if (exactCodes.includes(upper)) return "spot";
   if ([...numberedCodes, ...aliasMap.map(([alias]) => alias)].some((spot) => upper.startsWith(spot))) return "spot";
   if (/^(G|GATE)\s*\d+$|^\d+$/.test(upper)) return "gate";
