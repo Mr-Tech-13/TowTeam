@@ -79,6 +79,7 @@ PORT=8080
 HOST=0.0.0.0
 DATABASE_URL=./data/towteam.sqlite
 NODE_ENV=development
+TRUST_PROXY=0
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=change-me-now
 CORS_ORIGIN=
@@ -92,7 +93,7 @@ PAGE_RATE_LIMIT_WINDOW_MS=60000
 PAGE_RATE_LIMIT_MAX=600
 ```
 
-On first startup, TowTeam creates an admin user from `ADMIN_USERNAME` and `ADMIN_PASSWORD` when the users table is empty. If `ADMIN_PASSWORD` is unset or still a placeholder, a random password is saved to `data/initial-admin-password.txt`. Log in as that user, then change the password from the admin user-management screen and remove the password file. Same-origin browser use does not require `CORS_ORIGIN`; set it only when a separate frontend origin must call the API.
+On first startup, TowTeam creates an admin user from `ADMIN_USERNAME` and `ADMIN_PASSWORD` when the users table is empty. If `ADMIN_PASSWORD` is unset or still a placeholder, a random password is saved to `data/initial-admin-password.txt`. Log in as that user, then change the password from the admin user-management screen and remove the password file. Same-origin browser use does not require `CORS_ORIGIN`; set it only when a separate frontend origin must call the API. If TowTeam is behind a reverse proxy such as Nginx, Caddy, Traefik, or Cloudflare Tunnel, set `TRUST_PROXY=1` so Express and rate limiting handle forwarded client IPs correctly.
 
 Rate limiting is enabled by default for API requests, login attempts, issue reporting, and frontend page fallback routes. The rate limit values above can be adjusted for your deployment.
 
