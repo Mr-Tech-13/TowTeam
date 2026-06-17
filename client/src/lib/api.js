@@ -1,11 +1,23 @@
 const headers = { "Content-Type": "application/json" };
+const REQUEST_TIMEOUT_MS = 15000;
 
 async function request(path, options = {}) {
-  const res = await fetch(`/api${path}`, {
-    headers,
-    credentials: "include",
-    ...options
-  });
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  let res;
+  try {
+    res = await fetch(`/api${path}`, {
+      headers,
+      credentials: "include",
+      signal: controller.signal,
+      ...options
+    });
+  } catch (error) {
+    if (error.name === "AbortError") throw new Error("Request timed out. Check the server/network and try again.");
+    throw new Error("Network request failed. Check the server/network and try again.");
+  } finally {
+    window.clearTimeout(timeout);
+  }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || `Request failed: ${res.status}`);

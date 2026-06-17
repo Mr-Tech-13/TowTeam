@@ -337,6 +337,8 @@ export default function App() {
   const [issueStatus, setIssueStatus] = useState("");
   const [importMeta, setImportMeta] = useState(null);
   const [copyStatus, setCopyStatus] = useState("");
+  const [workflowError, setWorkflowError] = useState("");
+  const [paperSaving, setPaperSaving] = useState(false);
   const historyQuery = { ...historyFilters, status: "completed" };
   const filters = tab === "history" ? historyQuery : { status: "active" };
   const { tows, error, loading, load } = useTows(filters, Boolean(user) && !adminPanel);
@@ -410,10 +412,25 @@ export default function App() {
   }
 
   async function logStep(step) {
-    if (step === "towPaperCompletedAt" && !window.confirm("Mark tow paperwork complete and move this tow to history?")) return;
-    const nextTow = await api.logStep(activeTow.id, step);
-    await refreshTow(nextTow);
-    if (step === "towPaperCompletedAt") setTowPage("complete");
+    setWorkflowError("");
+    try {
+      const nextTow = await api.logStep(activeTow.id, step);
+      await refreshTow(nextTow);
+      if (step === "towPaperCompletedAt") setTowPage("complete");
+    } catch (err) {
+      setWorkflowError(err.message);
+    }
+  }
+
+  async function completeTowPaper() {
+    if (paperSaving) return;
+    if (!window.confirm("Mark tow paperwork complete and move this tow to history?")) return;
+    setPaperSaving(true);
+    try {
+      await logStep("towPaperCompletedAt");
+    } finally {
+      setPaperSaving(false);
+    }
   }
 
   async function undoWorkflowStep() {
@@ -588,16 +605,16 @@ export default function App() {
               </button>
             </div>
             <Workflow tow={activeTow} onLog={logStep} onEditTimestamp={editTimestamp} />
+            {workflowError && <div className="notice error">{workflowError}</div>}
             {activeTow.towCompletedAt && !activeTow.towPaperCompletedAt && (
               <div className="paper-gate">
                 <div>
                   <strong>Tow Paper Complete</strong>
                   <span>Required to save and complete this tow.</span>
                 </div>
-                <label className="paper-check">
-                  <input type="checkbox" onChange={(event) => event.target.checked && logStep("towPaperCompletedAt")} />
-                  Complete
-                </label>
+                <button className="btn green" disabled={paperSaving} onClick={completeTowPaper} type="button">
+                  {paperSaving ? "Saving..." : "Complete"}
+                </button>
               </div>
             )}
             <div className="page-actions">

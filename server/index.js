@@ -26,6 +26,7 @@ const host = process.env.HOST || "0.0.0.0";
 const distDir = path.join(rootDir, "dist");
 const indexHtml = path.join(distDir, "index.html");
 const isProduction = process.env.NODE_ENV === "production";
+const trustProxy = Number(process.env.TRUST_PROXY || 0);
 const corsOrigins = (process.env.CORS_ORIGIN || "")
   .split(",")
   .map((origin) => origin.trim())
@@ -49,6 +50,7 @@ const pageRateLimit = rateLimit({
 ensureDefaultAdmin();
 deleteExpiredSessions();
 
+if (trustProxy) app.set("trust proxy", trustProxy);
 app.use(helmet());
 app.use(cors({
   origin(origin, callback) {
