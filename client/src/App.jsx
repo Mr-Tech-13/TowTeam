@@ -43,6 +43,39 @@ function prepareTow(tow) {
   return deriveLocations(tow);
 }
 
+function pad2(value) {
+  return String(value).padStart(2, "0");
+}
+
+function timestampPromptValue(value) {
+  const date = value ? new Date(value) : new Date();
+  if (Number.isNaN(date.getTime())) return "";
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} ${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+}
+
+function parseTimestampInput(value, existingValue) {
+  const trimmed = String(value || "").trim();
+  const compactTime = trimmed.match(/^(\d{1,2}):?(\d{2})$/);
+  if (compactTime) {
+    const hours = Number(compactTime[1]);
+    const minutes = Number(compactTime[2]);
+    if (hours > 23 || minutes > 59) return null;
+    const base = existingValue ? new Date(existingValue) : new Date();
+    if (Number.isNaN(base.getTime())) return null;
+    return new Date(base.getFullYear(), base.getMonth(), base.getDate(), hours, minutes, 0, 0);
+  }
+
+  const localDateTime = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})$/);
+  if (localDateTime) {
+    const [, year, month, day, hours, minutes] = localDateTime.map(Number);
+    if (hours > 23 || minutes > 59 || month < 1 || month > 12 || day < 1 || day > 31) return null;
+    return new Date(year, month - 1, day, hours, minutes, 0, 0);
+  }
+
+  const parsed = new Date(trimmed);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 function useTows(filters, enabled = true) {
   const [tows, setTows] = useState([]);
   const [error, setError] = useState("");
@@ -400,9 +433,14 @@ export default function App() {
   }
 
   async function editTimestamp(field) {
-    const value = window.prompt("Timestamp (ISO or local parseable time)", activeTow[field] || new Date().toISOString());
+    const value = window.prompt("Timestamp (24-hour time or YYYY-MM-DD HH:mm)", timestampPromptValue(activeTow[field]));
     if (!value) return;
-    await refreshTow(await api.updateTow(activeTow.id, { [field]: new Date(value).toISOString() }));
+    const parsed = parseTimestampInput(value, activeTow[field]);
+    if (!parsed) {
+      window.alert("Enter a valid time like 13:45, 1345, or 2026-06-17 13:45.");
+      return;
+    }
+    await refreshTow(await api.updateTow(activeTow.id, { [field]: parsed.toISOString() }));
   }
 
   async function saveActiveTow() {
