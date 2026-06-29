@@ -46,6 +46,13 @@ const pageRateLimit = rateLimit({
   message: "Too many requests. Try again later."
 });
 
+function sendIndexHtml(_req, res) {
+  res.set("Cache-Control", "no-store, must-revalidate");
+  res.set("Pragma", "no-cache");
+  res.set("Expires", "0");
+  res.sendFile(indexHtml);
+}
+
 ensureDefaultAdmin();
 deleteExpiredSessions();
 
@@ -75,7 +82,7 @@ app.use("/api/tows", towRoutes);
 
 if (fs.existsSync(indexHtml)) {
   app.use(express.static(distDir));
-  app.get("*", pageRateLimit, (_req, res) => res.sendFile(indexHtml));
+  app.get("*", pageRateLimit, sendIndexHtml);
 } else {
   app.get("/", pageRateLimit, (_req, res) => {
     res.status(503).send("TowTeam API is running. Build the web UI with `npm run build`, then run `npm run start`, or use `npm run dev` and open http://localhost:5173.");
