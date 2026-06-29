@@ -410,7 +410,6 @@ export default function App() {
   }
 
   async function logStep(step) {
-    if (step === "towPaperCompletedAt" && !window.confirm("Mark tow paperwork complete and move this tow to history?")) return;
     const nextTow = await api.logStep(activeTow.id, step);
     await refreshTow(nextTow);
     if (step === "towPaperCompletedAt") setTowPage("complete");
