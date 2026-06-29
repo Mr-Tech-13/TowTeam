@@ -1,11 +1,18 @@
 const headers = { "Content-Type": "application/json" };
 
 async function request(path, options = {}) {
-  const res = await fetch(`/api${path}`, {
-    headers,
-    credentials: "include",
-    ...options
-  });
+  let res;
+  try {
+    res = await fetch(`/api${path}`, {
+      headers,
+      credentials: "include",
+      ...options
+    });
+  } catch {
+    const error = new Error("Network unavailable. The action was not saved to the server yet.");
+    error.networkError = true;
+    throw error;
+  }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || `Request failed: ${res.status}`);

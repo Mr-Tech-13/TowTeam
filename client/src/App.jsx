@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Bug, Clipboard, Download, History, LayoutDashboard, LogOut, Plus, RefreshCcw, RotateCcw, Save, Trash2, Upload, Users } from "lucide-react";
 import { api, exportExcelUrl, exportUrl } from "./lib/api.js";
 import { completedSummary } from "./lib/summary.js";
+import { applyWorkflowStep, pendingWorkflowStepCount, queueWorkflowStep, syncPendingWorkflowSteps } from "./lib/pendingWorkflowSteps.js";
 import { TowCard } from "./components/TowCard.jsx";
 import { TowForm } from "./components/TowForm.jsx";
 import { Workflow } from "./components/Workflow.jsx";
@@ -337,6 +338,8 @@ export default function App() {
   const [issueStatus, setIssueStatus] = useState("");
   const [importMeta, setImportMeta] = useState(null);
   const [copyStatus, setCopyStatus] = useState("");
+  const [pendingStepCount, setPendingStepCount] = useState(pendingWorkflowStepCount());
+  const [workflowSyncStatus, setWorkflowSyncStatus] = useState("");
   const historyQuery = { ...historyFilters, status: "completed" };
   const filters = tab === "history" ? historyQuery : { status: "active" };
   const { tows, error, loading, load } = useTows(filters, Boolean(user) && !adminPanel);
@@ -355,6 +358,34 @@ export default function App() {
     }
     loadSession();
   }, []);
+
+  useEffect(() => {
+    if (!user) return undefined;
+
+    async function syncSteps() {
+      try {
+        const result = await syncPendingWorkflowSteps(api);
+        setPendingStepCount(result.remaining);
+        if (result.synced > 0) {
+          setWorkflowSyncStatus("Saved pending tow times to the server.");
+          await load();
+          if (activeTow) setActiveTow(await api.getTow(activeTow.id));
+        }
+      } catch {
+        setPendingStepCount(pendingWorkflowStepCount());
+      }
+    }
+
+    void syncSteps();
+    window.addEventListener("online", syncSteps);
+    window.addEventListener("focus", syncSteps);
+    const interval = window.setInterval(syncSteps, 15000);
+    return () => {
+      window.removeEventListener("online", syncSteps);
+      window.removeEventListener("focus", syncSteps);
+      window.clearInterval(interval);
+    };
+  }, [user]);
 
   async function logout() {
     await api.logout();
@@ -410,8 +441,18 @@ export default function App() {
   }
 
   async function logStep(step) {
-    const nextTow = await api.logStep(activeTow.id, step);
-    await refreshTow(nextTow);
+    const timestamp = new Date().toISOString();
+    try {
+      const nextTow = await api.logStep(activeTow.id, step, { timestamp });
+      await refreshTow(nextTow);
+      setWorkflowSyncStatus("");
+    } catch (error) {
+      if (!error.networkError) throw error;
+      queueWorkflowStep(activeTow.id, step, timestamp);
+      setPendingStepCount(pendingWorkflowStepCount());
+      setWorkflowSyncStatus("Time saved on this device. It will sync when the connection returns.");
+      setActiveTow(applyWorkflowStep(activeTow, step, timestamp));
+    }
     if (step === "towPaperCompletedAt") setTowPage("complete");
   }
 
@@ -538,6 +579,12 @@ export default function App() {
 
       {error && <div className="notice error">{error}</div>}
       {loading && <div className="notice">Loading...</div>}
+      {(workflowSyncStatus || pendingStepCount > 0) && (
+        <div className={pendingStepCount > 0 ? "notice warn" : "notice"}>
+          {workflowSyncStatus || "Pending tow times are waiting to sync."}
+          {pendingStepCount > 0 ? ` Pending: ${pendingStepCount}` : ""}
+        </div>
+      )}
 
       {adminPanel ? (
         <AdminUsersPage currentUser={user} onBack={() => setAdminPanel(false)} />
