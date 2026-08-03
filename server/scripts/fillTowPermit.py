@@ -12,10 +12,14 @@ TEXT_FIELD_FONT_SIZE = 10
 
 
 def set_text_field_font_size(writer):
-    fields = writer.get_fields() or {}
-    for field in fields.values():
-        if field.get("/FT") == "/Tx":
-            field[NameObject("/DA")] = TextStringObject(f"/Helv {TEXT_FIELD_FONT_SIZE} Tf 0 g")
+    acroform = writer.root_object.get("/AcroForm")
+    if acroform:
+        acroform_object = acroform.get_object()
+        acroform_object[NameObject("/DA")] = TextStringObject(f"/Helv {TEXT_FIELD_FONT_SIZE} Tf 0 g")
+        for field_ref in acroform_object.get("/Fields", []):
+            field = field_ref.get_object()
+            if field.get("/FT") == "/Tx":
+                field[NameObject("/DA")] = TextStringObject(f"/Helv {TEXT_FIELD_FONT_SIZE} Tf 0 g")
 
     for page in writer.pages:
         for annot_ref in page.get("/Annots", []):
