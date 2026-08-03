@@ -28,6 +28,20 @@ const fields = [
   "towPaperCompletedAt"
 ];
 
+function ensureTowSchemaColumns() {
+  const columns = db.prepare("PRAGMA table_info(tows)").all().map((column) => column.name);
+  const missingColumns = [
+    ["aircraftType", "TEXT"],
+    ["towPaperCompletedAt", "TEXT"]
+  ].filter(([name]) => !columns.includes(name));
+
+  for (const [name, type] of missingColumns) {
+    db.exec(`ALTER TABLE tows ADD COLUMN ${name} ${type}`);
+  }
+}
+
+ensureTowSchemaColumns();
+
 const createTowStatement = db.prepare(
   `INSERT INTO tows (
     airline, inboundFlightNumber, inboundStation, aircraftType, eta, gate, fromLocation, toLocation, towSpot, tailNumber,
