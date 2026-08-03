@@ -52,3 +52,11 @@ export function exportUrl(filters = {}) {
 export function exportExcelUrl(filters = {}) {
   return `/api/tows/export.xls?${new URLSearchParams(filters)}`;
 }
+
+export function towChecklistUrl(id) {
+  return `/api/tows/${id}/tow-checklist.pdf`;
+}
+
+export function towChecklistPreviewUrl(id) {
+  return `/api/tows/${id}/tow-checklist.pdf?preview=true`;
+}

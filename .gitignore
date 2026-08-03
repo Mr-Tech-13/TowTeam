@@ -10,7 +10,11 @@ data/*.sqlite-wal
 data/*.db
 data/*.db-shm
 data/*.db-wal
+data/*.pdf
+data/templates/*.pdf
 data/initial-admin-password.txt
+TowPermit.pdf
+*TowPermit*.pdf
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal

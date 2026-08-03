@@ -1,19 +1,22 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import "../db/migrate.js";
-import { createTow, deleteTow, logStep, undoLastStep, updateTow } from "../services/tows.js";
+
+const { createTow, deleteTow, logStep, undoLastStep, updateTow } = await import("../services/tows.js");
 
 test("tow is not completed until paper is complete", () => {
   const tow = createTow({
     airline: "MX",
     inboundFlightNumber: `T${Date.now()}`,
     inboundStation: "TST",
+    aircraftType: "A220",
     eta: "12:00",
     gate: "Gate 1",
     towSpot: "NL614"
   });
 
   try {
+    assert.equal(tow.aircraftType, "A220");
     const moved = logStep(tow.id, "towCompletedAt");
     assert.equal(moved.status, "tow_completed");
     assert.ok(moved.towCompletedAt);
