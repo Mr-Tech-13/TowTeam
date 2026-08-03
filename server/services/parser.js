@@ -216,8 +216,8 @@ function parseBlock(block) {
   const resolvedGate = direction.gate || gate;
   const towSpot = direction.towSpot || "";
 
-  if (!resolvedGate) warnings.push("Gate missing.");
-  if (!towSpot) warnings.push("Tow spot missing.");
+  if (!resolvedGate) warnings.push("Tow from missing.");
+  if (!towSpot) warnings.push("Tow to missing.");
   if (spotNeedsReview(towSpot)) warnings.push("Exact tow spot number missing.");
   if (flights.length > 1) warnings.push("Multiple flights shared one block; review before starting.");
 
@@ -269,7 +269,7 @@ function parseStructuredAirlinePlan(text) {
       notes: "",
       status: "planned",
       needsReview: !hasKnownTowSpot({ towSpot }),
-      parserWarnings: hasKnownTowSpot({ towSpot }) ? [] : ["Tow spot missing or unknown."]
+      parserWarnings: hasKnownTowSpot({ towSpot }) ? [] : ["Tow to missing or unknown."]
     }
   ];
 
@@ -293,7 +293,7 @@ function parseStructuredAirlinePlan(text) {
       notes: "",
       status: "planned",
       needsReview: !hasKnownTowSpot({ towSpot }),
-      parserWarnings: hasKnownTowSpot({ towSpot }) ? [] : ["Tow spot missing or unknown."]
+      parserWarnings: hasKnownTowSpot({ towSpot }) ? [] : ["Tow to missing or unknown."]
     });
   }
 

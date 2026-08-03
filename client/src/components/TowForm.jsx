@@ -1,14 +1,14 @@
 const fields = [
   ["airline", "Airline"],
   ["inboundFlightNumber", "Inbound flight number"],
-  ["inboundStation", "From station"],
+  ["aircraftType", "Aircraft type"],
   ["eta", "ETA"],
-  ["gate", "Gate"],
-  ["towSpot", "Tow spot"],
-  ["tailNumber", "Tail number"],
-  ["driver", "Driver"],
-  ["leftWingWalker", "Left wing walker"],
-  ["rightWingWalker", "Right wing walker"],
+  ["gate", "Tow from"],
+  ["towSpot", "Tow to"],
+  ["tailNumber", "Aircraft Reg"],
+  ["driver", "Tractor Driver"],
+  ["leftWingWalker", "Wing Walker LH"],
+  ["rightWingWalker", "Wing Walker RH"],
   ["otherTeamMembers", "Other team members"]
 ];
 

@@ -33,12 +33,12 @@ export function fmtDateTime(value) {
 export function completedSummary(tow) {
   const otherTeam = cleanOptionalNameList(tow.otherTeamMembers);
   return [
-    tow.tailNumber || "Tail unknown",
+    tow.tailNumber || "Aircraft Reg unknown",
     `From ${tow.gate || "Unknown"} to ${tow.towSpot || "Unknown"}`,
     `${fmtTime(tow.pushStartedAt || tow.towStartedAt)}-${fmtTime(tow.towCompletedAt)}`,
-    `Tow Conductor ${tow.driver || ""}`.trim(),
-    `LWW ${tow.leftWingWalker || ""}`.trim(),
-    `RWW ${tow.rightWingWalker || ""}`.trim(),
+    `Tractor Driver ${tow.driver || ""}`.trim(),
+    `Wing Walker LH ${tow.leftWingWalker || ""}`.trim(),
+    `Wing Walker RH ${tow.rightWingWalker || ""}`.trim(),
     otherTeam ? `Other Team: ${otherTeam}` : "",
     fmtDate(tow.towCompletedAt || tow.updatedAt)
   ]

@@ -7,12 +7,13 @@ TowTeam is a self-hostable aircraft tow planning, workflow tracking, completion 
 - Dashboard for active tows
 - Manual tow creation
 - Bulk copy/paste import with review before saving
-- Parser support for messy flight/gate/tail/tow spot text
+- Parser support for messy flight/gate/aircraft reg/tow spot text
 - Shorthand parsing for `34 > NL`, `Gate 34 > NL`, `G34 < NL614`, and related formats
 - Workflow logging with timestamps
 - Required GOAA steps for West Ramp / WR tows
 - Completed tow plain-text summaries
-- Searchable history by date, tail number, flight number, gate, and tow spot
+- Downloadable Aircraft Towing Checklist PDFs generated from tow details
+- Searchable history by date, aircraft reg, flight number, tow from, and tow to
 - Historical edit/delete with confirmation
 - CSV export
 - Excel-compatible history export with date range and tow filters
@@ -52,6 +53,8 @@ docker compose up -d
 
 Before hosting with Docker, edit `.env` and replace `ADMIN_PASSWORD=change-me-now`. The first startup creates the initial admin account if no users exist. If the password is left blank or as a placeholder, TowTeam generates a random password and saves it to `data/initial-admin-password.txt` instead of printing it in server logs. The app is exposed at `http://localhost:8080`. SQLite data is stored in `./data`.
 
+To enable checklist PDF downloads, place the blank checklist at `data/TowPermit.pdf` or set `TOW_PERMIT_TEMPLATE_PATH` in `.env`. The template PDF is intentionally ignored by git. PDF generation uses Python with `pypdf` and `reportlab`; Docker installs those packages automatically, and CI installs the pinned versions from `requirements.txt`. Set `PDF_PYTHON_BIN` only when Python is not available as `python3`.
+
 The default Compose setup does not build a custom image. It runs the official Node image, mounts this project into the container, stores container dependencies in a named volume, builds the web UI on startup, and starts the server. After pulling code changes, use:
 
 ```bash
@@ -90,6 +93,8 @@ ISSUE_RATE_LIMIT_WINDOW_MS=60000
 ISSUE_RATE_LIMIT_MAX=10
 PAGE_RATE_LIMIT_WINDOW_MS=60000
 PAGE_RATE_LIMIT_MAX=600
+TOW_PERMIT_TEMPLATE_PATH=./data/TowPermit.pdf
+PDF_PYTHON_BIN=python3
 ```
 
 On first startup, TowTeam creates an admin user from `ADMIN_USERNAME` and `ADMIN_PASSWORD` when the users table is empty. If `ADMIN_PASSWORD` is unset or still a placeholder, a random password is saved to `data/initial-admin-password.txt`. Log in as that user, then change the password from the admin user-management screen and remove the password file. Same-origin browser use does not require `CORS_ORIGIN`; set it only when a separate frontend origin must call the API.
@@ -137,6 +142,8 @@ To add or remove tow spots in code, edit `shared/towSpots.js`. Use `numberRequir
 - `GET /api/tows?status=active`
 - `GET /api/tows/export.csv`
 - `GET /api/tows/export.xls`
+- `GET /api/tows/:id/tow-checklist.pdf`
+- `GET /api/tows/:id/tow-checklist.pdf?preview=true`
 - `POST /api/tows/parse`
 - `POST /api/tows`
 - `POST /api/tows/bulk`

@@ -1,6 +1,7 @@
 import express from "express";
 import { writeAudit } from "../services/audit.js";
 import { hasKnownTowSpot, parseTowPlan } from "../services/parser.js";
+import { generateTowPermitPdf, towPermitFilename } from "../services/towPermit.js";
 import { createTow, deleteTow, getTow, listTows, logStep, undoLastStep, updateTow } from "../services/tows.js";
 
 export const router = express.Router();
@@ -9,16 +10,16 @@ const exportColumns = [
   ["id", "ID"],
   ["airline", "Airline"],
   ["inboundFlightNumber", "Flight"],
-  ["inboundStation", "From Station"],
+  ["aircraftType", "Aircraft Type"],
   ["eta", "ETA"],
-  ["gate", "Gate"],
+  ["gate", "Tow From"],
   ["fromLocation", "From Location"],
   ["toLocation", "To Location"],
-  ["towSpot", "Tow Spot"],
-  ["tailNumber", "Tail Number"],
-  ["driver", "Tow Conductor"],
-  ["leftWingWalker", "LWW"],
-  ["rightWingWalker", "RWW"],
+  ["towSpot", "Tow To"],
+  ["tailNumber", "Aircraft Reg"],
+  ["driver", "Tractor Driver"],
+  ["leftWingWalker", "Wing Walker LH"],
+  ["rightWingWalker", "Wing Walker RH"],
   ["otherTeamMembers", "Other Team"],
   ["status", "Status"],
   ["needsReview", "Needs Review"],
@@ -47,6 +48,12 @@ function escapeHtml(value) {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll("\"", "&quot;");
+}
+
+function diagnosticMessage(error) {
+  return String(error?.message || "")
+    .replaceAll(process.cwd(), "<app>")
+    .slice(0, 500);
 }
 
 router.get("/", (req, res) => {
@@ -121,6 +128,41 @@ router.get("/:id", (req, res) => {
   const tow = getTow(req.params.id);
   if (!tow) res.status(404).json({ error: "Tow not found." });
   else res.json(tow);
+});
+
+router.get("/:id/tow-checklist.pdf", async (req, res) => {
+  const tow = getTow(req.params.id);
+  if (!tow) {
+    res.status(404).json({ error: "Tow not found." });
+    return;
+  }
+
+  try {
+    const pdf = await generateTowPermitPdf(tow);
+    const filename = towPermitFilename(tow);
+    res.header("Content-Type", "application/pdf");
+    if (req.query.preview === "true") {
+      res.header("Content-Disposition", `inline; filename="${filename}"`);
+    } else {
+      res.attachment(filename);
+    }
+    res.send(Buffer.from(pdf));
+  } catch (error) {
+    console.error("Tow checklist PDF generation failed:", error.message);
+    if (error.code === "ENOENT") {
+      res.status(404).json({ error: "Tow checklist template not found. Add TowPermit.pdf to data/ or set TOW_PERMIT_TEMPLATE_PATH." });
+      return;
+    }
+    if (error.code === "PYTHON_UNAVAILABLE") {
+      res.status(500).json({ error: "Python is not available in the app container. Install python3 or rebuild/recreate the Docker service." });
+      return;
+    }
+    if (error.code === "PYTHON_MODULE_MISSING") {
+      res.status(500).json({ error: "PDF Python dependencies are missing. Install pypdf and reportlab in the app container or recreate the Docker service." });
+      return;
+    }
+    res.status(500).json({ error: "Unable to generate tow checklist PDF.", details: diagnosticMessage(error) });
+  }
 });
 
 router.put("/:id", (req, res) => {

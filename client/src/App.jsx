@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Bug, Clipboard, Download, History, LayoutDashboard, LogOut, Plus, RefreshCcw, RotateCcw, Save, Trash2, Upload, Users } from "lucide-react";
-import { api, exportExcelUrl, exportUrl } from "./lib/api.js";
+import { ArrowLeft, Bug, Clipboard, Download, Eye, History, LayoutDashboard, LogOut, Plus, RefreshCcw, RotateCcw, Save, Trash2, Upload, Users } from "lucide-react";
+import { api, exportExcelUrl, exportUrl, towChecklistPreviewUrl, towChecklistUrl } from "./lib/api.js";
 import { completedSummary } from "./lib/summary.js";
 import { applyWorkflowStep, pendingWorkflowStepCount, queueWorkflowStep, syncPendingWorkflowSteps } from "./lib/pendingWorkflowSteps.js";
 import { TowCard } from "./components/TowCard.jsx";
@@ -13,6 +13,7 @@ const emptyTow = {
   airline: "",
   inboundFlightNumber: "",
   inboundStation: "",
+  aircraftType: "",
   eta: "",
   gate: "",
   fromLocation: "",
@@ -608,7 +609,7 @@ export default function App() {
                 <h2>Confirm Tow Details</h2>
                 <p className="muted">
                   {activeTow.airline}
-                  {activeTow.inboundFlightNumber} from {activeTow.inboundStation || "unknown"}
+                  {activeTow.inboundFlightNumber}
                 </p>
               </div>
               <button className="btn ghost" onClick={() => void returnToMenu()}>
@@ -621,6 +622,12 @@ export default function App() {
               <button className="btn green" onClick={saveDetailsAndContinue}>
                 <Save size={18} /> Save and Continue
               </button>
+              <a className="btn blue" href={towChecklistUrl(activeTow.id)}>
+                <Download size={18} /> Checklist PDF
+              </a>
+              <a className="btn ghost" href={towChecklistPreviewUrl(activeTow.id)} rel="noreferrer" target="_blank">
+                <Eye size={18} /> Preview PDF
+              </a>
               <button className="btn red" onClick={deleteActiveTow}>
                 <Trash2 size={18} /> Delete
               </button>
@@ -653,6 +660,12 @@ export default function App() {
                   <button className="btn green" onClick={copySummary}>
                     <Clipboard size={18} /> Copy Summary
                   </button>
+                  <a className="btn blue" href={towChecklistUrl(activeTow.id)}>
+                    <Download size={18} /> Checklist PDF
+                  </a>
+                  <a className="btn ghost" href={towChecklistPreviewUrl(activeTow.id)} rel="noreferrer" target="_blank">
+                    <Eye size={18} /> Preview PDF
+                  </a>
                   {copyStatus && <p className="muted">{copyStatus}</p>}
                 </div>
                 <div className="paper-gate">
@@ -674,6 +687,12 @@ export default function App() {
               <button className="btn blue" onClick={() => setTowPage("confirm")}>
                 Edit Details
               </button>
+              <a className="btn green" href={towChecklistUrl(activeTow.id)}>
+                <Download size={18} /> Checklist PDF
+              </a>
+              <a className="btn ghost" href={towChecklistPreviewUrl(activeTow.id)} rel="noreferrer" target="_blank">
+                <Eye size={18} /> Preview PDF
+              </a>
             </div>
           </section>
         )}
@@ -697,6 +716,12 @@ export default function App() {
               <button className="btn green" onClick={copySummary}>
                 <Clipboard size={18} /> Copy Summary
               </button>
+              <a className="btn green" href={towChecklistUrl(activeTow.id)}>
+                <Download size={18} /> Checklist PDF
+              </a>
+              <a className="btn ghost" href={towChecklistPreviewUrl(activeTow.id)} rel="noreferrer" target="_blank">
+                <Eye size={18} /> Preview PDF
+              </a>
               <button className="btn blue" onClick={() => setTowPage("confirm")}>
                 Edit Historical Details
               </button>
@@ -788,10 +813,10 @@ export default function App() {
               {[
                 ["dateFrom", "From date"],
                 ["dateTo", "To date"],
-                ["tailNumber", "Tail number"],
+                ["tailNumber", "Aircraft Reg"],
                 ["inboundFlightNumber", "Flight number"],
-                ["gate", "Gate"],
-                ["towSpot", "Tow spot"]
+                ["gate", "Tow from"],
+                ["towSpot", "Tow to"]
               ].map(([field, label]) => (
                 <input
                   key={field}

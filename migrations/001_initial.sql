@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS tows (
   airline TEXT NOT NULL DEFAULT 'MX',
   inboundFlightNumber TEXT NOT NULL,
   inboundStation TEXT,
+  aircraftType TEXT,
   eta TEXT,
   gate TEXT,
   fromLocation TEXT,

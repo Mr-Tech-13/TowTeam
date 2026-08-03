@@ -17,7 +17,7 @@ services:
       - .:/app
       - towteam_node_modules:/app/node_modules
       - ./data:/app/data
-    command: sh -c "npm install && npm run build && npm run start"
+    command: sh -c "apt-get update && apt-get install -y --no-install-recommends python3-pypdf python3-reportlab && npm install && npm run build && npm run start"
 
 volumes:
   towteam_node_modules:

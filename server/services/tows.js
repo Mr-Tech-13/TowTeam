@@ -4,6 +4,7 @@ const fields = [
   "airline",
   "inboundFlightNumber",
   "inboundStation",
+  "aircraftType",
   "eta",
   "gate",
   "fromLocation",
@@ -29,11 +30,11 @@ const fields = [
 
 const createTowStatement = db.prepare(
   `INSERT INTO tows (
-    airline, inboundFlightNumber, inboundStation, eta, gate, fromLocation, toLocation, towSpot, tailNumber,
+    airline, inboundFlightNumber, inboundStation, aircraftType, eta, gate, fromLocation, toLocation, towSpot, tailNumber,
     driver, leftWingWalker, rightWingWalker, otherTeamMembers, notes, status, needsReview, parserWarnings,
     setupStartedAt, goaaCalledAt, goaaArrivalAt, pushStartedAt, towStartedAt, towCompletedAt, towPaperCompletedAt
   ) VALUES (
-    @airline, @inboundFlightNumber, @inboundStation, @eta, @gate, @fromLocation, @toLocation, @towSpot, @tailNumber,
+    @airline, @inboundFlightNumber, @inboundStation, @aircraftType, @eta, @gate, @fromLocation, @toLocation, @towSpot, @tailNumber,
     @driver, @leftWingWalker, @rightWingWalker, @otherTeamMembers, @notes, @status, @needsReview, @parserWarnings,
     @setupStartedAt, @goaaCalledAt, @goaaArrivalAt, @pushStartedAt, @towStartedAt, @towCompletedAt, @towPaperCompletedAt
   )`
@@ -44,6 +45,7 @@ const updateTowStatement = db.prepare(
     airline = @airline,
     inboundFlightNumber = @inboundFlightNumber,
     inboundStation = @inboundStation,
+    aircraftType = @aircraftType,
     eta = @eta,
     gate = @gate,
     fromLocation = @fromLocation,
@@ -105,7 +107,7 @@ const baseWorkflowOrder = [
   ["towCompletedAt", "tow_started"],
   ["towPaperCompletedAt", "tow_completed"]
 ];
-const automaticMissingDetailWarnings = ["Gate missing.", "Tow spot missing."];
+const automaticMissingDetailWarnings = ["Tow from missing.", "Tow to missing."];
 
 export function sanitizeTow(input) {
   const normalizedInput = deriveLocations(input);
