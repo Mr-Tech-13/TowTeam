@@ -339,6 +339,8 @@ export default function App() {
   const [issueStatus, setIssueStatus] = useState("");
   const [importMeta, setImportMeta] = useState(null);
   const [copyStatus, setCopyStatus] = useState("");
+  const [bulkAircraftType, setBulkAircraftType] = useState("");
+  const [bulkAircraftTypeStatus, setBulkAircraftTypeStatus] = useState("");
   const [pendingStepCount, setPendingStepCount] = useState(pendingWorkflowStepCount());
   const [workflowSyncStatus, setWorkflowSyncStatus] = useState("");
   const historyQuery = { ...historyFilters, status: "completed" };
@@ -434,6 +436,28 @@ export default function App() {
     setImportMeta(null);
     openTab("dashboard");
     await load();
+  }
+
+  async function bulkSetAircraftType(event) {
+    event.preventDefault();
+    const aircraftType = bulkAircraftType.trim().toUpperCase();
+    if (!aircraftType) {
+      setBulkAircraftTypeStatus("Enter an aircraft type first.");
+      return;
+    }
+    if (tows.length === 0) {
+      setBulkAircraftTypeStatus("No filtered tows to update.");
+      return;
+    }
+    if (!window.confirm(`Set aircraft type to ${aircraftType} for ${tows.length} filtered completed tow${tows.length === 1 ? "" : "s"}?`)) return;
+    try {
+      const result = await api.bulkUpdateAircraftType(historyQuery, aircraftType);
+      setBulkAircraftType("");
+      setBulkAircraftTypeStatus(`Updated ${result.count} tow${result.count === 1 ? "" : "s"} to ${result.aircraftType}.`);
+      await load();
+    } catch (err) {
+      setBulkAircraftTypeStatus(err.message);
+    }
   }
 
   async function refreshTow(nextTow) {
@@ -813,6 +837,7 @@ export default function App() {
               {[
                 ["dateFrom", "From date"],
                 ["dateTo", "To date"],
+                ["airline", "Airline"],
                 ["tailNumber", "Aircraft Reg"],
                 ["inboundFlightNumber", "Flight number"],
                 ["gate", "Tow from"],
@@ -826,6 +851,22 @@ export default function App() {
                 />
               ))}
             </div>
+            <form className="bulk-update-panel" onSubmit={bulkSetAircraftType}>
+              <div>
+                <strong>Bulk Aircraft Type</strong>
+                <span>Applies to the {tows.length} completed tow{tows.length === 1 ? "" : "s"} currently shown.</span>
+              </div>
+              <input
+                placeholder="Aircraft type, e.g. A220"
+                value={bulkAircraftType}
+                onChange={(event) => {
+                  setBulkAircraftType(event.target.value);
+                  setBulkAircraftTypeStatus("");
+                }}
+              />
+              <button className="btn blue" type="submit">Apply</button>
+              {bulkAircraftTypeStatus && <span className="muted">{bulkAircraftTypeStatus}</span>}
+            </form>
             <div className="tow-grid">
               {tows.map((tow) => <TowCard key={tow.id} tow={tow} onOpen={openTow} />)}
             </div>

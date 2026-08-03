@@ -178,6 +178,8 @@ export function listTows(filters = {}) {
     activeStatus: filters.status === "active" ? 1 : 0,
     hasStatus: filters.status && filters.status !== "active" ? 1 : 0,
     status: filters.status || "",
+    airline: filters.airline ? `%${filters.airline}%` : "",
+    hasAirline: filters.airline ? 1 : 0,
     tailNumber: filters.tailNumber ? `%${filters.tailNumber}%` : "",
     hasTailNumber: filters.tailNumber ? 1 : 0,
     inboundFlightNumber: filters.inboundFlightNumber ? `%${filters.inboundFlightNumber}%` : "",
@@ -199,6 +201,7 @@ export function listTows(filters = {}) {
       `SELECT * FROM tows
        WHERE (@activeStatus = 0 OR status != 'completed')
          AND (@hasStatus = 0 OR status = @status)
+         AND (@hasAirline = 0 OR airline LIKE @airline)
          AND (@hasTailNumber = 0 OR tailNumber LIKE @tailNumber)
          AND (@hasInboundFlightNumber = 0 OR inboundFlightNumber LIKE @inboundFlightNumber)
          AND (@hasGate = 0 OR gate LIKE @gate)
@@ -230,6 +233,23 @@ export function updateTow(id, input) {
   tow.id = id;
   updateTowStatement.run(tow);
   return getTow(id);
+}
+
+export function updateAircraftTypeForTows(filters = {}, aircraftType = "") {
+  const cleanedAircraftType = String(aircraftType || "").trim().toUpperCase();
+  if (!cleanedAircraftType) throw new Error("Aircraft type is required.");
+  const rows = listTows(filters);
+  const ids = rows.map((tow) => tow.id);
+  if (ids.length === 0) return { count: 0 };
+
+  const update = db.prepare("UPDATE tows SET aircraftType = @aircraftType, updatedAt = @updatedAt WHERE id = @id");
+  const run = db.transaction(() => {
+    for (const id of ids) {
+      update.run({ id, aircraftType: cleanedAircraftType, updatedAt: nowIso() });
+    }
+  });
+  run();
+  return { count: ids.length, aircraftType: cleanedAircraftType };
 }
 
 function syncEditedLocations(existing, input) {

@@ -38,6 +38,7 @@ export const api = {
   getTow: (id) => request(`/tows/${id}`),
   createTow: (tow) => request("/tows", { method: "POST", body: JSON.stringify(tow) }),
   createBulk: (tows) => request("/tows/bulk", { method: "POST", body: JSON.stringify({ tows }) }),
+  bulkUpdateAircraftType: (filters, aircraftType) => request("/tows/bulk/aircraft-type", { method: "PATCH", body: JSON.stringify({ filters, aircraftType }) }),
   updateTow: (id, tow) => request(`/tows/${id}`, { method: "PUT", body: JSON.stringify(tow) }),
   deleteTow: (id) => request(`/tows/${id}`, { method: "DELETE" }),
   parsePlan: (text) => request("/tows/parse", { method: "POST", body: JSON.stringify({ text }) }),

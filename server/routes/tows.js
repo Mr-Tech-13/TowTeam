@@ -2,7 +2,7 @@ import express from "express";
 import { writeAudit } from "../services/audit.js";
 import { hasKnownTowSpot, parseTowPlan } from "../services/parser.js";
 import { generateTowPermitPdf, towPermitFilename } from "../services/towPermit.js";
-import { createTow, deleteTow, getTow, listTows, logStep, undoLastStep, updateTow } from "../services/tows.js";
+import { createTow, deleteTow, getTow, listTows, logStep, undoLastStep, updateAircraftTypeForTows, updateTow } from "../services/tows.js";
 
 export const router = express.Router();
 
@@ -122,6 +122,16 @@ router.post("/bulk", (req, res) => {
   const tows = items.map(createTow);
   writeAudit(req.user, "tow.bulk_create", { entityType: "tow", details: { count: tows.length } });
   res.status(201).json(tows);
+});
+
+router.patch("/bulk/aircraft-type", (req, res) => {
+  try {
+    const result = updateAircraftTypeForTows(req.body.filters || {}, req.body.aircraftType);
+    writeAudit(req.user, "tow.bulk_aircraft_type", { entityType: "tow", details: result });
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
 });
 
 router.get("/:id", (req, res) => {

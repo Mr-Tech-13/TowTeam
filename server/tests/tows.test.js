@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import "../db/migrate.js";
 
-const { createTow, deleteTow, logStep, undoLastStep, updateTow } = await import("../services/tows.js");
+const { createTow, deleteTow, listTows, logStep, undoLastStep, updateAircraftTypeForTows, updateTow } = await import("../services/tows.js");
 
 test("tow is not completed until paper is complete", () => {
   const tow = createTow({
@@ -109,5 +109,64 @@ test("editing gate or tow spot updates derived summary locations", () => {
   } finally {
     deleteTow(outbound.id);
     deleteTow(inbound.id);
+  }
+});
+
+test("bulk aircraft type update applies to filtered tows", () => {
+  const suffix = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
+  const first = createTow({
+    airline: "MX",
+    inboundFlightNumber: `B${suffix}`,
+    gate: "Gate 1",
+    towSpot: "NL614",
+    towPaperCompletedAt: "2026-06-01T12:00:00.000Z",
+    status: "completed"
+  });
+  const second = createTow({
+    airline: "MX",
+    inboundFlightNumber: `B${suffix}`,
+    gate: "Gate 2",
+    towSpot: "BB113",
+    towPaperCompletedAt: "2026-06-01T12:00:00.000Z",
+    status: "completed"
+  });
+
+  try {
+    const result = updateAircraftTypeForTows({ status: "completed", inboundFlightNumber: `B${suffix}` }, "a320");
+    assert.equal(result.count, 2);
+    assert.equal(updateTow(first.id, {}).aircraftType, "A320");
+    assert.equal(updateTow(second.id, {}).aircraftType, "A320");
+  } finally {
+    deleteTow(first.id);
+    deleteTow(second.id);
+  }
+});
+
+test("history can filter completed tows by airline", () => {
+  const suffix = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
+  const mxTow = createTow({
+    airline: "MX",
+    inboundFlightNumber: `M${suffix}`,
+    gate: "Gate 1",
+    towSpot: "NL614",
+    towPaperCompletedAt: "2026-06-01T12:00:00.000Z",
+    status: "completed"
+  });
+  const ekTow = createTow({
+    airline: "EK",
+    inboundFlightNumber: `E${suffix}`,
+    gate: "Gate 2",
+    towSpot: "BB113",
+    towPaperCompletedAt: "2026-06-01T12:00:00.000Z",
+    status: "completed"
+  });
+
+  try {
+    const rows = listTows({ status: "completed", airline: "EK" });
+    assert.ok(rows.some((tow) => tow.id === ekTow.id));
+    assert.equal(rows.some((tow) => tow.id === mxTow.id), false);
+  } finally {
+    deleteTow(mxTow.id);
+    deleteTow(ekTow.id);
   }
 });
