@@ -635,16 +635,26 @@ export default function App() {
             </div>
             <Workflow tow={activeTow} onLog={logStep} onEditTimestamp={editTimestamp} />
             {activeTow.towCompletedAt && !activeTow.towPaperCompletedAt && (
-              <div className="paper-gate">
-                <div>
-                  <strong>Tow Paper Complete</strong>
-                  <span>Required to save and complete this tow.</span>
+              <>
+                <div className="summary-panel">
+                  <h3>Tow Summary</h3>
+                  <pre>{completedSummary(activeTow)}</pre>
+                  <button className="btn green" onClick={copySummary}>
+                    <Clipboard size={18} /> Copy Summary
+                  </button>
+                  {copyStatus && <p className="muted">{copyStatus}</p>}
                 </div>
-                <label className="paper-check">
-                  <input type="checkbox" onChange={(event) => event.target.checked && logStep("towPaperCompletedAt")} />
-                  Complete
-                </label>
-              </div>
+                <div className="paper-gate">
+                  <div>
+                    <strong>Tow Paper Complete</strong>
+                    <span>Required to save and complete this tow.</span>
+                  </div>
+                  <label className="paper-check">
+                    <input type="checkbox" onChange={(event) => event.target.checked && logStep("towPaperCompletedAt")} />
+                    Complete
+                  </label>
+                </div>
+              </>
             )}
             <div className="page-actions">
               <button className="btn ghost" onClick={undoWorkflowStep}>
