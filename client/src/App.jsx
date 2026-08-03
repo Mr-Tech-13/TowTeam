@@ -462,6 +462,17 @@ export default function App() {
     setTowPage("workflow");
   }
 
+  async function moveCompletedTowBackToActive() {
+    if (activeTow.status !== "completed") return;
+    if (!window.confirm("Move this completed tow back to Active Tows?")) return;
+    if (!window.confirm("This will remove the paperwork-complete timestamp and make the tow active again. Continue?")) return;
+    await api.undoLastStep(activeTow.id);
+    setActiveTow(null);
+    setTowPage("confirm");
+    setTab("dashboard");
+    await load();
+  }
+
   async function copySummary() {
     const text = completedSummary(activeTow);
     try {
@@ -689,6 +700,11 @@ export default function App() {
               <button className="btn blue" onClick={() => setTowPage("confirm")}>
                 Edit Historical Details
               </button>
+              {activeTow.status === "completed" && (
+                <button className="btn red" onClick={moveCompletedTowBackToActive}>
+                  <RotateCcw size={18} /> Move Back to Active
+                </button>
+              )}
             </div>
             {copyStatus && <p className="muted">{copyStatus}</p>}
           </section>
