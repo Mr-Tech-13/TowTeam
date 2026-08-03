@@ -53,7 +53,7 @@ docker compose up -d
 
 Before hosting with Docker, edit `.env` and replace `ADMIN_PASSWORD=change-me-now`. The first startup creates the initial admin account if no users exist. If the password is left blank or as a placeholder, TowTeam generates a random password and saves it to `data/initial-admin-password.txt` instead of printing it in server logs. The app is exposed at `http://localhost:8080`. SQLite data is stored in `./data`.
 
-To enable checklist PDF downloads, place the blank checklist at `data/TowPermit.pdf` or set `TOW_PERMIT_TEMPLATE_PATH` in `.env`. The template PDF is intentionally ignored by git. PDF generation uses Python with `pypdf` and `reportlab`; Docker and CI install those packages automatically. Set `PDF_PYTHON_BIN` only when Python is not available as `python3`.
+To enable checklist PDF downloads, place the blank checklist at `data/TowPermit.pdf` or set `TOW_PERMIT_TEMPLATE_PATH` in `.env`. The template PDF is intentionally ignored by git. PDF generation uses Python with `pypdf` and `reportlab`; Docker installs those packages automatically, and CI installs the pinned versions from `requirements.txt`. Set `PDF_PYTHON_BIN` only when Python is not available as `python3`.
 
 The default Compose setup does not build a custom image. It runs the official Node image, mounts this project into the container, stores container dependencies in a named volume, builds the web UI on startup, and starts the server. After pulling code changes, use:
 
