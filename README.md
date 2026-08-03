@@ -7,12 +7,12 @@ TowTeam is a self-hostable aircraft tow planning, workflow tracking, completion 
 - Dashboard for active tows
 - Manual tow creation
 - Bulk copy/paste import with review before saving
-- Parser support for messy flight/gate/tail/tow spot text
+- Parser support for messy flight/gate/aircraft reg/tow spot text
 - Shorthand parsing for `34 > NL`, `Gate 34 > NL`, `G34 < NL614`, and related formats
 - Workflow logging with timestamps
 - Required GOAA steps for West Ramp / WR tows
 - Completed tow plain-text summaries
-- Searchable history by date, tail number, flight number, gate, and tow spot
+- Searchable history by date, aircraft reg, flight number, tow from, and tow to
 - Historical edit/delete with confirmation
 - CSV export
 - Excel-compatible history export with date range and tow filters

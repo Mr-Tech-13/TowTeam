@@ -788,10 +788,10 @@ export default function App() {
               {[
                 ["dateFrom", "From date"],
                 ["dateTo", "To date"],
-                ["tailNumber", "Tail number"],
+                ["tailNumber", "Aircraft Reg"],
                 ["inboundFlightNumber", "Flight number"],
-                ["gate", "Gate"],
-                ["towSpot", "Tow spot"]
+                ["gate", "Tow from"],
+                ["towSpot", "Tow to"]
               ].map(([field, label]) => (
                 <input
                   key={field}

@@ -52,7 +52,7 @@ test("parses messy copied tow plan into candidates", () => {
   const multi = tows.filter((tow) => tow.gate === "Gate 30" && ["524", "525"].includes(tow.inboundFlightNumber));
   assert.equal(multi.length, 2);
   assert.equal(multi[0].needsReview, true);
-  assert.match(multi[0].parserWarnings.join(" "), /Multiple flights|Tow spot missing/);
+  assert.match(multi[0].parserWarnings.join(" "), /Multiple flights|Tow to missing/);
 });
 
 test("import mode only returns flights with exact tow spots", () => {
@@ -105,7 +105,7 @@ test("parses tuck to tow spot directions", () => {
   assert.equal(tow.toLocation, "32A");
   assert.equal(tow.towSpot, "32A");
   assert.equal(tow.needsReview, true);
-  assert.match(tow.parserWarnings.join(" "), /Gate missing/);
+  assert.match(tow.parserWarnings.join(" "), /Tow from missing/);
 });
 
 test("parses gate tuck to spaced exact tow spot", () => {
@@ -154,5 +154,5 @@ test("only accepts 254A through 254P as hardstand tow spots", () => {
 test("flags missing gate for review", () => {
   const [tow] = parseTowPlan("MX400 TPA 1200\nTows to BB113");
   assert.equal(tow.needsReview, true);
-  assert.match(tow.parserWarnings.join(" "), /Gate missing/);
+  assert.match(tow.parserWarnings.join(" "), /Tow from missing/);
 });

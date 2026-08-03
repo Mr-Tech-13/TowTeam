@@ -105,7 +105,7 @@ const baseWorkflowOrder = [
   ["towCompletedAt", "tow_started"],
   ["towPaperCompletedAt", "tow_completed"]
 ];
-const automaticMissingDetailWarnings = ["Gate missing.", "Tow spot missing."];
+const automaticMissingDetailWarnings = ["Tow from missing.", "Tow to missing."];
 
 export function sanitizeTow(input) {
   const normalizedInput = deriveLocations(input);

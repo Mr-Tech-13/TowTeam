@@ -61,7 +61,7 @@ test("missing gate or tow spot automatically needs review", () => {
 
   try {
     assert.equal(tow.needsReview, true);
-    assert.match(tow.parserWarnings.join(" "), /Gate missing/);
+    assert.match(tow.parserWarnings.join(" "), /Tow from missing/);
 
     const fixed = updateTow(tow.id, { gate: "Gate 1" });
     assert.equal(fixed.needsReview, false);

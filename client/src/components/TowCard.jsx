@@ -5,7 +5,7 @@ export function TowCard({ tow, onOpen }) {
     <button className="tow-card" onClick={() => onOpen(tow)} type="button">
       <div className="tile-top">
         <div className="tile-title">
-          <span className={tow.tailNumber ? "tail-lead" : "tail-lead unknown"}>{tow.tailNumber || "Tail unknown"}</span>
+          <span className={tow.tailNumber ? "tail-lead" : "tail-lead unknown"}>{tow.tailNumber || "Aircraft Reg unknown"}</span>
           <span className="flight-sub">
             {tow.airline}
             {tow.inboundFlightNumber}
@@ -16,8 +16,8 @@ export function TowCard({ tow, onOpen }) {
       <div className="tile-grid">
         <span><Plane size={17} />From {tow.inboundStation || "?"}</span>
         <span><Clock size={17} />ETA {tow.eta || "?"}</span>
-        <span><MapPin size={17} />{tow.gate || "Gate ?"}</span>
-        <span><MapPin size={17} />{tow.towSpot || "Spot ?"}</span>
+        <span><MapPin size={17} />From {tow.gate || "?"}</span>
+        <span><MapPin size={17} />To {tow.towSpot || "?"}</span>
         <span><User size={17} />Flight {tow.airline}{tow.inboundFlightNumber}</span>
       </div>
       {tow.needsReview && (
