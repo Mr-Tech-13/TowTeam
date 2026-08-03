@@ -58,5 +58,5 @@ export function towChecklistUrl(id) {
 }
 
 export function towChecklistPreviewUrl(id) {
-  return `/api/tows/${id}/tow-checklist.pdf?preview=true`;
+  return `/api/tows/${id}/tow-checklist.pdf?preview=true&v=${Date.now()}`;
 }
