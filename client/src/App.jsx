@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Bug, Clipboard, Download, Eye, History, LayoutDashboard, LogOut, Plus, RefreshCcw, RotateCcw, Save, Trash2, Upload, Users } from "lucide-react";
-import { api, exportExcelUrl, exportUrl, towChecklistPreviewUrl, towChecklistUrl } from "./lib/api.js";
+import { api, backupDatabaseUrl, exportExcelUrl, exportUrl, towChecklistPreviewUrl, towChecklistUrl } from "./lib/api.js";
 import { completedSummary } from "./lib/summary.js";
 import { applyWorkflowStep, pendingWorkflowStepCount, queueWorkflowStep, syncPendingWorkflowSteps } from "./lib/pendingWorkflowSteps.js";
 import { TowCard } from "./components/TowCard.jsx";
@@ -140,13 +140,43 @@ function LoginPage({ onLogin }) {
   );
 }
 
+function parseAuditDetails(value) {
+  try {
+    return JSON.parse(value || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function AuditDetails({ details }) {
+  const parsed = parseAuditDetails(details);
+  if (!Object.keys(parsed).length) return null;
+  return (
+    <details className="audit-details">
+      <summary>Details</summary>
+      {parsed.before || parsed.after ? (
+        <div className="audit-diff">
+          {parsed.before && <pre>{JSON.stringify(parsed.before, null, 2)}</pre>}
+          {parsed.after && <pre>{JSON.stringify(parsed.after, null, 2)}</pre>}
+        </div>
+      ) : (
+        <pre>{JSON.stringify(parsed, null, 2)}</pre>
+      )}
+    </details>
+  );
+}
+
 function AdminUsersPage({ currentUser, onBack }) {
   const [adminView, setAdminView] = useState("users");
   const [users, setUsers] = useState([]);
   const [issues, setIssues] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
+  const [deletedTows, setDeletedTows] = useState([]);
   const [newUser, setNewUser] = useState({ username: "", password: "", role: "user" });
   const [passwords, setPasswords] = useState({});
+  const [restoreFile, setRestoreFile] = useState(null);
+  const [restoreConfirm, setRestoreConfirm] = useState("");
+  const [maintenanceStatus, setMaintenanceStatus] = useState("");
   const [error, setError] = useState("");
 
   async function loadUsers() {
@@ -162,6 +192,7 @@ function AdminUsersPage({ currentUser, onBack }) {
     loadUsers();
     loadIssues();
     loadAudit();
+    loadDeletedTows();
   }, []);
 
   async function loadIssues() {
@@ -175,6 +206,14 @@ function AdminUsersPage({ currentUser, onBack }) {
   async function loadAudit() {
     try {
       setAuditLogs(await api.listAudit());
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function loadDeletedTows() {
+    try {
+      setDeletedTows(await api.listDeletedTows());
     } catch (err) {
       setError(err.message);
     }
@@ -235,6 +274,53 @@ function AdminUsersPage({ currentUser, onBack }) {
     }
   }
 
+  async function restoreDeletedTow(tow) {
+    setError("");
+    try {
+      await api.restoreTow(tow.id);
+      await loadDeletedTows();
+      await loadAudit();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function permanentlyDeleteTow(tow) {
+    if (!window.confirm(`Permanently delete tow #${tow.id}?`)) return;
+    if (!window.confirm("This cannot be undone. Permanently delete this tow record?")) return;
+    setError("");
+    try {
+      await api.permanentlyDeleteTow(tow.id);
+      await loadDeletedTows();
+      await loadAudit();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function restoreDatabase(event) {
+    event.preventDefault();
+    setMaintenanceStatus("");
+    setError("");
+    if (!restoreFile) {
+      setMaintenanceStatus("Choose a SQLite backup file first.");
+      return;
+    }
+    if (restoreConfirm !== "RESTORE") {
+      setMaintenanceStatus("Type RESTORE to confirm.");
+      return;
+    }
+    if (!window.confirm("Restore this database backup? TowTeam will restart after the upload.")) return;
+    try {
+      const result = await api.restoreDatabase(restoreFile);
+      setMaintenanceStatus(`Restore accepted. Pre-restore backup: ${result.preRestoreBackup}. TowTeam will restart.`);
+      setRestoreFile(null);
+      setRestoreConfirm("");
+    } catch (err) {
+      setMaintenanceStatus(err.message);
+    }
+  }
+
   return (
     <main>
       <section className="page-panel">
@@ -247,7 +333,7 @@ function AdminUsersPage({ currentUser, onBack }) {
         </div>
         {error && <div className="notice error">{error}</div>}
         <div className="admin-subtabs">
-          {["users", "issues", "audit"].map((view) => (
+          {["users", "issues", "audit", "trash", "backup"].map((view) => (
             <button className={adminView === view ? "btn green" : "btn ghost"} key={view} onClick={() => setAdminView(view)} type="button">
               {view}
             </button>
@@ -312,9 +398,51 @@ function AdminUsersPage({ currentUser, onBack }) {
                   <strong>{log.action}</strong>
                   <span>{log.username || "system"} - {log.createdAt}</span>
                   <p>{log.entityType} {log.entityId}</p>
+                  <AuditDetails details={log.details} />
                 </div>
               </article>
             ))}
+          </div>
+        )}
+        {adminView === "trash" && (
+          <div className="admin-list">
+            {deletedTows.length === 0 && <p className="muted">Trash is empty.</p>}
+            {deletedTows.map((tow) => (
+              <article className="admin-row" key={tow.id}>
+                <div>
+                  <strong>#{tow.id} {tow.tailNumber || `${tow.airline}${tow.inboundFlightNumber}`}</strong>
+                  <span>Deleted {tow.deletedAt} by {tow.deletedBy || "unknown"}</span>
+                  <p>{tow.gate || "Unknown"} to {tow.towSpot || "Unknown"}{tow.deleteReason ? ` - ${tow.deleteReason}` : ""}</p>
+                </div>
+                <button className="btn green" onClick={() => restoreDeletedTow(tow)}>Restore</button>
+                <button className="btn red" onClick={() => permanentlyDeleteTow(tow)}>Delete Forever</button>
+              </article>
+            ))}
+          </div>
+        )}
+        {adminView === "backup" && (
+          <div className="admin-list">
+            <article className="admin-row">
+              <div>
+                <strong>Download SQLite Backup</strong>
+                <span>Creates a point-in-time SQLite backup from the running database.</span>
+              </div>
+              <a className="btn blue" href={backupDatabaseUrl()}><Download size={18} /> Backup</a>
+            </article>
+            <form className="admin-row" onSubmit={restoreDatabase}>
+              <div>
+                <strong>Restore SQLite Backup</strong>
+                <span>Creates a pre-restore backup, swaps in the uploaded database, and restarts TowTeam.</span>
+                <input accept=".sqlite,.db,application/octet-stream" onChange={(event) => setRestoreFile(event.target.files?.[0] || null)} type="file" />
+                <input
+                  placeholder="Type RESTORE"
+                  value={restoreConfirm}
+                  onChange={(event) => setRestoreConfirm(event.target.value)}
+                />
+                {maintenanceStatus && <p className="muted">{maintenanceStatus}</p>}
+              </div>
+              <button className="btn red" type="submit">Restore</button>
+            </form>
           </div>
         )}
       </section>

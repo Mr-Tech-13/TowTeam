@@ -2,7 +2,18 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import "../db/migrate.js";
 
-const { createTow, deleteTow, listTows, logStep, undoLastStep, updateAircraftTypeForTows, updateTow } = await import("../services/tows.js");
+const {
+  createTow,
+  deleteTow,
+  listTows,
+  logStep,
+  permanentlyDeleteTow,
+  restoreTow,
+  softDeleteTow,
+  undoLastStep,
+  updateAircraftTypeForTows,
+  updateTow
+} = await import("../services/tows.js");
 
 test("tow is not completed until paper is complete", () => {
   const tow = createTow({
@@ -169,4 +180,28 @@ test("history can filter completed tows by airline", () => {
     deleteTow(mxTow.id);
     deleteTow(ekTow.id);
   }
+});
+
+test("soft deleted tows move to trash before permanent delete", () => {
+  const tow = createTow({
+    airline: "MX",
+    inboundFlightNumber: `D${Date.now()}`,
+    gate: "Gate 1",
+    towSpot: "NL614"
+  });
+
+  const trashed = softDeleteTow(tow.id, { username: "tester" }, "bad import");
+  assert.equal(trashed.after.deletedBy, "tester");
+  assert.equal(trashed.after.deleteReason, "bad import");
+  assert.equal(listTows({ status: "active" }).some((row) => row.id === tow.id), false);
+  assert.equal(listTows({ deleted: "true" }).some((row) => row.id === tow.id), true);
+
+  const restored = restoreTow(tow.id);
+  assert.equal(restored.after.deletedAt, null);
+  assert.equal(listTows({ status: "active" }).some((row) => row.id === tow.id), true);
+
+  softDeleteTow(tow.id, { username: "tester" });
+  const removed = permanentlyDeleteTow(tow.id);
+  assert.equal(removed.id, tow.id);
+  assert.equal(permanentlyDeleteTow(tow.id), null);
 });

@@ -1,8 +1,20 @@
 import express from "express";
+import { requireAdmin } from "../middleware/auth.js";
 import { writeAudit } from "../services/audit.js";
 import { hasKnownTowSpot, parseTowPlan } from "../services/parser.js";
 import { generateTowPermitPdf, towPermitFilename } from "../services/towPermit.js";
-import { createTow, deleteTow, getTow, listTows, logStep, undoLastStep, updateAircraftTypeForTows, updateTow } from "../services/tows.js";
+import {
+  createTow,
+  getTow,
+  listTows,
+  logStep,
+  permanentlyDeleteTow,
+  restoreTow,
+  softDeleteTow,
+  undoLastStep,
+  updateAircraftTypeForTows,
+  updateTow
+} from "../services/tows.js";
 
 export const router = express.Router();
 
@@ -54,6 +66,22 @@ function diagnosticMessage(error) {
   return String(error?.message || "")
     .replaceAll(process.cwd(), "<app>")
     .slice(0, 500);
+}
+
+function auditTowDetails(tow) {
+  if (!tow) return null;
+  return {
+    airline: tow.airline,
+    inboundFlightNumber: tow.inboundFlightNumber,
+    aircraftType: tow.aircraftType,
+    gate: tow.gate,
+    towSpot: tow.towSpot,
+    tailNumber: tow.tailNumber,
+    status: tow.status,
+    towCompletedAt: tow.towCompletedAt,
+    towPaperCompletedAt: tow.towPaperCompletedAt,
+    deletedAt: tow.deletedAt
+  };
 }
 
 router.get("/", (req, res) => {
@@ -176,10 +204,11 @@ router.get("/:id/tow-checklist.pdf", async (req, res) => {
 });
 
 router.put("/:id", (req, res) => {
+  const before = getTow(req.params.id);
   const tow = updateTow(req.params.id, req.body);
   if (!tow) res.status(404).json({ error: "Tow not found." });
   else {
-    writeAudit(req.user, "tow.update", { entityType: "tow", entityId: tow.id });
+    writeAudit(req.user, "tow.update", { entityType: "tow", entityId: tow.id, details: { before: auditTowDetails(before), after: auditTowDetails(tow) } });
     res.json(tow);
   }
 });
@@ -211,9 +240,43 @@ router.post("/:id/steps/:step", (req, res) => {
 });
 
 router.delete("/:id", (req, res) => {
-  if (!deleteTow(req.params.id)) res.status(404).json({ error: "Tow not found." });
-  else {
-    writeAudit(req.user, "tow.delete", { entityType: "tow", entityId: req.params.id });
-    res.status(204).end();
+  const result = softDeleteTow(req.params.id, req.user, req.body?.reason);
+  if (!result) {
+    res.status(404).json({ error: "Tow not found." });
+    return;
   }
+  writeAudit(req.user, "tow.soft_delete", {
+    entityType: "tow",
+    entityId: req.params.id,
+    details: { before: auditTowDetails(result.before), after: auditTowDetails(result.after) }
+  });
+  res.status(204).end();
+});
+
+router.post("/:id/restore", requireAdmin, (req, res) => {
+  const result = restoreTow(req.params.id);
+  if (!result) {
+    res.status(404).json({ error: "Deleted tow not found." });
+    return;
+  }
+  writeAudit(req.user, "tow.restore", {
+    entityType: "tow",
+    entityId: req.params.id,
+    details: { before: auditTowDetails(result.before), after: auditTowDetails(result.after) }
+  });
+  res.json(result.after);
+});
+
+router.delete("/:id/permanent", requireAdmin, (req, res) => {
+  const deleted = permanentlyDeleteTow(req.params.id);
+  if (!deleted) {
+    res.status(404).json({ error: "Deleted tow not found." });
+    return;
+  }
+  writeAudit(req.user, "tow.permanent_delete", {
+    entityType: "tow",
+    entityId: req.params.id,
+    details: { deleted: auditTowDetails(deleted) }
+  });
+  res.status(204).end();
 });

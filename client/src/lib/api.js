@@ -34,6 +34,17 @@ export const api = {
   listIssues: () => request("/issues"),
   updateIssue: (id, issue) => request(`/issues/${id}`, { method: "PATCH", body: JSON.stringify(issue) }),
   listAudit: () => request("/audit"),
+  listDeletedTows: () => request("/tows?deleted=true"),
+  restoreTow: (id) => request(`/tows/${id}/restore`, { method: "POST" }),
+  permanentlyDeleteTow: (id) => request(`/tows/${id}/permanent`, { method: "DELETE" }),
+  restoreDatabase: async (file) => {
+    const buffer = await file.arrayBuffer();
+    return request("/maintenance/restore.sqlite", {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream" },
+      body: buffer
+    });
+  },
   listTows: (params = {}) => request(`/tows?${new URLSearchParams(params)}`),
   getTow: (id) => request(`/tows/${id}`),
   createTow: (tow) => request("/tows", { method: "POST", body: JSON.stringify(tow) }),
@@ -60,4 +71,8 @@ export function towChecklistUrl(id) {
 
 export function towChecklistPreviewUrl(id) {
   return `/api/tows/${id}/tow-checklist.pdf?preview=true&v=${Date.now()}`;
+}
+
+export function backupDatabaseUrl() {
+  return "/api/maintenance/backup.sqlite";
 }

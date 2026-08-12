@@ -25,19 +25,28 @@ const fields = [
   "pushStartedAt",
   "towStartedAt",
   "towCompletedAt",
-  "towPaperCompletedAt"
+  "towPaperCompletedAt",
+  "deletedAt",
+  "deletedBy",
+  "deleteReason"
 ];
 
 function ensureTowSchemaColumns() {
   const columns = db.prepare("PRAGMA table_info(tows)").all().map((column) => column.name);
   const missingColumns = [
     ["aircraftType", "TEXT"],
-    ["towPaperCompletedAt", "TEXT"]
+    ["towPaperCompletedAt", "TEXT"],
+    ["deletedAt", "TEXT"],
+    ["deletedBy", "TEXT"],
+    ["deleteReason", "TEXT"]
   ].filter(([name]) => !columns.includes(name));
 
   for (const [name, type] of missingColumns) {
     db.exec(`ALTER TABLE tows ADD COLUMN ${name} ${type}`);
   }
+  db.exec("UPDATE tows SET deletedAt = NULL WHERE deletedAt = ''");
+  db.exec("UPDATE tows SET deletedBy = NULL WHERE deletedBy = ''");
+  db.exec("UPDATE tows SET deleteReason = NULL WHERE deleteReason = ''");
 }
 
 ensureTowSchemaColumns();
@@ -46,11 +55,13 @@ const createTowStatement = db.prepare(
   `INSERT INTO tows (
     airline, inboundFlightNumber, inboundStation, aircraftType, eta, gate, fromLocation, toLocation, towSpot, tailNumber,
     driver, leftWingWalker, rightWingWalker, otherTeamMembers, notes, status, needsReview, parserWarnings,
-    setupStartedAt, goaaCalledAt, goaaArrivalAt, pushStartedAt, towStartedAt, towCompletedAt, towPaperCompletedAt
+    setupStartedAt, goaaCalledAt, goaaArrivalAt, pushStartedAt, towStartedAt, towCompletedAt, towPaperCompletedAt,
+    deletedAt, deletedBy, deleteReason
   ) VALUES (
     @airline, @inboundFlightNumber, @inboundStation, @aircraftType, @eta, @gate, @fromLocation, @toLocation, @towSpot, @tailNumber,
     @driver, @leftWingWalker, @rightWingWalker, @otherTeamMembers, @notes, @status, @needsReview, @parserWarnings,
-    @setupStartedAt, @goaaCalledAt, @goaaArrivalAt, @pushStartedAt, @towStartedAt, @towCompletedAt, @towPaperCompletedAt
+    @setupStartedAt, @goaaCalledAt, @goaaArrivalAt, @pushStartedAt, @towStartedAt, @towCompletedAt, @towPaperCompletedAt,
+    @deletedAt, @deletedBy, @deleteReason
   )`
 );
 
@@ -81,6 +92,9 @@ const updateTowStatement = db.prepare(
     towStartedAt = @towStartedAt,
     towCompletedAt = @towCompletedAt,
     towPaperCompletedAt = @towPaperCompletedAt,
+    deletedAt = @deletedAt,
+    deletedBy = @deletedBy,
+    deleteReason = @deleteReason,
     updatedAt = @updatedAt
   WHERE id = @id`
 );
@@ -122,6 +136,7 @@ const baseWorkflowOrder = [
   ["towPaperCompletedAt", "tow_completed"]
 ];
 const automaticMissingDetailWarnings = ["Tow from missing.", "Tow to missing."];
+const nullableFields = new Set(["deletedAt", "deletedBy", "deleteReason"]);
 
 export function sanitizeTow(input) {
   const normalizedInput = deriveLocations(input);
@@ -161,7 +176,13 @@ function addMissingDetailWarnings(tow, warnings) {
 }
 
 function completeTowParams(tow) {
-  return Object.fromEntries(fields.map((field) => [field, field in tow ? tow[field] : field === "needsReview" ? 0 : field === "parserWarnings" ? "[]" : ""]));
+  return Object.fromEntries(fields.map((field) => {
+    if (field in tow) return [field, tow[field]];
+    if (field === "needsReview") return [field, 0];
+    if (field === "parserWarnings") return [field, "[]"];
+    if (nullableFields.has(field)) return [field, null];
+    return [field, ""];
+  }));
 }
 
 function deriveLocations(input) {
@@ -178,6 +199,7 @@ export function listTows(filters = {}) {
     activeStatus: filters.status === "active" ? 1 : 0,
     hasStatus: filters.status && filters.status !== "active" ? 1 : 0,
     status: filters.status || "",
+    trashOnly: filters.deleted === "true" || filters.trash === "true" ? 1 : 0,
     airline: filters.airline ? `%${filters.airline}%` : "",
     hasAirline: filters.airline ? 1 : 0,
     tailNumber: filters.tailNumber ? `%${filters.tailNumber}%` : "",
@@ -199,7 +221,9 @@ export function listTows(filters = {}) {
   return db
     .prepare(
       `SELECT * FROM tows
-       WHERE (@activeStatus = 0 OR status != 'completed')
+       WHERE (@trashOnly = 0 OR deletedAt IS NOT NULL)
+         AND (@trashOnly = 1 OR deletedAt IS NULL)
+         AND (@activeStatus = 0 OR status != 'completed')
          AND (@hasStatus = 0 OR status = @status)
          AND (@hasAirline = 0 OR airline LIKE @airline)
          AND (@hasTailNumber = 0 OR tailNumber LIKE @tailNumber)
@@ -294,6 +318,41 @@ export function undoLastStep(id) {
     updatedAt: nowIso()
   });
   return { tow: getTow(id), undoneStep: field };
+}
+
+export function softDeleteTow(id, user, reason = "") {
+  const tow = getTow(id);
+  if (!tow || tow.deletedAt) return null;
+  db.prepare(
+    `UPDATE tows
+     SET deletedAt = @deletedAt, deletedBy = @deletedBy, deleteReason = @deleteReason, updatedAt = @updatedAt
+     WHERE id = @id`
+  ).run({
+    id,
+    deletedAt: nowIso(),
+    deletedBy: user?.username || "",
+    deleteReason: String(reason || "").trim(),
+    updatedAt: nowIso()
+  });
+  return { before: tow, after: getTow(id) };
+}
+
+export function restoreTow(id) {
+  const tow = getTow(id);
+  if (!tow || !tow.deletedAt) return null;
+  db.prepare(
+    `UPDATE tows
+     SET deletedAt = NULL, deletedBy = NULL, deleteReason = NULL, updatedAt = @updatedAt
+     WHERE id = @id`
+  ).run({ id, updatedAt: nowIso() });
+  return { before: tow, after: getTow(id) };
+}
+
+export function permanentlyDeleteTow(id) {
+  const tow = getTow(id);
+  if (!tow || !tow.deletedAt) return null;
+  const deleted = db.prepare("DELETE FROM tows WHERE id = ?").run(id).changes > 0;
+  return deleted ? tow : null;
 }
 
 function workflowOrderFor(tow) {

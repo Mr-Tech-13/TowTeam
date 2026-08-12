@@ -25,6 +25,9 @@ CREATE TABLE IF NOT EXISTS tows (
   towStartedAt TEXT,
   towCompletedAt TEXT,
   towPaperCompletedAt TEXT,
+  deletedAt TEXT,
+  deletedBy TEXT,
+  deleteReason TEXT,
   createdAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updatedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -35,3 +38,4 @@ CREATE INDEX IF NOT EXISTS idx_tows_tail ON tows(tailNumber);
 CREATE INDEX IF NOT EXISTS idx_tows_flight ON tows(inboundFlightNumber);
 CREATE INDEX IF NOT EXISTS idx_tows_gate ON tows(gate);
 CREATE INDEX IF NOT EXISTS idx_tows_spot ON tows(towSpot);
+CREATE INDEX IF NOT EXISTS idx_tows_deleted ON tows(deletedAt);

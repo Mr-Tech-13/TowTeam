@@ -101,6 +101,16 @@ On first startup, TowTeam creates an admin user from `ADMIN_USERNAME` and `ADMIN
 
 Rate limiting is enabled by default for API requests, login attempts, issue reporting, and frontend page fallback routes. The rate limit values above can be adjusted for your deployment.
 
+## Admin Maintenance
+
+Admin users can use the admin page for user management, issue reports, audit logs, trash, and database backup/restore.
+
+- Deleting a tow from the app now moves it to Trash first.
+- Trash allows admins to restore a tow or permanently delete it with double confirmation.
+- Audit log entries for tow edits include before/after details.
+- Backup downloads a SQLite backup from the running database.
+- Restore accepts a SQLite backup upload, creates a pre-restore backup, swaps in the uploaded database, and restarts the app.
+
 ## Tests
 
 ```bash
@@ -147,10 +157,15 @@ To add or remove tow spots in code, edit `shared/towSpots.js`. Use `numberRequir
 - `POST /api/tows/parse`
 - `POST /api/tows`
 - `POST /api/tows/bulk`
+- `PATCH /api/tows/bulk/aircraft-type`
 - `GET /api/tows/:id`
 - `PUT /api/tows/:id`
 - `POST /api/tows/:id/steps/:step`
-- `DELETE /api/tows/:id`
+- `DELETE /api/tows/:id` soft delete
+- `POST /api/tows/:id/restore` admin only
+- `DELETE /api/tows/:id/permanent` admin only
+- `GET /api/maintenance/backup.sqlite` admin only
+- `POST /api/maintenance/restore.sqlite` admin only
 
 Workflow step names:
 

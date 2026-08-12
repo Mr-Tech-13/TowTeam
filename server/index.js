@@ -12,6 +12,7 @@ import { requireAuth } from "./middleware/auth.js";
 import { router as auditRoutes } from "./routes/audit.js";
 import { router as authRoutes } from "./routes/auth.js";
 import { router as issueRoutes } from "./routes/issues.js";
+import { router as maintenanceRoutes } from "./routes/maintenance.js";
 import { router as towRoutes } from "./routes/tows.js";
 import { router as userRoutes } from "./routes/users.js";
 import { deleteExpiredSessions, ensureDefaultAdmin } from "./services/users.js";
@@ -77,6 +78,7 @@ app.get("/api/health", (_req, res) => res.json({ ok: true }));
 app.use("/api/audit", auditRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/issues", issueRoutes);
+app.use("/api/maintenance", maintenanceRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/tows", towRoutes);
 
