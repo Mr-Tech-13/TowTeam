@@ -5,6 +5,7 @@ test-results/
 playwright-report/
 .nyc_output/
 data/*.sqlite
+data/towteam-stress-test.sqlite
 data/*.sqlite-shm
 data/*.sqlite-wal
 data/*.db
@@ -36,3 +37,4 @@ id_ed25519*
 secrets/
 .DS_Store
 npm-debug.log*
+scripts/generate-stress-db.js
