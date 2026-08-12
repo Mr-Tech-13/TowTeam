@@ -19,7 +19,12 @@ router.get("/backup.sqlite", async (req, res) => {
 
 router.post("/restore.sqlite", express.raw({ type: "application/octet-stream", limit: "200mb" }), async (req, res) => {
   try {
-    const result = await prepareDatabaseRestore(req.body);
+    if (!Buffer.isBuffer(req.body)) {
+      res.status(400).json({ error: "Upload a valid SQLite backup file." });
+      return;
+    }
+    const restoreBuffer = Buffer.from(req.body);
+    const result = await prepareDatabaseRestore(restoreBuffer);
     writeAudit(req.user, "maintenance.restore", { entityType: "database", details: { preRestoreBackup: result.preRestoreBackup } });
     res.json({ restored: true, preRestoreBackup: result.preRestoreBackup, restartRequired: true });
     res.on("finish", () => {

@@ -36,10 +36,12 @@ export function backupFilename(filePath) {
 }
 
 export async function prepareDatabaseRestore(buffer) {
-  if (!Buffer.isBuffer(buffer) || buffer.length < 1024) throw new Error("Upload a valid SQLite backup file.");
+  if (!Buffer.isBuffer(buffer)) throw new TypeError("Restore data must be a binary buffer.");
+  if (buffer.length < 1024) throw new Error("Upload a valid SQLite backup file.");
+  const restoreBytes = Buffer.from(buffer);
   fs.mkdirSync(backupDir, { recursive: true });
   const uploadPath = path.join(os.tmpdir(), `towteam-restore-${timestampSlug()}.sqlite`);
-  fs.writeFileSync(uploadPath, buffer);
+  fs.writeFileSync(uploadPath, restoreBytes);
   assertTowTeamDatabase(uploadPath);
 
   const preRestoreBackupPath = await createDatabaseBackup("pre-restore");
