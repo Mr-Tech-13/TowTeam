@@ -40,6 +40,31 @@ test("tow is not completed until paper is complete", () => {
   }
 });
 
+test("saving tow details preserves active deletion state", () => {
+  const tow = createTow({
+    airline: "MX",
+    inboundFlightNumber: `S${Date.now()}`,
+    aircraftType: "A220-300",
+    eta: "15:15",
+    gate: "Gate 8",
+    towSpot: "NL612"
+  });
+
+  try {
+    const saved = updateTow(tow.id, { ...tow, tailNumber: "N213BZ", deletedAt: "" });
+    assert.equal(saved.deletedAt, null);
+    assert.equal(saved.deletedBy, null);
+    assert.equal(saved.deleteReason, null);
+
+    const completed = logStep(tow.id, "towCompletedAt");
+    assert.equal(completed.status, "tow_completed");
+    assert.equal(listTows({ status: "active" }).some((row) => row.id === tow.id), true);
+    assert.equal(listTows({ deleted: "true" }).some((row) => row.id === tow.id), false);
+  } finally {
+    deleteTow(tow.id);
+  }
+});
+
 test("undo last workflow step restores previous status", () => {
   const tow = createTow({
     airline: "MX",

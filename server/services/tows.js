@@ -145,7 +145,8 @@ export function sanitizeTow(input) {
     if (!(field in normalizedInput)) continue;
     if (field === "needsReview") continue;
     if (field === "parserWarnings") continue;
-    else tow[field] = normalizedInput[field] ?? "";
+    const value = normalizedInput[field];
+    tow[field] = nullableFields.has(field) && (value == null || value === "") ? null : value ?? "";
   }
   const warnings = normalizeWarnings(normalizedInput.parserWarnings);
   addMissingDetailWarnings(normalizedInput, warnings);
@@ -221,8 +222,8 @@ export function listTows(filters = {}) {
   return db
     .prepare(
       `SELECT * FROM tows
-       WHERE (@trashOnly = 0 OR deletedAt IS NOT NULL)
-         AND (@trashOnly = 1 OR deletedAt IS NULL)
+       WHERE (@trashOnly = 0 OR NULLIF(TRIM(deletedAt), '') IS NOT NULL)
+         AND (@trashOnly = 1 OR NULLIF(TRIM(deletedAt), '') IS NULL)
          AND (@activeStatus = 0 OR status != 'completed')
          AND (@hasStatus = 0 OR status = @status)
          AND (@hasAirline = 0 OR airline LIKE @airline)
@@ -244,7 +245,7 @@ export function getTow(id) {
 }
 
 export function createTow(input) {
-  const tow = completeTowParams(sanitizeTow({ status: "planned", ...input }));
+  const tow = completeTowParams(sanitizeTow({ status: "planned", ...input, deletedAt: null, deletedBy: null, deleteReason: null }));
   const result = createTowStatement.run(tow);
   return getTow(result.lastInsertRowid);
 }
@@ -252,7 +253,12 @@ export function createTow(input) {
 export function updateTow(id, input) {
   const existing = getTow(id);
   if (!existing) return null;
-  const tow = completeTowParams(sanitizeTow(syncEditedLocations(existing, input)));
+  const tow = completeTowParams(sanitizeTow(syncEditedLocations(existing, {
+    ...input,
+    deletedAt: existing.deletedAt,
+    deletedBy: existing.deletedBy,
+    deleteReason: existing.deleteReason
+  })));
   tow.updatedAt = nowIso();
   tow.id = id;
   updateTowStatement.run(tow);
