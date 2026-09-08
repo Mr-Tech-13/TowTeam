@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Bug, Clipboard, Download, Eye, History, LayoutDashboard, LogOut, Plus, RefreshCcw, RotateCcw, Save, Trash2, Upload, Users } from "lucide-react";
+import { ArrowLeft, Bug, Clipboard, Download, Eye, History, LayoutDashboard, LogOut, Plus, RefreshCcw, RotateCcw, Save, Search, Trash2, Upload, Users } from "lucide-react";
 import { api, backupDatabaseUrl, exportExcelUrl, exportUrl, towChecklistPreviewUrl, towChecklistUrl } from "./lib/api.js";
-import { completedSummary } from "./lib/summary.js";
+import { completedSummary, fmtDate } from "./lib/summary.js";
 import { applyWorkflowStep, pendingWorkflowStepCount, queueWorkflowStep, syncPendingWorkflowSteps } from "./lib/pendingWorkflowSteps.js";
 import { TowCard } from "./components/TowCard.jsx";
 import { TowForm } from "./components/TowForm.jsx";
@@ -43,6 +43,46 @@ function deriveLocations(tow) {
 
 function prepareTow(tow) {
   return deriveLocations(tow);
+}
+
+const activeStatusPriority = {
+  setup_started: 0,
+  goaa_called: 0,
+  goaa_arrival: 0,
+  push_started: 0,
+  tow_started: 0,
+  planned: 1,
+  tow_completed: 2
+};
+
+function compareActiveTows(left, right) {
+  const priorityDifference = (activeStatusPriority[left.status] ?? 3) - (activeStatusPriority[right.status] ?? 3);
+  if (priorityDifference !== 0) return priorityDifference;
+  const leftTime = Date.parse(left.towCompletedAt || left.updatedAt || left.createdAt) || 0;
+  const rightTime = Date.parse(right.towCompletedAt || right.updatedAt || right.createdAt) || 0;
+  return rightTime - leftTime || Number(right.id) - Number(left.id);
+}
+
+function matchesActiveSearch(tow, search) {
+  const query = search.trim().toLowerCase();
+  if (!query) return true;
+  return [
+    tow.airline,
+    `${tow.airline || ""}${tow.inboundFlightNumber || ""}`,
+    tow.inboundFlightNumber,
+    tow.tailNumber,
+    tow.aircraftType,
+    tow.gate,
+    tow.fromLocation,
+    tow.towSpot,
+    tow.toLocation,
+    tow.driver,
+    tow.leftWingWalker,
+    tow.rightWingWalker,
+    tow.otherTeamMembers,
+    tow.status?.replaceAll("_", " "),
+    fmtDate(tow.towCompletedAt || tow.createdAt)
+  ].some((value) => String(value || "").toLowerCase().includes(query));
 }
 
 function pad2(value) {
@@ -461,6 +501,7 @@ export default function App() {
   const [parseAttempted, setParseAttempted] = useState(false);
   const [candidates, setCandidates] = useState([]);
   const [historyFilters, setHistoryFilters] = useState({});
+  const [activeSearch, setActiveSearch] = useState("");
   const [towPage, setTowPage] = useState("confirm");
   const [issueOpen, setIssueOpen] = useState(false);
   const [issueText, setIssueText] = useState("");
@@ -471,10 +512,20 @@ export default function App() {
   const [bulkAircraftTypeStatus, setBulkAircraftTypeStatus] = useState("");
   const [pendingStepCount, setPendingStepCount] = useState(pendingWorkflowStepCount());
   const [workflowSyncStatus, setWorkflowSyncStatus] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteReason, setDeleteReason] = useState("");
+  const [deleteError, setDeleteError] = useState("");
   const historyQuery = { ...historyFilters, status: "completed" };
   const filters = tab === "history" ? historyQuery : { status: "active" };
   const { tows, error, loading, load } = useTows(filters, Boolean(user) && !adminPanel);
-  const activeTows = useMemo(() => tows.filter((tow) => tow.status !== "completed"), [tows]);
+  const activeTows = useMemo(
+    () => tows.filter((tow) => tow.status !== "completed").sort(compareActiveTows),
+    [tows]
+  );
+  const visibleActiveTows = useMemo(
+    () => activeTows.filter((tow) => matchesActiveSearch(tow, activeSearch)),
+    [activeTows, activeSearch]
+  );
 
   useEffect(() => {
     async function loadSession() {
@@ -658,10 +709,28 @@ export default function App() {
   }
 
   async function deleteActiveTow() {
-    if (!window.confirm("Delete this tow record?")) return;
-    await api.deleteTow(activeTow.id);
-    setActiveTow(null);
-    await load();
+    setDeleteTarget(activeTow);
+    setDeleteReason("");
+    setDeleteError("");
+  }
+
+  async function confirmDeleteTow(event) {
+    event.preventDefault();
+    const reason = deleteReason.trim();
+    if (!reason) {
+      setDeleteError("Enter a reason before moving this tow to Trash.");
+      return;
+    }
+    try {
+      await api.deleteTow(deleteTarget.id, reason);
+      setDeleteTarget(null);
+      setDeleteReason("");
+      setDeleteError("");
+      setActiveTow(null);
+      await load();
+    } catch (err) {
+      setDeleteError(err.message);
+    }
   }
 
   function openTow(tow) {
@@ -891,11 +960,22 @@ export default function App() {
           <section>
             <div className="section-head">
               <h2>Active Tows</h2>
-              <span>{activeTows.length} open</span>
+              <span>{visibleActiveTows.length === activeTows.length ? `${activeTows.length} open` : `${visibleActiveTows.length} of ${activeTows.length}`}</span>
+            </div>
+            <div className="active-search">
+              <Search aria-hidden="true" size={19} />
+              <input
+                aria-label="Search active tows"
+                onChange={(event) => setActiveSearch(event.target.value)}
+                placeholder="Search active tows"
+                type="search"
+                value={activeSearch}
+              />
             </div>
             <div className="tow-grid">
-              {activeTows.map((tow) => <TowCard key={tow.id} tow={tow} onOpen={openTow} />)}
+              {visibleActiveTows.map((tow) => <TowCard key={tow.id} tow={tow} onOpen={openTow} />)}
             </div>
+            {visibleActiveTows.length === 0 && <p className="muted empty-state">No active tows match that search.</p>}
           </section>
         )}
 
@@ -1001,6 +1081,37 @@ export default function App() {
           </section>
         )}
       </main>
+      )}
+      {deleteTarget && (
+        <div className="modal-backdrop" role="presentation">
+          <form className="modal delete-modal" onSubmit={confirmDeleteTow}>
+            <div className="section-head">
+              <div>
+                <h2>Move Tow to Trash</h2>
+                <p className="muted">{deleteTarget.tailNumber || `${deleteTarget.airline}${deleteTarget.inboundFlightNumber}`}</p>
+              </div>
+            </div>
+            <label>
+              <span>Delete reason</span>
+              <textarea
+                autoFocus
+                maxLength="500"
+                onChange={(event) => {
+                  setDeleteReason(event.target.value);
+                  setDeleteError("");
+                }}
+                placeholder="Why is this tow being deleted?"
+                required
+                value={deleteReason}
+              />
+            </label>
+            {deleteError && <div className="notice error">{deleteError}</div>}
+            <div className="modal-actions">
+              <button className="btn ghost" onClick={() => setDeleteTarget(null)} type="button">Cancel</button>
+              <button className="btn red" type="submit"><Trash2 size={18} /> Move to Trash</button>
+            </div>
+          </form>
+        </div>
       )}
       <button className="issue-button" onClick={() => setIssueOpen(true)} type="button">
         <Bug size={16} /> Report Issue

@@ -1,4 +1,5 @@
-import { AlertTriangle, Clock, MapPin, Plane, User } from "lucide-react";
+import { AlertTriangle, CalendarDays, Clock, MapPin, Plane, User } from "lucide-react";
+import { fmtDate } from "../lib/summary.js";
 
 export function TowCard({ tow, onOpen }) {
   return (
@@ -15,6 +16,7 @@ export function TowCard({ tow, onOpen }) {
       </div>
       <div className="tile-grid">
         <span><Plane size={17} />Type {tow.aircraftType || "?"}</span>
+        <span><CalendarDays size={17} />Date {fmtDate(tow.towCompletedAt || tow.createdAt) || "?"}</span>
         <span><Clock size={17} />ETA {tow.eta || "?"}</span>
         <span><MapPin size={17} />From {tow.gate || "?"}</span>
         <span><MapPin size={17} />To {tow.towSpot || "?"}</span>

@@ -8,7 +8,7 @@ function fmtTime(value) {
   }).format(new Date(value));
 }
 
-function fmtDate(value) {
+export function fmtDate(value) {
   if (!value) return "";
   return new Intl.DateTimeFormat("en-US", {
     month: "numeric",

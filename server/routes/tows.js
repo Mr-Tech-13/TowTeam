@@ -80,7 +80,9 @@ function auditTowDetails(tow) {
     status: tow.status,
     towCompletedAt: tow.towCompletedAt,
     towPaperCompletedAt: tow.towPaperCompletedAt,
-    deletedAt: tow.deletedAt
+    deletedAt: tow.deletedAt,
+    deletedBy: tow.deletedBy,
+    deleteReason: tow.deleteReason
   };
 }
 
@@ -240,17 +242,21 @@ router.post("/:id/steps/:step", (req, res) => {
 });
 
 router.delete("/:id", (req, res) => {
-  const result = softDeleteTow(req.params.id, req.user, req.body?.reason);
-  if (!result) {
-    res.status(404).json({ error: "Tow not found." });
-    return;
+  try {
+    const result = softDeleteTow(req.params.id, req.user, req.body?.reason);
+    if (!result) {
+      res.status(404).json({ error: "Tow not found." });
+      return;
+    }
+    writeAudit(req.user, "tow.soft_delete", {
+      entityType: "tow",
+      entityId: req.params.id,
+      details: { before: auditTowDetails(result.before), after: auditTowDetails(result.after) }
+    });
+    res.status(204).end();
+  } catch (error) {
+    res.status(400).json({ error: error.message });
   }
-  writeAudit(req.user, "tow.soft_delete", {
-    entityType: "tow",
-    entityId: req.params.id,
-    details: { before: auditTowDetails(result.before), after: auditTowDetails(result.after) }
-  });
-  res.status(204).end();
 });
 
 router.post("/:id/restore", requireAdmin, (req, res) => {
