@@ -381,6 +381,8 @@ export function undoLastStep(id) {
 }
 
 export function softDeleteTow(id, user, reason = "") {
+  const deleteReason = String(reason || "").trim();
+  if (!deleteReason) throw new Error("Delete reason is required.");
   const tow = getTow(id);
   if (!tow || tow.deletedAt) return null;
   db.prepare(
@@ -391,7 +393,7 @@ export function softDeleteTow(id, user, reason = "") {
     id,
     deletedAt: nowIso(),
     deletedBy: user?.username || "",
-    deleteReason: String(reason || "").trim(),
+    deleteReason,
     updatedAt: nowIso()
   });
   return { before: tow, after: getTow(id) };

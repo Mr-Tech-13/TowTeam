@@ -52,7 +52,7 @@ export const api = {
   createBulk: (tows) => request("/tows/bulk", { method: "POST", body: JSON.stringify({ tows }) }),
   bulkUpdateAircraftType: (filters, aircraftType) => request("/tows/bulk/aircraft-type", { method: "PATCH", body: JSON.stringify({ filters, aircraftType }) }),
   updateTow: (id, tow) => request(`/tows/${id}`, { method: "PUT", body: JSON.stringify(tow) }),
-  deleteTow: (id) => request(`/tows/${id}`, { method: "DELETE" }),
+  deleteTow: (id, reason) => request(`/tows/${id}`, { method: "DELETE", body: JSON.stringify({ reason }) }),
   parsePlan: (text) => request("/tows/parse", { method: "POST", body: JSON.stringify({ text }) }),
   logStep: (id, step, payload = {}) => request(`/tows/${id}/steps/${step}`, { method: "POST", body: JSON.stringify(payload) }),
   undoLastStep: (id) => request(`/tows/${id}/steps/undo`, { method: "POST" })

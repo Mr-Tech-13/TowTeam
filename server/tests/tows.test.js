@@ -252,7 +252,8 @@ test("soft deleted tows move to trash before permanent delete", () => {
   assert.equal(restored.after.deletedAt, null);
   assert.equal(listTows({ status: "active" }).some((row) => row.id === tow.id), true);
 
-  softDeleteTow(tow.id, { username: "tester" });
+  assert.throws(() => softDeleteTow(tow.id, { username: "tester" }), /Delete reason is required/);
+  softDeleteTow(tow.id, { username: "tester" }, "duplicate tow");
   const removed = permanentlyDeleteTow(tow.id);
   assert.equal(removed.id, tow.id);
   assert.equal(permanentlyDeleteTow(tow.id), null);

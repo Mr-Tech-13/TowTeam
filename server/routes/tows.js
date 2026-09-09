@@ -247,7 +247,12 @@ router.post("/:id/steps/:step", (req, res) => {
 });
 
 router.delete("/:id", (req, res) => {
-  const result = softDeleteTow(req.params.id, req.user, req.body?.reason);
+  const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+  if (!reason) {
+    res.status(400).json({ error: "Delete reason is required." });
+    return;
+  }
+  const result = softDeleteTow(req.params.id, req.user, reason);
   if (!result) {
     res.status(404).json({ error: "Tow not found." });
     return;

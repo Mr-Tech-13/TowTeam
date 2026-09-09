@@ -496,6 +496,9 @@ export default function App() {
   const [historyPageSize, setHistoryPageSize] = useState(10);
   const [activeSearch, setActiveSearch] = useState("");
   const [towPage, setTowPage] = useState("confirm");
+  const [deleteReason, setDeleteReason] = useState("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const [issueOpen, setIssueOpen] = useState(false);
   const [issueText, setIssueText] = useState("");
   const [issueStatus, setIssueStatus] = useState("");
@@ -700,11 +703,28 @@ export default function App() {
     setTowPage(saved.status === "completed" ? "complete" : "workflow");
   }
 
-  async function deleteActiveTow() {
-    if (!window.confirm("Delete this tow record?")) return;
-    await api.deleteTow(activeTow.id);
-    setActiveTow(null);
-    await load();
+  function requestDeleteActiveTow() {
+    setDeleteReason("");
+    setDeleteError("");
+    setDeleteDialogOpen(true);
+  }
+
+  async function deleteActiveTow(event) {
+    event.preventDefault();
+    const reason = deleteReason.trim();
+    if (!reason) {
+      setDeleteError("Enter a reason for deleting this tow.");
+      return;
+    }
+    try {
+      await api.deleteTow(activeTow.id, reason);
+      setDeleteDialogOpen(false);
+      setDeleteReason("");
+      setActiveTow(null);
+      await load();
+    } catch (err) {
+      setDeleteError(err.message);
+    }
   }
 
   function openTow(tow) {
@@ -823,7 +843,7 @@ export default function App() {
               <a className="btn ghost" href={towChecklistPreviewUrl(activeTow.id)} rel="noreferrer" target="_blank">
                 <Eye size={18} /> Preview PDF
               </a>
-              <button className="btn red" onClick={deleteActiveTow}>
+              <button className="btn red" onClick={requestDeleteActiveTow}>
                 <Trash2 size={18} /> Delete
               </button>
             </div>
@@ -1106,6 +1126,34 @@ export default function App() {
             />
             {issueStatus && <p className="muted">{issueStatus}</p>}
             <button className="btn green wide" type="submit">Submit Issue</button>
+          </form>
+        </div>
+      )}
+      {deleteDialogOpen && activeTow && (
+        <div className="modal-backdrop" role="presentation">
+          <form className="modal delete-dialog" onSubmit={deleteActiveTow}>
+            <div className="section-head">
+              <div>
+                <h3>Delete Tow</h3>
+                <p className="muted">{activeTow.tailNumber || `${activeTow.airline || ""}${activeTow.inboundFlightNumber || ""}`}</p>
+              </div>
+            </div>
+            <label>
+              <span>Reason</span>
+              <textarea
+                autoFocus
+                maxLength="500"
+                placeholder="Why is this tow being deleted?"
+                required
+                value={deleteReason}
+                onChange={(event) => setDeleteReason(event.target.value)}
+              />
+            </label>
+            {deleteError && <div className="notice error">{deleteError}</div>}
+            <div className="modal-actions">
+              <button className="btn ghost" onClick={() => setDeleteDialogOpen(false)} type="button">Cancel</button>
+              <button className="btn red" type="submit"><Trash2 size={18} /> Move to Trash</button>
+            </div>
           </form>
         </div>
       )}
