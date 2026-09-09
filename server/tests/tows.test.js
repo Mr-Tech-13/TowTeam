@@ -225,38 +225,8 @@ test("soft deleted tows move to trash before permanent delete", () => {
   assert.equal(restored.after.deletedAt, null);
   assert.equal(listTows({ status: "active" }).some((row) => row.id === tow.id), true);
 
-  softDeleteTow(tow.id, { username: "tester" }, "duplicate");
+  softDeleteTow(tow.id, { username: "tester" });
   const removed = permanentlyDeleteTow(tow.id);
   assert.equal(removed.id, tow.id);
   assert.equal(permanentlyDeleteTow(tow.id), null);
-});
-
-test("active tows are ordered by workflow priority", () => {
-  const suffix = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
-  const planned = createTow({ airline: "MX", inboundFlightNumber: `P${suffix}`, gate: "Gate 1", towSpot: "NL614" });
-  const inProgress = createTow({ airline: "MX", inboundFlightNumber: `I${suffix}`, gate: "Gate 2", towSpot: "NL615" });
-  const pendingPaper = createTow({ airline: "MX", inboundFlightNumber: `C${suffix}`, gate: "Gate 3", towSpot: "NL616" });
-
-  try {
-    logStep(inProgress.id, "setupStartedAt");
-    logStep(pendingPaper.id, "towCompletedAt");
-    const ids = listTows({ status: "active" }).map((tow) => tow.id);
-    assert.ok(ids.indexOf(inProgress.id) < ids.indexOf(planned.id));
-    assert.ok(ids.indexOf(planned.id) < ids.indexOf(pendingPaper.id));
-  } finally {
-    deleteTow(planned.id);
-    deleteTow(inProgress.id);
-    deleteTow(pendingPaper.id);
-  }
-});
-
-test("soft delete requires a reason", () => {
-  const tow = createTow({ airline: "MX", inboundFlightNumber: `X${Date.now()}`, gate: "Gate 1", towSpot: "NL614" });
-  try {
-    assert.throws(() => softDeleteTow(tow.id, { username: "tester" }), /Delete reason is required/);
-    assert.throws(() => softDeleteTow(tow.id, { username: "tester" }, "x".repeat(501)), /500 characters or fewer/);
-    assert.equal(listTows({ status: "active" }).some((row) => row.id === tow.id), true);
-  } finally {
-    deleteTow(tow.id);
-  }
 });

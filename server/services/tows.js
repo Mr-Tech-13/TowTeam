@@ -234,17 +234,7 @@ export function listTows(filters = {}) {
          AND (@hasDate = 0 OR date(COALESCE(towCompletedAt, createdAt)) = @date)
          AND (@hasDateFrom = 0 OR date(COALESCE(towCompletedAt, createdAt)) >= @dateFrom)
          AND (@hasDateTo = 0 OR date(COALESCE(towCompletedAt, createdAt)) <= @dateTo)
-       ORDER BY
-         CASE WHEN @activeStatus = 1 THEN
-           CASE
-             WHEN status IN ('setup_started', 'goaa_called', 'goaa_arrival', 'push_started', 'tow_started') THEN 0
-             WHEN status = 'planned' THEN 1
-             WHEN status = 'tow_completed' THEN 2
-             ELSE 3
-           END
-         ELSE 0 END,
-         COALESCE(towCompletedAt, updatedAt, createdAt) DESC,
-         id DESC`
+       ORDER BY COALESCE(towCompletedAt, createdAt) DESC`
     )
     .all(params)
     .map(rowToTow);
@@ -339,9 +329,6 @@ export function undoLastStep(id) {
 export function softDeleteTow(id, user, reason = "") {
   const tow = getTow(id);
   if (!tow || tow.deletedAt) return null;
-  const cleanedReason = String(reason || "").trim();
-  if (!cleanedReason) throw new Error("Delete reason is required.");
-  if (cleanedReason.length > 500) throw new Error("Delete reason must be 500 characters or fewer.");
   db.prepare(
     `UPDATE tows
      SET deletedAt = @deletedAt, deletedBy = @deletedBy, deleteReason = @deleteReason, updatedAt = @updatedAt
@@ -350,7 +337,7 @@ export function softDeleteTow(id, user, reason = "") {
     id,
     deletedAt: nowIso(),
     deletedBy: user?.username || "",
-    deleteReason: cleanedReason,
+    deleteReason: String(reason || "").trim(),
     updatedAt: nowIso()
   });
   return { before: tow, after: getTow(id) };
