@@ -66,6 +66,42 @@ test("saving tow details preserves active deletion state", () => {
   }
 });
 
+test("active tows are prioritized by workflow state on the server", () => {
+  const suffix = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
+  const awaitingPaper = createTow({
+    airline: "TP",
+    inboundFlightNumber: `${suffix}-paper`,
+    gate: "Gate 1",
+    towSpot: "NL614",
+    status: "tow_completed",
+    towCompletedAt: "2026-09-09T14:00:00.000Z"
+  });
+  const planned = createTow({
+    airline: "TP",
+    inboundFlightNumber: `${suffix}-planned`,
+    gate: "Gate 2",
+    towSpot: "NL615",
+    status: "planned"
+  });
+  const inProgress = createTow({
+    airline: "TP",
+    inboundFlightNumber: `${suffix}-active`,
+    gate: "Gate 3",
+    towSpot: "NL616",
+    status: "setup_started",
+    setupStartedAt: "2026-09-09T13:00:00.000Z"
+  });
+
+  try {
+    const rows = listTows({ status: "active", inboundFlightNumber: suffix });
+    assert.deepEqual(rows.map((tow) => tow.id), [inProgress.id, planned.id, awaitingPaper.id]);
+  } finally {
+    deleteTow(awaitingPaper.id);
+    deleteTow(planned.id);
+    deleteTow(inProgress.id);
+  }
+});
+
 test("undo last workflow step restores previous status", () => {
   const tow = createTow({
     airline: "MX",

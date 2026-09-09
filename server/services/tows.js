@@ -214,7 +214,16 @@ export function listTows(filters = {}) {
          AND (@hasDate = 0 OR date(COALESCE(towCompletedAt, createdAt)) = @date)
          AND (@hasDateFrom = 0 OR date(COALESCE(towCompletedAt, createdAt)) >= @dateFrom)
          AND (@hasDateTo = 0 OR date(COALESCE(towCompletedAt, createdAt)) <= @dateTo)
-       ORDER BY COALESCE(towCompletedAt, createdAt) DESC, id DESC`
+       ORDER BY
+         CASE WHEN @activeStatus = 1 THEN
+           CASE
+             WHEN status = 'tow_completed' THEN 2
+             WHEN status = 'planned' THEN 1
+             ELSE 0
+           END
+         ELSE 0 END ASC,
+         COALESCE(towCompletedAt, createdAt) DESC,
+         id DESC`
     )
     .all(params)
     .map(rowToTow);
@@ -260,7 +269,16 @@ export function listTowsPage(filters = {}, requestedPage = 1, requestedPageSize 
          AND (@hasDate = 0 OR date(COALESCE(towCompletedAt, createdAt)) = @date)
          AND (@hasDateFrom = 0 OR date(COALESCE(towCompletedAt, createdAt)) >= @dateFrom)
          AND (@hasDateTo = 0 OR date(COALESCE(towCompletedAt, createdAt)) <= @dateTo)
-       ORDER BY COALESCE(towCompletedAt, createdAt) DESC, id DESC
+       ORDER BY
+         CASE WHEN @activeStatus = 1 THEN
+           CASE
+             WHEN status = 'tow_completed' THEN 2
+             WHEN status = 'planned' THEN 1
+             ELSE 0
+           END
+         ELSE 0 END ASC,
+         COALESCE(towCompletedAt, createdAt) DESC,
+         id DESC
        LIMIT @limit OFFSET @offset`
     )
     .all({ ...params, limit: pageSize, offset: (page - 1) * pageSize })
