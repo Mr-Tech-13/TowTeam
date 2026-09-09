@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Bug, Clipboard, Download, Eye, History, LayoutDashboard, LogOut, Plus, RefreshCcw, RotateCcw, Save, Search, Trash2, Upload, Users } from "lucide-react";
+import { ArrowLeft, Bug, ChevronLeft, ChevronRight, Clipboard, Download, Eye, History, LayoutDashboard, LogOut, Plus, RefreshCcw, RotateCcw, Save, Search, Trash2, Upload, Users } from "lucide-react";
 import { api, backupDatabaseUrl, exportExcelUrl, exportUrl, towChecklistPreviewUrl, towChecklistUrl } from "./lib/api.js";
 import { completedSummary, fmtDate } from "./lib/summary.js";
 import { applyWorkflowStep, pendingWorkflowStepCount, queueWorkflowStep, syncPendingWorkflowSteps } from "./lib/pendingWorkflowSteps.js";
@@ -100,16 +100,25 @@ function parseTimestampInput(value, existingValue) {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-function useTows(filters, enabled = true) {
+function useTows(filters, enabled = true, pagination = null) {
   const [tows, setTows] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [pageInfo, setPageInfo] = useState({ page: 1, pageSize: 10, total: 0, totalPages: 1 });
 
   const load = async () => {
     setLoading(true);
     setError("");
     try {
-      setTows(await api.listTows(filters));
+      if (pagination) {
+        const result = await api.listTowsPage(filters, pagination.page, pagination.pageSize);
+        setTows(result.tows);
+        setPageInfo({ page: result.page, pageSize: result.pageSize, total: result.total, totalPages: result.totalPages });
+      } else {
+        const result = await api.listTows(filters);
+        setTows(result);
+        setPageInfo({ page: 1, pageSize: result.length, total: result.length, totalPages: 1 });
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -119,9 +128,9 @@ function useTows(filters, enabled = true) {
 
   useEffect(() => {
     if (enabled) load();
-  }, [enabled, JSON.stringify(filters)]);
+  }, [enabled, JSON.stringify(filters), JSON.stringify(pagination)]);
 
-  return { tows, error, loading, load };
+  return { tows, error, loading, load, pageInfo };
 }
 
 function LoginPage({ onLogin }) {
@@ -483,6 +492,8 @@ export default function App() {
   const [parseAttempted, setParseAttempted] = useState(false);
   const [candidates, setCandidates] = useState([]);
   const [historyFilters, setHistoryFilters] = useState({});
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyPageSize, setHistoryPageSize] = useState(10);
   const [activeSearch, setActiveSearch] = useState("");
   const [towPage, setTowPage] = useState("confirm");
   const [issueOpen, setIssueOpen] = useState(false);
@@ -496,12 +507,17 @@ export default function App() {
   const [workflowSyncStatus, setWorkflowSyncStatus] = useState("");
   const historyQuery = { ...historyFilters, status: "completed" };
   const filters = tab === "history" ? historyQuery : { status: "active" };
-  const { tows, error, loading, load } = useTows(filters, Boolean(user) && !adminPanel);
+  const historyPagination = tab === "history" ? { page: historyPage, pageSize: historyPageSize } : null;
+  const { tows, error, loading, load, pageInfo } = useTows(filters, Boolean(user) && !adminPanel, historyPagination);
   const activeTows = useMemo(() => tows.filter((tow) => tow.status !== "completed"), [tows]);
   const visibleActiveTows = useMemo(
     () => activeTows.filter((tow) => matchesActiveSearch(tow, activeSearch)),
     [activeTows, activeSearch]
   );
+
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [JSON.stringify(historyFilters), historyPageSize]);
 
   useEffect(() => {
     async function loadSession() {
@@ -600,11 +616,11 @@ export default function App() {
       setBulkAircraftTypeStatus("Enter an aircraft type first.");
       return;
     }
-    if (tows.length === 0) {
+    if (pageInfo.total === 0) {
       setBulkAircraftTypeStatus("No filtered tows to update.");
       return;
     }
-    if (!window.confirm(`Set aircraft type to ${aircraftType} for ${tows.length} filtered completed tow${tows.length === 1 ? "" : "s"}?`)) return;
+    if (!window.confirm(`Set aircraft type to ${aircraftType} for ${pageInfo.total} filtered completed tow${pageInfo.total === 1 ? "" : "s"}?`)) return;
     try {
       const result = await api.bulkUpdateAircraftType(historyQuery, aircraftType);
       setBulkAircraftType("");
@@ -1020,7 +1036,7 @@ export default function App() {
             <form className="bulk-update-panel" onSubmit={bulkSetAircraftType}>
               <div>
                 <strong>Bulk Aircraft Type</strong>
-                <span>Applies to the {tows.length} completed tow{tows.length === 1 ? "" : "s"} currently shown.</span>
+                <span>Applies to all {pageInfo.total} completed tow{pageInfo.total === 1 ? "" : "s"} matching the filters.</span>
               </div>
               <input
                 placeholder="Aircraft type, e.g. A220"
@@ -1035,6 +1051,37 @@ export default function App() {
             </form>
             <div className="tow-grid">
               {tows.map((tow) => <TowCard key={tow.id} tow={tow} onOpen={openTow} />)}
+            </div>
+            <div className="history-pagination">
+              <label>
+                <span>Per page</span>
+                <select value={historyPageSize} onChange={(event) => setHistoryPageSize(Number(event.target.value))}>
+                  {[5, 10, 25, 50, 100].map((size) => <option key={size} value={size}>{size}</option>)}
+                </select>
+              </label>
+              <span>{pageInfo.total} tow{pageInfo.total === 1 ? "" : "s"} · Page {pageInfo.page} of {pageInfo.totalPages}</span>
+              <div>
+                <button
+                  aria-label="Previous history page"
+                  className="icon-btn"
+                  disabled={pageInfo.page <= 1 || loading}
+                  onClick={() => setHistoryPage(pageInfo.page - 1)}
+                  title="Previous page"
+                  type="button"
+                >
+                  <ChevronLeft size={21} />
+                </button>
+                <button
+                  aria-label="Next history page"
+                  className="icon-btn"
+                  disabled={pageInfo.page >= pageInfo.totalPages || loading}
+                  onClick={() => setHistoryPage(pageInfo.page + 1)}
+                  title="Next page"
+                  type="button"
+                >
+                  <ChevronRight size={21} />
+                </button>
+              </div>
             </div>
           </section>
         )}

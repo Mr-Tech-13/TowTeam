@@ -7,6 +7,7 @@ import {
   createTow,
   getTow,
   listTows,
+  listTowsPage,
   logStep,
   permanentlyDeleteTow,
   restoreTow,
@@ -85,6 +86,12 @@ function auditTowDetails(tow) {
 }
 
 router.get("/", (req, res) => {
+  if (req.query.paginated === "true") {
+    const page = typeof req.query.page === "string" ? req.query.page : "1";
+    const pageSize = typeof req.query.pageSize === "string" ? req.query.pageSize : "10";
+    res.json(listTowsPage(req.query, page, pageSize));
+    return;
+  }
   res.json(listTows(req.query));
 });
 

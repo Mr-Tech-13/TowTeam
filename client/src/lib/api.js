@@ -46,6 +46,7 @@ export const api = {
     });
   },
   listTows: (params = {}) => request(`/tows?${new URLSearchParams(params)}`),
+  listTowsPage: (params = {}, page = 1, pageSize = 10) => request(`/tows?${new URLSearchParams({ ...params, paginated: "true", page, pageSize })}`),
   getTow: (id) => request(`/tows/${id}`),
   createTow: (tow) => request("/tows", { method: "POST", body: JSON.stringify(tow) }),
   createBulk: (tows) => request("/tows/bulk", { method: "POST", body: JSON.stringify({ tows }) }),

@@ -6,6 +6,7 @@ const {
   createTow,
   deleteTow,
   listTows,
+  listTowsPage,
   logStep,
   permanentlyDeleteTow,
   restoreTow,
@@ -204,6 +205,32 @@ test("history can filter completed tows by airline", () => {
   } finally {
     deleteTow(mxTow.id);
     deleteTow(ekTow.id);
+  }
+});
+
+test("history pagination returns filtered pages and totals", () => {
+  const suffix = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
+  const created = Array.from({ length: 12 }, (_, index) => createTow({
+    airline: "TP",
+    inboundFlightNumber: `${suffix}-${index}`,
+    gate: `Gate ${index + 1}`,
+    towSpot: "NL614",
+    towCompletedAt: new Date(Date.UTC(2026, 8, 1, 12, index)).toISOString(),
+    towPaperCompletedAt: new Date(Date.UTC(2026, 8, 1, 12, index + 1)).toISOString(),
+    status: "completed"
+  }));
+
+  try {
+    const first = listTowsPage({ status: "completed", inboundFlightNumber: suffix }, 1, 5);
+    const third = listTowsPage({ status: "completed", inboundFlightNumber: suffix }, 3, 5);
+    const defaultSize = listTowsPage({ status: "completed", inboundFlightNumber: suffix }, 1, 7);
+    assert.deepEqual({ page: first.page, pageSize: first.pageSize, total: first.total, totalPages: first.totalPages }, { page: 1, pageSize: 5, total: 12, totalPages: 3 });
+    assert.equal(first.tows.length, 5);
+    assert.equal(third.tows.length, 2);
+    assert.equal(defaultSize.pageSize, 10);
+    assert.equal(defaultSize.tows.length, 10);
+  } finally {
+    for (const tow of created) deleteTow(tow.id);
   }
 });
 

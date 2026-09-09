@@ -137,6 +137,7 @@ const baseWorkflowOrder = [
 ];
 const automaticMissingDetailWarnings = ["Tow from missing.", "Tow to missing."];
 const nullableFields = new Set(["deletedAt", "deletedBy", "deleteReason"]);
+export const towPageSizes = [5, 10, 25, 50, 100];
 
 export function sanitizeTow(input) {
   const normalizedInput = deriveLocations(input);
@@ -196,7 +197,80 @@ function deriveLocations(input) {
 }
 
 export function listTows(filters = {}) {
-  const params = {
+  const params = towFilterParams(filters);
+
+  return db
+    .prepare(
+      `SELECT * FROM tows
+       WHERE (@trashOnly = 0 OR NULLIF(TRIM(deletedAt), '') IS NOT NULL)
+         AND (@trashOnly = 1 OR NULLIF(TRIM(deletedAt), '') IS NULL)
+         AND (@activeStatus = 0 OR status != 'completed')
+         AND (@hasStatus = 0 OR status = @status)
+         AND (@hasAirline = 0 OR airline LIKE @airline)
+         AND (@hasTailNumber = 0 OR tailNumber LIKE @tailNumber)
+         AND (@hasInboundFlightNumber = 0 OR inboundFlightNumber LIKE @inboundFlightNumber)
+         AND (@hasGate = 0 OR gate LIKE @gate)
+         AND (@hasTowSpot = 0 OR towSpot LIKE @towSpot)
+         AND (@hasDate = 0 OR date(COALESCE(towCompletedAt, createdAt)) = @date)
+         AND (@hasDateFrom = 0 OR date(COALESCE(towCompletedAt, createdAt)) >= @dateFrom)
+         AND (@hasDateTo = 0 OR date(COALESCE(towCompletedAt, createdAt)) <= @dateTo)
+       ORDER BY COALESCE(towCompletedAt, createdAt) DESC, id DESC`
+    )
+    .all(params)
+    .map(rowToTow);
+}
+
+export function listTowsPage(filters = {}, requestedPage = 1, requestedPageSize = 10) {
+  const requestedSize = Number.parseInt(requestedPageSize, 10);
+  const pageSize = towPageSizes.includes(requestedSize) ? requestedSize : 10;
+  const parsedPage = Number.parseInt(requestedPage, 10);
+  const requestedPageNumber = Number.isSafeInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+  const params = towFilterParams(filters);
+  const total = db
+    .prepare(
+      `SELECT COUNT(*) AS count FROM tows
+       WHERE (@trashOnly = 0 OR NULLIF(TRIM(deletedAt), '') IS NOT NULL)
+         AND (@trashOnly = 1 OR NULLIF(TRIM(deletedAt), '') IS NULL)
+         AND (@activeStatus = 0 OR status != 'completed')
+         AND (@hasStatus = 0 OR status = @status)
+         AND (@hasAirline = 0 OR airline LIKE @airline)
+         AND (@hasTailNumber = 0 OR tailNumber LIKE @tailNumber)
+         AND (@hasInboundFlightNumber = 0 OR inboundFlightNumber LIKE @inboundFlightNumber)
+         AND (@hasGate = 0 OR gate LIKE @gate)
+         AND (@hasTowSpot = 0 OR towSpot LIKE @towSpot)
+         AND (@hasDate = 0 OR date(COALESCE(towCompletedAt, createdAt)) = @date)
+         AND (@hasDateFrom = 0 OR date(COALESCE(towCompletedAt, createdAt)) >= @dateFrom)
+         AND (@hasDateTo = 0 OR date(COALESCE(towCompletedAt, createdAt)) <= @dateTo)`
+    )
+    .get(params).count;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.min(requestedPageNumber, totalPages);
+  const rows = db
+    .prepare(
+      `SELECT * FROM tows
+       WHERE (@trashOnly = 0 OR NULLIF(TRIM(deletedAt), '') IS NOT NULL)
+         AND (@trashOnly = 1 OR NULLIF(TRIM(deletedAt), '') IS NULL)
+         AND (@activeStatus = 0 OR status != 'completed')
+         AND (@hasStatus = 0 OR status = @status)
+         AND (@hasAirline = 0 OR airline LIKE @airline)
+         AND (@hasTailNumber = 0 OR tailNumber LIKE @tailNumber)
+         AND (@hasInboundFlightNumber = 0 OR inboundFlightNumber LIKE @inboundFlightNumber)
+         AND (@hasGate = 0 OR gate LIKE @gate)
+         AND (@hasTowSpot = 0 OR towSpot LIKE @towSpot)
+         AND (@hasDate = 0 OR date(COALESCE(towCompletedAt, createdAt)) = @date)
+         AND (@hasDateFrom = 0 OR date(COALESCE(towCompletedAt, createdAt)) >= @dateFrom)
+         AND (@hasDateTo = 0 OR date(COALESCE(towCompletedAt, createdAt)) <= @dateTo)
+       ORDER BY COALESCE(towCompletedAt, createdAt) DESC, id DESC
+       LIMIT @limit OFFSET @offset`
+    )
+    .all({ ...params, limit: pageSize, offset: (page - 1) * pageSize })
+    .map(rowToTow);
+
+  return { tows: rows, page, pageSize, total, totalPages };
+}
+
+function towFilterParams(filters) {
+  return {
     activeStatus: filters.status === "active" ? 1 : 0,
     hasStatus: filters.status && filters.status !== "active" ? 1 : 0,
     status: filters.status || "",
@@ -218,26 +292,6 @@ export function listTows(filters = {}) {
     dateTo: filters.dateTo || "",
     hasDateTo: filters.dateTo ? 1 : 0
   };
-
-  return db
-    .prepare(
-      `SELECT * FROM tows
-       WHERE (@trashOnly = 0 OR NULLIF(TRIM(deletedAt), '') IS NOT NULL)
-         AND (@trashOnly = 1 OR NULLIF(TRIM(deletedAt), '') IS NULL)
-         AND (@activeStatus = 0 OR status != 'completed')
-         AND (@hasStatus = 0 OR status = @status)
-         AND (@hasAirline = 0 OR airline LIKE @airline)
-         AND (@hasTailNumber = 0 OR tailNumber LIKE @tailNumber)
-         AND (@hasInboundFlightNumber = 0 OR inboundFlightNumber LIKE @inboundFlightNumber)
-         AND (@hasGate = 0 OR gate LIKE @gate)
-         AND (@hasTowSpot = 0 OR towSpot LIKE @towSpot)
-         AND (@hasDate = 0 OR date(COALESCE(towCompletedAt, createdAt)) = @date)
-         AND (@hasDateFrom = 0 OR date(COALESCE(towCompletedAt, createdAt)) >= @dateFrom)
-         AND (@hasDateTo = 0 OR date(COALESCE(towCompletedAt, createdAt)) <= @dateTo)
-       ORDER BY COALESCE(towCompletedAt, createdAt) DESC`
-    )
-    .all(params)
-    .map(rowToTow);
 }
 
 export function getTow(id) {
