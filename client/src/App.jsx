@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Bug, Clipboard, Download, Eye, History, LayoutDashboard, LogOut, Plus, RefreshCcw, RotateCcw, Save, Trash2, Upload, Users } from "lucide-react";
+import { ArrowLeft, Bug, Clipboard, Download, Eye, History, LayoutDashboard, LogOut, Plus, RefreshCcw, RotateCcw, Save, Search, Trash2, Upload, Users } from "lucide-react";
 import { api, backupDatabaseUrl, exportExcelUrl, exportUrl, towChecklistPreviewUrl, towChecklistUrl } from "./lib/api.js";
-import { completedSummary } from "./lib/summary.js";
+import { completedSummary, fmtDate } from "./lib/summary.js";
 import { applyWorkflowStep, pendingWorkflowStepCount, queueWorkflowStep, syncPendingWorkflowSteps } from "./lib/pendingWorkflowSteps.js";
 import { TowCard } from "./components/TowCard.jsx";
 import { TowForm } from "./components/TowForm.jsx";
@@ -43,6 +43,28 @@ function deriveLocations(tow) {
 
 function prepareTow(tow) {
   return deriveLocations(tow);
+}
+
+function matchesActiveSearch(tow, search) {
+  const query = search.trim().toLowerCase();
+  if (!query) return true;
+  return [
+    tow.airline,
+    `${tow.airline || ""}${tow.inboundFlightNumber || ""}`,
+    tow.inboundFlightNumber,
+    tow.tailNumber,
+    tow.aircraftType,
+    tow.gate,
+    tow.fromLocation,
+    tow.towSpot,
+    tow.toLocation,
+    tow.driver,
+    tow.leftWingWalker,
+    tow.rightWingWalker,
+    tow.otherTeamMembers,
+    tow.status?.replaceAll("_", " "),
+    fmtDate(tow.towCompletedAt || tow.createdAt)
+  ].some((value) => String(value || "").toLowerCase().includes(query));
 }
 
 function pad2(value) {
@@ -461,6 +483,7 @@ export default function App() {
   const [parseAttempted, setParseAttempted] = useState(false);
   const [candidates, setCandidates] = useState([]);
   const [historyFilters, setHistoryFilters] = useState({});
+  const [activeSearch, setActiveSearch] = useState("");
   const [towPage, setTowPage] = useState("confirm");
   const [issueOpen, setIssueOpen] = useState(false);
   const [issueText, setIssueText] = useState("");
@@ -475,6 +498,10 @@ export default function App() {
   const filters = tab === "history" ? historyQuery : { status: "active" };
   const { tows, error, loading, load } = useTows(filters, Boolean(user) && !adminPanel);
   const activeTows = useMemo(() => tows.filter((tow) => tow.status !== "completed"), [tows]);
+  const visibleActiveTows = useMemo(
+    () => activeTows.filter((tow) => matchesActiveSearch(tow, activeSearch)),
+    [activeTows, activeSearch]
+  );
 
   useEffect(() => {
     async function loadSession() {
@@ -891,11 +918,22 @@ export default function App() {
           <section>
             <div className="section-head">
               <h2>Active Tows</h2>
-              <span>{activeTows.length} open</span>
+              <span>{visibleActiveTows.length === activeTows.length ? `${activeTows.length} open` : `${visibleActiveTows.length} of ${activeTows.length}`}</span>
+            </div>
+            <div className="active-search">
+              <Search aria-hidden="true" size={19} />
+              <input
+                aria-label="Search active tows"
+                onChange={(event) => setActiveSearch(event.target.value)}
+                placeholder="Search active tows"
+                type="search"
+                value={activeSearch}
+              />
             </div>
             <div className="tow-grid">
-              {activeTows.map((tow) => <TowCard key={tow.id} tow={tow} onOpen={openTow} />)}
+              {visibleActiveTows.map((tow) => <TowCard key={tow.id} tow={tow} onOpen={openTow} />)}
             </div>
+            {visibleActiveTows.length === 0 && <p className="muted empty-state">No active tows match that search.</p>}
           </section>
         )}
 

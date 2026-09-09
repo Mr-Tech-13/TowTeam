@@ -157,6 +157,29 @@ main {
   gap: 12px;
 }
 
+.active-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.active-search svg {
+  position: absolute;
+  left: 12px;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.active-search input {
+  padding-left: 42px;
+}
+
+.empty-state {
+  padding: 24px 0;
+  text-align: center;
+}
+
 .tow-card,
 .panel,
 .page-panel,
