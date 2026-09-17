@@ -1,0 +1,35 @@
+name: Deploy to Payback
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: towteam-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy TowTeam
+    runs-on:
+      - self-hosted
+      - linux
+
+    steps:
+      - name: Update TowTeam
+        run: |
+          set -e
+
+          echo "=== Updating repository ==="
+          cd /root/TowTeam
+
+          git pull
+
+          echo "=== Updating Docker ==="
+          docker compose up -d --build --remove-orphans
+
+          echo "=== Container status ==="
+          docker ps
+
+          echo "=== Deployment complete ==="
