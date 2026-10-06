@@ -22,6 +22,8 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+  getSettings: () => request('/settings'),
+  updateSettings: (settings) => request('/settings', { method: 'PUT', body: JSON.stringify(settings) }),
   listAirlines: () => request('/airlines'),
   createAirline: (airline) => request('/airlines', { method: 'POST', body: JSON.stringify(airline) }),
   updateAirline: (code, airline) => request(`/airlines/${encodeURIComponent(code)}`, { method: 'PUT', body: JSON.stringify(airline) }),

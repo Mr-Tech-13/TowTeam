@@ -5,6 +5,7 @@ import { completedSummary, fmtDate } from "./lib/summary.js";
 import { applyWorkflowStep, pendingWorkflowStepCount, queueWorkflowStep, syncPendingWorkflowSteps } from "./lib/pendingWorkflowSteps.js";
 import { TowCard } from "./components/TowCard.jsx";
 import { AirlineSettings } from "./components/AirlineSettings.jsx";
+import { AppSettings } from "./components/AppSettings.jsx";
 import { TowForm } from "./components/TowForm.jsx";
 import { Workflow } from "./components/Workflow.jsx";
 import { QUICK_FILTER_TOW_SPOTS } from "../../shared/towSpots.js";
@@ -198,7 +199,7 @@ function AuditDetails({ details }) {
   );
 }
 
-function AdminUsersPage({ currentUser, onBack, airlines, onAirlinesChange }) {
+function AdminUsersPage({ currentUser, onBack, airlines, onAirlinesChange, settings, onSettingsChange }) {
   const [adminView, setAdminView] = useState("users");
   const [users, setUsers] = useState([]);
   const [issues, setIssues] = useState([]);
@@ -364,13 +365,14 @@ function AdminUsersPage({ currentUser, onBack, airlines, onAirlinesChange }) {
         </div>
         {error && <div className="notice error">{error}</div>}
         <div className="admin-subtabs">
-          {["users", "airlines", "issues", "audit", "trash", "backup"].map((view) => (
+          {["users", "airlines", "settings", "issues", "audit", "trash", "backup"].map((view) => (
             <button className={adminView === view ? "btn green" : "btn ghost"} key={view} onClick={() => setAdminView(view)} type="button">
               {view}
             </button>
           ))}
         </div>
         {adminView === "airlines" && <AirlineSettings airlines={airlines} onChange={onAirlinesChange} />}
+        {adminView === "settings" && <AppSettings settings={settings} onChange={onSettingsChange} />}
         {adminView === "users" && (
           <>
             <form className="user-create" onSubmit={createUser}>
@@ -485,6 +487,9 @@ function AdminUsersPage({ currentUser, onBack, airlines, onAirlinesChange }) {
 export default function App() {
   const [user, setUser] = useState(null);
   const [airlines, setAirlines] = useState([]);
+  const [settings, setSettings] = useState(null);
+  const [settingsError, setSettingsError] = useState('');
+  const [importError, setImportError] = useState('');
   const [airlineError, setAirlineError] = useState('');
   const [manualError, setManualError] = useState('');
   const [authLoading, setAuthLoading] = useState(true);
@@ -531,6 +536,30 @@ export default function App() {
     setAirlineError('');
     api.listAirlines().then(setAirlines).catch((err) => setAirlineError(err.message));
   }, [user, adminPanel]);
+
+  useEffect(() => {
+    if (!user) { setSettings(null); return undefined; }
+    let cancelled = false;
+    async function refreshSettings() {
+      try {
+        const next = await api.getSettings();
+        if (!cancelled) { setSettings(next); setSettingsError(''); }
+      } catch (err) { if (!cancelled) setSettingsError(err.message); }
+    }
+    void refreshSettings();
+    window.addEventListener('focus', refreshSettings);
+    const interval = window.setInterval(refreshSettings, 15000);
+    return () => { cancelled = true; window.clearInterval(interval); window.removeEventListener('focus', refreshSettings); };
+  }, [user, adminPanel]);
+
+  useEffect(() => {
+    if (settings?.bulkImportEnabled) return;
+    setCandidates([]);
+    setPasteText('');
+    setParseAttempted(false);
+    setImportMeta(null);
+    setImportError('');
+  }, [settings?.bulkImportEnabled]);
 
   useEffect(() => {
     async function loadSession() {
@@ -609,20 +638,26 @@ export default function App() {
   }
 
   async function parseImport() {
-    const result = await api.parsePlan(pasteText);
-    setCandidates(result.candidates);
-    setImportMeta({ ignoredCount: result.ignoredCount || 0, totalParsed: result.totalParsed || result.candidates.length });
-    setParseAttempted(true);
+    setImportError('');
+    try {
+      const result = await api.parsePlan(pasteText);
+      setCandidates(result.candidates);
+      setImportMeta({ ignoredCount: result.ignoredCount || 0, totalParsed: result.totalParsed || result.candidates.length });
+      setParseAttempted(true);
+    } catch (err) { setImportError(err.message); }
   }
 
   async function saveCandidates() {
-    await api.createBulk(candidates.map(prepareTow));
-    setCandidates([]);
-    setPasteText("");
-    setParseAttempted(false);
-    setImportMeta(null);
-    openTab("dashboard");
-    await load();
+    setImportError('');
+    try {
+      await api.createBulk(candidates.map(prepareTow));
+      setCandidates([]);
+      setPasteText("");
+      setParseAttempted(false);
+      setImportMeta(null);
+      openTab("dashboard");
+      await load();
+    } catch (err) { setImportError(err.message); }
   }
 
   async function bulkSetAircraftType(event) {
@@ -819,6 +854,7 @@ export default function App() {
 
       {error && <div className="notice error">{error}</div>}
       {airlineError && <div className="notice error">{airlineError}</div>}
+      {settingsError && <div className="notice error">{settingsError}</div>}
       {loading && <div className="notice">Loading...</div>}
       {(workflowSyncStatus || pendingStepCount > 0) && (
         <div className={pendingStepCount > 0 ? "notice warn" : "notice"}>
@@ -828,7 +864,7 @@ export default function App() {
       )}
 
       {adminPanel ? (
-        <AdminUsersPage currentUser={user} onBack={() => setAdminPanel(false)} airlines={airlines} onAirlinesChange={setAirlines} />
+        <AdminUsersPage currentUser={user} onBack={() => setAdminPanel(false)} airlines={airlines} onAirlinesChange={setAirlines} settings={settings} onSettingsChange={setSettings} />
       ) : (
       <main>
         {activeTow && towPage === "confirm" && (
@@ -988,15 +1024,16 @@ export default function App() {
         )}
 
         {!activeTow && tab === "setup" && (
-          <section className="setup-grid">
+          <section className={`setup-grid${settings?.bulkImportEnabled ? '' : ' manual-only'}`}>
             <div className="panel">
               <h2>Manual Tow</h2>
               {manualError && <div className="notice error">{manualError}</div>}
               <TowForm value={manualTow} onChange={setManualTow} manual airlines={airlines} />
               <button className="btn green wide" onClick={saveManual}><Save size={18} />Save Tow</button>
             </div>
-            <div className="panel">
+            {settings?.bulkImportEnabled && <div className="panel">
               <h2>Bulk Import</h2>
+              {importError && <div className="notice error" role="alert">{importError}</div>}
               <textarea
                 className="paste-box"
                 value={pasteText}
@@ -1025,7 +1062,7 @@ export default function App() {
               {parseAttempted && candidates.length === 0 && (
                 <p className="muted">No importable tows found. Only flights with exact tow spots like BB113, NL614, or WR22 are imported.</p>
               )}
-            </div>
+            </div>}
           </section>
         )}
 

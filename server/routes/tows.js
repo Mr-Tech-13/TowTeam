@@ -1,6 +1,7 @@
 import express from "express";
 import { requireAdmin } from "../middleware/auth.js";
 import { writeAudit } from "../services/audit.js";
+import { requireBulkImport } from "../services/settings.js";
 import { hasKnownTowSpot, parseTowPlan } from "../services/parser.js";
 import { generateTowPermitPdf, towPermitFilename } from "../services/towPermit.js";
 import {
@@ -136,7 +137,7 @@ router.get("/export.xls", (req, res) => {
   res.send(workbook);
 });
 
-router.post("/parse", (req, res) => {
+router.post("/parse", requireBulkImport, (req, res) => {
   const allCandidates = parseTowPlan(req.body.text || "");
   const candidates = allCandidates.filter(hasKnownTowSpot);
   res.json({ candidates, ignoredCount: allCandidates.length - candidates.length, totalParsed: allCandidates.length });
@@ -152,7 +153,7 @@ router.post("/", (req, res) => {
   res.status(201).json(tow);
 });
 
-router.post("/bulk", (req, res) => {
+router.post("/bulk", requireBulkImport, (req, res) => {
   const items = Array.isArray(req.body.tows) ? req.body.tows.filter(hasKnownTowSpot) : [];
   const tows = items.map(createTow);
   writeAudit(req.user, "tow.bulk_create", { entityType: "tow", details: { count: tows.length } });
