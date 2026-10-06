@@ -1,4 +1,4 @@
-import { AlertTriangle, CalendarDays, Clock, MapPin, Plane, User } from "lucide-react";
+import { AlertTriangle, CalendarDays, Clock, MapPin, Plane } from "lucide-react";
 import { fmtDate } from "../lib/summary.js";
 
 export function TowCard({ tow, onOpen, airlines = [], history = false }) {
@@ -6,15 +6,14 @@ export function TowCard({ tow, onOpen, airlines = [], history = false }) {
   const outline = tow.needsReview ? 'review' : history && tow.status === 'completed' ? 'history-complete' : ['completed', 'tow_completed'].includes(tow.status) ? 'complete' : tow.status === 'planned' ? 'planned' : 'progress';
   return (
     <button className={`tow-card outline-${outline}`} onClick={() => onOpen(tow)} type="button">
+      <span className="airline-swatch" title={airline?.name || tow.airline || 'Unknown airline'} style={{ backgroundColor: airline?.color || '#94a3b8' }} />
       <div className="tile-top">
         <div className="tile-title">
           <span className={tow.tailNumber ? "tail-lead" : "tail-lead unknown"}>{tow.tailNumber || "Aircraft Reg unknown"}</span>
           <span className="flight-sub">
             <span className="airline-label" title={airline?.name || tow.airline}>
-              <span className="airline-swatch" style={{ backgroundColor: airline?.color || '#94a3b8' }} />
               {tow.airline || 'Unknown airline'}
             </span>
-            {tow.inboundFlightNumber && <span>{tow.inboundFlightNumber}</span>}
           </span>
         </div>
         <span className={`status status-${tow.status}`}>{tow.status.replaceAll("_", " ")}</span>
@@ -25,7 +24,6 @@ export function TowCard({ tow, onOpen, airlines = [], history = false }) {
         {tow.eta && <span><Clock size={17} />ETA {tow.eta}</span>}
         <span><MapPin size={17} />From {tow.gate || "?"}</span>
         <span><MapPin size={17} />To {tow.towSpot || "?"}</span>
-        {tow.inboundFlightNumber && <span className="flight-detail"><User size={17} />Flight {tow.airline}{tow.inboundFlightNumber}</span>}
       </div>
       {tow.needsReview && (
         <span className="review-badge">

@@ -191,6 +191,7 @@ main {
 }
 
 .tow-card {
+  position: relative;
   width: 100%;
   min-height: 172px;
   padding: 14px;
@@ -218,10 +219,12 @@ main {
 
 .airline-label { color: #cbd5e1; }
 .airline-swatch {
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  flex: 0 0 10px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 28px;
+  height: 6px;
+  border-radius: 4px 0 2px 0;
 }
 
 .airline-create {
@@ -319,7 +322,6 @@ main {
   color: #cbd5e1;
 }
 
-.tile-grid .flight-detail { color: #cbd5e1; }
 
 .tile-grid {
   display: grid;
