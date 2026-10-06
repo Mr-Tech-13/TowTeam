@@ -13,7 +13,15 @@ const fields = [
 ];
 
 export function TowForm({ value, onChange, compact = false, manual = false, airlines = [] }) {
-  const update = (field, fieldValue) => onChange({ ...value, [field]: fieldValue });
+  const aircraftTypes = airlines.find((airline) => airline.code.toUpperCase() === String(value.airline || '').toUpperCase())?.aircraftTypes || [];
+  const update = (field, fieldValue) => {
+    const next = { ...value, [field]: fieldValue };
+    if (field === 'airline') {
+      const types = airlines.find((airline) => airline.code === fieldValue)?.aircraftTypes || [];
+      if (!types.includes(value.aircraftType)) next.aircraftType = '';
+    }
+    onChange(next);
+  };
 
   return (
     <div className={compact ? "form-grid compact" : "form-grid"}>
@@ -27,6 +35,12 @@ export function TowForm({ value, onChange, compact = false, manual = false, airl
                 <option value={value.airline}>{value.airline}</option>
               )}
               {airlines.map((airline) => <option key={airline.code} value={airline.code}>{airline.code}{airline.name ? ` - ${airline.name}` : ''}</option>)}
+            </select>
+          ) : field === 'aircraftType' ? (
+            <select value={value.aircraftType || ''} onChange={(event) => update(field, event.target.value)}>
+              <option value="">Select aircraft type</option>
+              {value.aircraftType && !aircraftTypes.includes(value.aircraftType) && <option value={value.aircraftType}>{value.aircraftType}</option>}
+              {aircraftTypes.map((type) => <option key={type} value={type}>{type}</option>)}
             </select>
           ) : <input value={value[field] || ""} onChange={(event) => update(field, event.target.value)} />}
         </label>
