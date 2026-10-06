@@ -25,7 +25,7 @@ export function TowCard({ tow, onOpen, airlines = [] }) {
         {tow.eta && <span><Clock size={17} />ETA {tow.eta}</span>}
         <span><MapPin size={17} />From {tow.gate || "?"}</span>
         <span><MapPin size={17} />To {tow.towSpot || "?"}</span>
-        {tow.inboundFlightNumber && <span><User size={17} />Flight {tow.airline}{tow.inboundFlightNumber}</span>}
+        {tow.inboundFlightNumber && <span className="flight-detail"><User size={17} />Flight {tow.airline}{tow.inboundFlightNumber}</span>}
       </div>
       {tow.needsReview && (
         <span className="review-badge">

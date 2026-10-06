@@ -206,7 +206,7 @@ main {
 
 .tow-card.outline-planned { border-color: #60a5fa; }
 .tow-card.outline-progress { border-color: #facc15; }
-.tow-card.outline-complete { border-color: #ffffff; }
+.tow-card.outline-complete { border-color: #cbd5e1; }
 .tow-card.outline-review { border-color: #f87171; }
 
 .flight-sub, .airline-label {
@@ -215,7 +215,7 @@ main {
   gap: 8px;
 }
 
-.airline-label { color: #f8fafc; }
+.airline-label { color: #cbd5e1; }
 .airline-swatch {
   width: 10px;
   height: 10px;
@@ -271,7 +271,7 @@ main {
 }
 
 .flight-sub {
-  color: #93c5fd;
+  color: #cbd5e1;
   font-size: 0.92rem;
   font-weight: 800;
 }
@@ -314,8 +314,10 @@ main {
 
 .status-tow_completed {
   background: rgba(255, 255, 255, 0.12);
-  color: #ffffff;
+  color: #cbd5e1;
 }
+
+.tile-grid .flight-detail { color: #cbd5e1; }
 
 .tile-grid {
   display: grid;
