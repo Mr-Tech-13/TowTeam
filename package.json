@@ -39,7 +39,8 @@
   },
   "overrides": {
     "qs": "6.16.0",
-    "ip-address": "^10.5.1"
+    "ip-address": "^10.5.1",
+    "shell-quote": "^1.11.0"
   },
   "engines": {
     "node": ">=20"
