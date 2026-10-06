@@ -103,6 +103,10 @@ Rate limiting is enabled by default for API requests, login attempts, issue repo
 
 ## Admin Maintenance
 
+The Airlines tab lets admins add airline codes, edit names and colors, and remove airlines from the dropdown. Existing tow records retain their codes when an airline is removed. Manual entry does not require a flight number or ETA; imported flight details are retained.
+
+Tow cards use red outlines for Needs Review, white for physical tow completion or paperwork completion, blue for planned tows, and yellow for in-progress tows. Needs Review takes priority. The small swatch beside the airline code uses its admin-configured color.
+
 Admin users can use the admin page for user management, issue reports, audit logs, trash, and database backup/restore.
 
 - Deleting a tow from the app now moves it to Trash first.

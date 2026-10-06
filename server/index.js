@@ -9,6 +9,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { requireAuth } from "./middleware/auth.js";
+import { router as airlineRoutes } from "./routes/airlines.js";
 import { router as auditRoutes } from "./routes/audit.js";
 import { router as authRoutes } from "./routes/auth.js";
 import { router as issueRoutes } from "./routes/issues.js";
@@ -75,6 +76,7 @@ app.use("/api", apiRateLimit);
 app.use(requireAuth);
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
+app.use("/api/airlines", airlineRoutes);
 app.use("/api/audit", auditRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/issues", issueRoutes);

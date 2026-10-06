@@ -147,6 +147,31 @@ test("missing gate or tow spot automatically needs review", () => {
   }
 });
 
+test("manual review flags persist through edits and can be cleared", () => {
+  const tow = createTow({
+    airline: "MX",
+    inboundFlightNumber: `F${Date.now()}`,
+    gate: "Gate 1",
+    towSpot: "NL614",
+    needsReview: true
+  });
+  try {
+    assert.equal(tow.needsReview, true);
+    assert.ok(tow.parserWarnings.includes("Manually flagged for review."));
+    assert.equal(updateTow(tow.id, { driver: "Tester" }).needsReview, true);
+    const cleared = updateTow(tow.id, { needsReview: false });
+    assert.equal(cleared.needsReview, false);
+    assert.deepEqual(cleared.parserWarnings, []);
+    assert.equal(updateTow(tow.id, { needsReview: true }).needsReview, true);
+    const missingDetails = updateTow(tow.id, { gate: "", needsReview: false });
+    assert.equal(missingDetails.needsReview, true);
+    assert.deepEqual(missingDetails.parserWarnings, ["Tow from missing."]);
+    assert.equal(updateTow(tow.id, { gate: "Gate 1" }).needsReview, false);
+  } finally {
+    deleteTow(tow.id);
+  }
+});
+
 test("editing gate or tow spot updates derived summary locations", () => {
   const outbound = createTow({
     airline: "MX",

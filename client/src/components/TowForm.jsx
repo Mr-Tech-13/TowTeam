@@ -12,15 +12,23 @@ const fields = [
   ["otherTeamMembers", "Other team members"]
 ];
 
-export function TowForm({ value, onChange, compact = false }) {
+export function TowForm({ value, onChange, compact = false, manual = false, airlines = [] }) {
   const update = (field, fieldValue) => onChange({ ...value, [field]: fieldValue });
 
   return (
     <div className={compact ? "form-grid compact" : "form-grid"}>
-      {fields.map(([field, label]) => (
+      {fields.filter(([field]) => !manual || !['inboundFlightNumber', 'eta'].includes(field)).map(([field, label]) => (
         <label key={field}>
           <span>{label}</span>
-          <input value={value[field] || ""} onChange={(event) => update(field, event.target.value)} />
+          {field === 'airline' ? (
+            <select value={value.airline || ''} onChange={(event) => update(field, event.target.value)}>
+              <option value="">Select airline</option>
+              {value.airline && !airlines.some((airline) => airline.code === value.airline) && (
+                <option value={value.airline}>{value.airline}</option>
+              )}
+              {airlines.map((airline) => <option key={airline.code} value={airline.code}>{airline.code}{airline.name ? ` - ${airline.name}` : ''}</option>)}
+            </select>
+          ) : <input value={value[field] || ""} onChange={(event) => update(field, event.target.value)} />}
         </label>
       ))}
       <label className="full">

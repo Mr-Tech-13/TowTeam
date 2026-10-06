@@ -22,6 +22,10 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+  listAirlines: () => request('/airlines'),
+  createAirline: (airline) => request('/airlines', { method: 'POST', body: JSON.stringify(airline) }),
+  updateAirline: (code, airline) => request(`/airlines/${encodeURIComponent(code)}`, { method: 'PUT', body: JSON.stringify(airline) }),
+  deleteAirline: (code) => request(`/airlines/${encodeURIComponent(code)}`, { method: 'DELETE' }),
   me: () => request("/auth/me"),
   login: (credentials) => request("/auth/login", { method: "POST", body: JSON.stringify(credentials) }),
   logout: () => request("/auth/logout", { method: "POST" }),

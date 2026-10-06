@@ -4,6 +4,7 @@ import { api, backupDatabaseUrl, exportExcelUrl, exportUrl, towChecklistPreviewU
 import { completedSummary, fmtDate } from "./lib/summary.js";
 import { applyWorkflowStep, pendingWorkflowStepCount, queueWorkflowStep, syncPendingWorkflowSteps } from "./lib/pendingWorkflowSteps.js";
 import { TowCard } from "./components/TowCard.jsx";
+import { AirlineSettings } from "./components/AirlineSettings.jsx";
 import { TowForm } from "./components/TowForm.jsx";
 import { Workflow } from "./components/Workflow.jsx";
 import { QUICK_FILTER_TOW_SPOTS } from "../../shared/towSpots.js";
@@ -197,7 +198,7 @@ function AuditDetails({ details }) {
   );
 }
 
-function AdminUsersPage({ currentUser, onBack }) {
+function AdminUsersPage({ currentUser, onBack, airlines, onAirlinesChange }) {
   const [adminView, setAdminView] = useState("users");
   const [users, setUsers] = useState([]);
   const [issues, setIssues] = useState([]);
@@ -357,19 +358,19 @@ function AdminUsersPage({ currentUser, onBack }) {
       <section className="page-panel">
         <div className="section-head">
           <div>
-            <h2>User Accounts</h2>
-            <p className="muted">Admins can create users, change roles, reset passwords, and delete accounts.</p>
+            <h2>Administration</h2>
           </div>
           <button className="btn ghost" onClick={onBack}><ArrowLeft size={18} /> Menu</button>
         </div>
         {error && <div className="notice error">{error}</div>}
         <div className="admin-subtabs">
-          {["users", "issues", "audit", "trash", "backup"].map((view) => (
+          {["users", "airlines", "issues", "audit", "trash", "backup"].map((view) => (
             <button className={adminView === view ? "btn green" : "btn ghost"} key={view} onClick={() => setAdminView(view)} type="button">
               {view}
             </button>
           ))}
         </div>
+        {adminView === "airlines" && <AirlineSettings airlines={airlines} onChange={onAirlinesChange} />}
         {adminView === "users" && (
           <>
             <form className="user-create" onSubmit={createUser}>
@@ -483,6 +484,9 @@ function AdminUsersPage({ currentUser, onBack }) {
 
 export default function App() {
   const [user, setUser] = useState(null);
+  const [airlines, setAirlines] = useState([]);
+  const [airlineError, setAirlineError] = useState('');
+  const [manualError, setManualError] = useState('');
   const [authLoading, setAuthLoading] = useState(true);
   const [adminPanel, setAdminPanel] = useState(false);
   const [tab, setTab] = useState("dashboard");
@@ -521,6 +525,12 @@ export default function App() {
   useEffect(() => {
     setHistoryPage(1);
   }, [JSON.stringify(historyFilters), historyPageSize]);
+
+  useEffect(() => {
+    if (!user) return;
+    setAirlineError('');
+    api.listAirlines().then(setAirlines).catch((err) => setAirlineError(err.message));
+  }, [user, adminPanel]);
 
   useEffect(() => {
     async function loadSession() {
@@ -589,10 +599,13 @@ export default function App() {
   }
 
   async function saveManual() {
-    await api.createTow(prepareTow(manualTow));
-    setManualTow(emptyTow);
-    openTab("dashboard");
-    await load();
+    setManualError('');
+    try {
+      await api.createTow(prepareTow(manualTow));
+      setManualTow(emptyTow);
+      openTab("dashboard");
+      await load();
+    } catch (err) { setManualError(err.message); }
   }
 
   async function parseImport() {
@@ -805,6 +818,7 @@ export default function App() {
       </nav>
 
       {error && <div className="notice error">{error}</div>}
+      {airlineError && <div className="notice error">{airlineError}</div>}
       {loading && <div className="notice">Loading...</div>}
       {(workflowSyncStatus || pendingStepCount > 0) && (
         <div className={pendingStepCount > 0 ? "notice warn" : "notice"}>
@@ -814,7 +828,7 @@ export default function App() {
       )}
 
       {adminPanel ? (
-        <AdminUsersPage currentUser={user} onBack={() => setAdminPanel(false)} />
+        <AdminUsersPage currentUser={user} onBack={() => setAdminPanel(false)} airlines={airlines} onAirlinesChange={setAirlines} />
       ) : (
       <main>
         {activeTow && towPage === "confirm" && (
@@ -832,7 +846,7 @@ export default function App() {
               </button>
             </div>
             {activeTow.parserWarnings?.length > 0 && <div className="notice warn">{activeTow.parserWarnings.join(" ")}</div>}
-            <TowForm value={activeTow} onChange={setActiveTow} />
+            <TowForm value={activeTow} onChange={setActiveTow} airlines={airlines} />
             <div className="page-actions">
               <button className="btn green" onClick={saveDetailsAndContinue}>
                 <Save size={18} /> Save and Continue
@@ -922,7 +936,7 @@ export default function App() {
                   {activeTow.inboundFlightNumber}
                 </p>
               </div>
-              <button className="btn ghost" onClick={() => void returnToMenu("history")}>
+              <button className="btn ghost" onClick={() => void returnToMenu("dashboard")}>
                 <ArrowLeft size={18} /> Menu
               </button>
             </div>
@@ -967,7 +981,7 @@ export default function App() {
               />
             </div>
             <div className="tow-grid">
-              {visibleActiveTows.map((tow) => <TowCard key={tow.id} tow={tow} onOpen={openTow} />)}
+              {visibleActiveTows.map((tow) => <TowCard key={tow.id} tow={tow} onOpen={openTow} airlines={airlines} />)}
             </div>
             {visibleActiveTows.length === 0 && <p className="muted empty-state">No active tows match that search.</p>}
           </section>
@@ -977,7 +991,8 @@ export default function App() {
           <section className="setup-grid">
             <div className="panel">
               <h2>Manual Tow</h2>
-              <TowForm value={manualTow} onChange={setManualTow} />
+              {manualError && <div className="notice error">{manualError}</div>}
+              <TowForm value={manualTow} onChange={setManualTow} manual airlines={airlines} />
               <button className="btn green wide" onClick={saveManual}><Save size={18} />Save Tow</button>
             </div>
             <div className="panel">
@@ -995,7 +1010,7 @@ export default function App() {
                 <div className="candidate-list">
                   {candidates.map((candidate, index) => (
                     <div className="candidate" key={`${candidate.inboundFlightNumber}-${index}`}>
-                      <TowForm compact value={candidate} onChange={(next) => setCandidates(candidates.map((item, i) => (i === index ? next : item)))} />
+                      <TowForm compact value={candidate} airlines={airlines} onChange={(next) => setCandidates(candidates.map((item, i) => (i === index ? next : item)))} />
                       {candidate.parserWarnings?.length > 0 && <p className="warning-text">{candidate.parserWarnings.join(" ")}</p>}
                     </div>
                   ))}
@@ -1070,7 +1085,7 @@ export default function App() {
               {bulkAircraftTypeStatus && <span className="muted">{bulkAircraftTypeStatus}</span>}
             </form>
             <div className="tow-grid">
-              {tows.map((tow) => <TowCard key={tow.id} tow={tow} onOpen={openTow} />)}
+              {tows.map((tow) => <TowCard key={tow.id} tow={tow} onOpen={openTow} airlines={airlines} />)}
             </div>
             <div className="history-pagination">
               <label>

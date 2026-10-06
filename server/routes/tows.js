@@ -143,8 +143,8 @@ router.post("/parse", (req, res) => {
 });
 
 router.post("/", (req, res) => {
-  if (!req.body.inboundFlightNumber) {
-    res.status(400).json({ error: "Inbound flight number is required." });
+  if (typeof req.body.airline !== "string" || !req.body.airline.trim()) {
+    res.status(400).json({ error: "Airline is required." });
     return;
   }
   const tow = createTow(req.body);

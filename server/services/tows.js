@@ -136,6 +136,7 @@ const baseWorkflowOrder = [
   ["towPaperCompletedAt", "tow_completed"]
 ];
 const automaticMissingDetailWarnings = ["Tow from missing.", "Tow to missing."];
+const manualReviewWarning = "Manually flagged for review.";
 const nullableFields = new Set(["deletedAt", "deletedBy", "deleteReason"]);
 export const towPageSizes = [5, 10, 25, 50, 100];
 
@@ -151,6 +152,7 @@ export function sanitizeTow(input) {
   }
   const warnings = normalizeWarnings(normalizedInput.parserWarnings);
   addMissingDetailWarnings(normalizedInput, warnings);
+  if (normalizedInput.needsReview && warnings.length === 0) addWarning(warnings, manualReviewWarning);
   tow.needsReview = warnings.length > 0 ? 1 : 0;
   tow.parserWarnings = JSON.stringify(warnings);
   return tow;
@@ -325,8 +327,20 @@ export function createTow(input) {
 export function updateTow(id, input) {
   const existing = getTow(id);
   if (!existing) return null;
+  const parserWarnings = input.parserWarnings ?? existing.parserWarnings;
+  const warnings = normalizeWarnings(parserWarnings);
+  if (input.needsReview === false) {
+    const index = warnings.indexOf(manualReviewWarning);
+    if (index !== -1) warnings.splice(index, 1);
+  } else if (input.needsReview === true && !existing.needsReview) {
+    addWarning(warnings, manualReviewWarning);
+  }
+  const manualReview = warnings.includes(manualReviewWarning)
+    || (existing.needsReview && existing.parserWarnings.length === 0 && input.needsReview !== false);
   const tow = completeTowParams(sanitizeTow(syncEditedLocations(existing, {
     ...input,
+    needsReview: manualReview,
+    parserWarnings: warnings,
     deletedAt: existing.deletedAt,
     deletedBy: existing.deletedBy,
     deleteReason: existing.deleteReason

@@ -196,11 +196,52 @@ main {
   padding: 14px;
   text-align: left;
   color: inherit;
+  border-width: 2px;
+  border-color: #60a5fa;
 }
 
 .tow-card:hover {
-  border-color: rgba(96, 165, 250, 0.75);
+  background: #263244;
 }
+
+.tow-card.outline-planned { border-color: #60a5fa; }
+.tow-card.outline-progress { border-color: #facc15; }
+.tow-card.outline-complete { border-color: #ffffff; }
+.tow-card.outline-review { border-color: #f87171; }
+
+.flight-sub, .airline-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.airline-label { color: #f8fafc; }
+.airline-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex: 0 0 10px;
+}
+
+.airline-create {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr) 64px auto;
+  align-items: end;
+  gap: 12px;
+  margin: 14px 0;
+}
+
+.airline-list { display: grid; gap: 10px; }
+.airline-row {
+  display: grid;
+  grid-template-columns: 60px minmax(0, 1fr) 54px 46px 46px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.color-input { width: 54px; padding: 4px; cursor: pointer; }
 
 .tile-top {
   display: flex;
@@ -221,6 +262,7 @@ main {
   font-size: 1.6rem;
   font-weight: 800;
   line-height: 1.05;
+  overflow-wrap: anywhere;
 }
 
 .tail-lead.unknown {
@@ -246,6 +288,11 @@ main {
   text-transform: uppercase;
 }
 
+.tile-top > .status {
+  flex-shrink: 0;
+  max-width: 44%;
+}
+
 .status-planned {
   background: rgba(59, 130, 246, 0.2);
   color: #bfdbfe;
@@ -263,6 +310,11 @@ main {
 .status-completed {
   background: rgba(34, 197, 94, 0.18);
   color: #bbf7d0;
+}
+
+.status-tow_completed {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
 }
 
 .tile-grid {
@@ -908,6 +960,12 @@ pre {
 }
 
 @media (max-width: 520px) {
+  .topbar { flex-wrap: wrap; }
+  .airline-create { grid-template-columns: 90px minmax(0, 1fr); }
+  .airline-row { grid-template-columns: 46px minmax(0, 1fr) 46px 46px; gap: 6px; }
+  .airline-row > strong { grid-column: 1 / -1; }
+  .airline-row > input:not([type="color"]) { grid-column: 1 / 3; }
+  .airline-row > input[type="color"] { grid-row: 1; grid-column: 4; }
   .app-shell {
     padding: 10px;
   }
