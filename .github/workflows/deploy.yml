@@ -3,7 +3,7 @@ name: Deploy to Payback
 on:
   push:
     branches:
-      - main
+      - init
 
 permissions: {}
 
