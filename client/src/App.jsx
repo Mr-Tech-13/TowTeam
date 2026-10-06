@@ -1085,7 +1085,7 @@ export default function App() {
               {bulkAircraftTypeStatus && <span className="muted">{bulkAircraftTypeStatus}</span>}
             </form>
             <div className="tow-grid">
-              {tows.map((tow) => <TowCard key={tow.id} tow={tow} onOpen={openTow} airlines={airlines} history />)}
+              {tows.map((tow) => <TowCard key={tow.id} tow={tow} onOpen={openTow} airlines={airlines} />)}
             </div>
             <div className="history-pagination">
               <label>

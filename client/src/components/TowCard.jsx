@@ -1,11 +1,10 @@
 import { AlertTriangle, CalendarDays, Clock, MapPin, Plane } from "lucide-react";
 import { fmtDate } from "../lib/summary.js";
 
-export function TowCard({ tow, onOpen, airlines = [], history = false }) {
+export function TowCard({ tow, onOpen, airlines = [] }) {
   const airline = airlines.find((item) => item.code.toUpperCase() === String(tow.airline || '').toUpperCase());
-  const outline = tow.needsReview ? 'review' : history && tow.status === 'completed' ? 'history-complete' : ['completed', 'tow_completed'].includes(tow.status) ? 'complete' : tow.status === 'planned' ? 'planned' : 'progress';
   return (
-    <button className={`tow-card outline-${outline}`} onClick={() => onOpen(tow)} type="button">
+    <button className={`tow-card${tow.needsReview ? ' outline-review' : ''}`} onClick={() => onOpen(tow)} type="button">
       <span className="airline-swatch" title={airline?.name || tow.airline || 'Unknown airline'} style={{ backgroundColor: airline?.color || '#94a3b8' }} />
       <div className="tile-top">
         <div className="tile-title">
