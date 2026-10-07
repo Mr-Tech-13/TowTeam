@@ -38,6 +38,9 @@ try {
   await main.waitForFunction(async(id)=>{const response=await globalThis.fetch('/api/users'); const users=await response.json(); return users.find(user=>user.id===id)?.autofill===true;},userId);
   await main.screenshot({path:'tmp/pdf-review/autofill-account.png',fullPage:true});
   await paper.reload(); await paper.waitForFunction(()=>!globalThis.document.getElementById('save').disabled);
+  await paper.setViewportSize({width:390,height:844});
+  assert.equal(await paper.locator('#paper-sidebar').isVisible(),false);
+  await paper.getByRole('button',{name:'Risk & Checklist',exact:true}).click();
   await paper.getByRole('button',{name:'CHECKLIST',exact:true}).click();
   await paper.getByText('Blank checklist items autofilled and saved',{exact:true}).waitFor();
   const draft=await (await member.request.get(`${base}/api/tows/${towId}/paper-draft`)).json();

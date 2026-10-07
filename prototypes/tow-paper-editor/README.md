@@ -13,6 +13,9 @@ Menu returns to the original tow view, not the dashboard. Save errors leave edit
 revision conflicts pause autosave until the shared draft is reloaded. Refresh the editor
 to fetch another user's changes. The connected editor
 shows only Menu and Reset in its action bar; use the tow detail page to preview or download.
+On mobile, the risk controls and checklist summary are in a collapsed bottom drawer.
+Risk & Checklist opens or closes it; Escape closes it as well. Save status remains
+visible when collapsed. Desktop keeps the full sidebar.
 
 The v3.0.0 upgrade migration preserves the legacy auto-generated answers for every
 existing tow without a saved editor draft. Saved editor drafts are never overwritten.

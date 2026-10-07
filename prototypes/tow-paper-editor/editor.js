@@ -23,7 +23,22 @@ try {
   if (saved?.text && saved?.answers && saved?.risk) state = saved;
 } catch { /* An unavailable or invalid local draft starts blank. */ }
 const $ = (id) => document.getElementById(id);
-const message = (text) => { $('message').textContent = text; };
+const message = (text) => {
+  $('message').textContent = text;
+  const failed = conflict || /not saved:|permission required|unable|failed/i.test(text);
+  $('drawer-status').textContent = failed ? 'Save failed' : busy ? 'Saving...' : dirty ? 'Unsaved' : ready ? 'Saved' : 'Loading...';
+  $('drawer-status').dataset.error = String(failed);
+};
+$('drawer-toggle').addEventListener('click', () => {
+  const open = document.querySelector('main').classList.toggle('drawer-open');
+  $('drawer-toggle').setAttribute('aria-expanded', String(open));
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape' || !window.matchMedia('(max-width: 750px)').matches || !document.querySelector('main').classList.contains('drawer-open')) return;
+  document.querySelector('main').classList.remove('drawer-open');
+  $('drawer-toggle').setAttribute('aria-expanded', 'false');
+  $('drawer-toggle').focus();
+});
 function scheduleSave(delay = 600) {
   clearTimeout(saveTimer);
   if (!ready || conflict) return;
@@ -179,6 +194,7 @@ async function saveDraft() {
   })();
   const result = await saving;
   saving = null; busy = false; $('save').disabled = false; $('reload').disabled = false;
+  message($('message').textContent);
   return result;
 }
 $('save').addEventListener('click', () => void saveDraft());
@@ -199,6 +215,7 @@ $('autofill').addEventListener('click', async () => {
   } finally {
     busy = false; document.querySelector('main').inert = false;
     $('save').disabled = false; $('reload').disabled = false; $('export').disabled = false;
+    message($('message').textContent);
   }
 });
 $('reset').addEventListener('click', () => {

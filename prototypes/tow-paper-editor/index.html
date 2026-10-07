@@ -31,7 +31,11 @@
   </div>
   <main>
     <div id="paper-scroll"><div id="paper"><img id="page-image" src="assets/page-1.png" alt="Blank Aircraft Towing Checklist page 1"><div id="fields"></div></div></div>
-    <aside>
+    <div class="drawer-bar">
+      <button id="drawer-toggle" type="button" aria-expanded="false" aria-controls="paper-sidebar"><span id="drawer-arrow" aria-hidden="true">&uarr;</span> Risk &amp; Checklist</button>
+      <span id="drawer-status" role="status"></span>
+    </div>
+    <aside id="paper-sidebar" aria-label="Risk assessment and checklist">
       <h2>Risk Assessment</h2>
       <div id="risk-controls"></div>
       <h2><span id="checklist-title">Checklist</span><button id="autofill" class="heading-button" title="Autofill blank checklist items" hidden>CHECKLIST</button></h2>

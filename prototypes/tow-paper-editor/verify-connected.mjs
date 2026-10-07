@@ -116,6 +116,23 @@ try {
   assert.equal(await page.getByLabel('Tractor Driver',{exact:true}).inputValue(),'Driver preserved');
   for (const viewport of [{width:1440,height:1050},{width:390,height:844}]) {
     await page.setViewportSize(viewport);
+    if (viewport.width < 750) {
+      assert.equal(await page.locator('#paper-sidebar').isVisible(),false);
+      const closedHeight = (await page.locator('#paper-scroll').boundingBox()).height;
+      await page.getByRole('button',{name:'Risk & Checklist',exact:true}).click();
+      assert.equal(await page.locator('#paper-sidebar').isVisible(),true);
+      assert.ok((await page.locator('#paper-scroll').boundingBox()).height < closedHeight);
+      await page.getByRole('button',{name:'Tow to: amber',exact:true}).click();
+      await page.getByText('Shared draft saved / available to other signed-in users',{exact:true}).waitFor();
+      await page.screenshot({path:'tmp/pdf-review/editor-mobile-drawer-open.png',fullPage:true});
+      await page.keyboard.press('Escape');
+      assert.equal(await page.locator('#paper-sidebar').isVisible(),false);
+      assert.equal(await page.locator('#drawer-toggle').getAttribute('aria-expanded'),'false');
+      assert.equal(await page.locator('#drawer-status').textContent(),'Saved');
+    } else {
+      assert.equal(await page.locator('#paper-sidebar').isVisible(),true);
+      assert.equal(await page.locator('#drawer-toggle').isVisible(),false);
+    }
     await page.locator('#zoom').selectOption('1.25');
     await page.locator('#paper-scroll').hover(); await page.mouse.wheel(0,450);
     await page.waitForFunction(()=>globalThis.document.getElementById('paper-scroll').scrollTop>0);
