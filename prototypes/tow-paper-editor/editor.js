@@ -268,8 +268,9 @@ $('export').addEventListener('click', async () => {
   } catch(error) {message(`Export failed: ${error.message}`);} finally {$('export').disabled=false;}
 });
 render(); renderRisks();
+if (!connected) { $('save').hidden = false; $('export').hidden = false; }
 if (connected) {
-  $('menu').hidden = false; $('reload').hidden = false;
+  $('menu').hidden = false;
   const returnView = new URLSearchParams(location.search).get('return');
   const view = ['confirm','workflow','complete'].includes(returnView) ? returnView : 'confirm';
   $('menu').href = `/?tow=${encodeURIComponent(towId || '')}&view=${view}`;

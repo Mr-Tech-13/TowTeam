@@ -8,10 +8,11 @@ session for the editor and every document asset. Open a tow and choose Edit Tow 
 In connected mode, tow details and crew are populated from the tow record; checklist
 answers and risk selections start blank. Drafts are saved to the database for
 other signed-in users. Revision checks reject stale writes instead of overwriting a
-newer draft. Edits autosave after a short pause. Menu and Download flush pending saves.
+newer draft. Edits autosave after a short pause. Menu flushes pending saves.
 Menu returns to the original tow view, not the dashboard. Save errors leave edits intact;
-revision conflicts pause autosave until the shared draft is reloaded. Use Reload Saved
-Draft to fetch another user's changes.
+revision conflicts pause autosave until the shared draft is reloaded. Refresh the editor
+to fetch another user's changes. The connected editor
+shows only Menu and Reset in its action bar; use the tow detail page to preview or download.
 
 The v3.0.0 upgrade migration preserves the legacy auto-generated answers for every
 existing tow without a saved editor draft. Saved editor drafts are never overwritten.

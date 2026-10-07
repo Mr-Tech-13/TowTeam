@@ -34,13 +34,14 @@ try {
   await page.getByRole('button',{name:/NEDITOR/}).click();
   for (const name of ['Edit Tow Paper', 'Checklist PDF', 'Preview PDF']) assert.equal(await page.getByRole('link',{name,exact:true}).count(),1);
   await page.getByRole('link',{name:'Edit Tow Paper',exact:true}).click();
-  await page.getByRole('button',{name:'Save Draft',exact:true}).waitFor();
   await page.waitForFunction(()=>!globalThis.document.getElementById('save').disabled);
+  for (const name of ['Save Draft','Reload Saved Draft','Download PDF']) {
+    assert.equal(await page.getByRole('button',{name,exact:true}).count(),0);
+  }
   assert.equal(await page.getByLabel('Aircraft Reg',{exact:true}).inputValue(),'NEDITOR');
   assert.equal(await page.getByLabel('Tractor Driver',{exact:true}).inputValue(),'Editor Test');
   assert.equal(await page.getByLabel('Tow from',{exact:true}).inputValue(),'Gate 12');
   assert.equal(await page.getByLabel('Tow to',{exact:true}).inputValue(),'NL614');
-  await page.getByRole('button',{name:'Save Draft',exact:true}).click();
   await page.getByLabel('Aircraft Reg',{exact:true}).fill('NMANUAL');
   await page.getByRole('button',{name:'TTWS & Preparation',exact:true}).click();
   await page.getByRole('button',{name:'Checklist item 1: no',exact:true}).click();
@@ -71,9 +72,9 @@ try {
   await viewer.getByRole('link',{name:'Edit Tow Paper',exact:true}).click();
   await viewer.waitForFunction(()=>!globalThis.document.getElementById('save').disabled);
   await viewer.getByRole('button',{name:'TTWS & Preparation',exact:true}).click();
-  const downloadPromise = viewer.waitForEvent('download');
-  await viewer.getByRole('button',{name:'Download PDF',exact:true}).click();
-  await (await downloadPromise).saveAs('tmp/pdf-review/connected-export.pdf');
+  const currentPdf = await second.request.get(`${base}/api/tows/${towId}/tow-checklist.pdf`);
+  assert.equal(currentPdf.status(),200);
+  await fs.writeFile('tmp/pdf-review/connected-export.pdf',await currentPdf.body());
   await viewer.screenshot({path:'tmp/pdf-review/connected-desktop.png',fullPage:true});
   await viewer.setViewportSize({width:390,height:844});
   await viewer.screenshot({path:'tmp/pdf-review/connected-mobile.png',fullPage:true});
@@ -86,7 +87,8 @@ try {
   assert.equal(protectedDraft.state.text.undefined_2,'Autosaved menu test');
   assert.equal((await first.request.put(`${base}/api/tows/${towId}`,{data:{aircraftType:'A320'}})).status(),200);
   page.once('dialog',dialog=>dialog.accept());
-  await page.getByRole('button',{name:'Reload Saved Draft',exact:true}).click();
+  await page.reload();
+  await page.getByRole('button',{name:'TTWS & Preparation',exact:true}).click();
   await page.waitForFunction(()=>!globalThis.document.getElementById('save').disabled);
   assert.equal(await page.getByLabel('Checklist item 1 exception comment',{exact:true}).inputValue(),'Autosaved menu test');
   await page.getByLabel('TTWS tester full name and time',{exact:true}).fill('Tester preserved');
