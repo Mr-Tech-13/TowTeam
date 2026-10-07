@@ -2,6 +2,8 @@ import express from "express";
 import { requireAdmin } from "../middleware/auth.js";
 import { writeAudit } from "../services/audit.js";
 import { requireBulkImport } from "../services/settings.js";
+import { router as towPaperDraftRoutes } from './towPaperDrafts.js';
+import { getTowPaperDraft } from '../services/towPaperDrafts.js';
 import { hasKnownTowSpot, parseTowPlan } from "../services/parser.js";
 import { generateTowPermitPdf, towPermitFilename } from "../services/towPermit.js";
 import {
@@ -19,6 +21,7 @@ import {
 } from "../services/tows.js";
 
 export const router = express.Router();
+router.use('/:id/paper-draft', towPaperDraftRoutes);
 
 const exportColumns = [
   ["id", "ID"],
@@ -178,15 +181,17 @@ router.get("/:id", (req, res) => {
 
 router.get("/:id/tow-checklist.pdf", async (req, res) => {
   const tow = getTow(req.params.id);
-  if (!tow) {
+  if (!tow || tow.deletedAt) {
     res.status(404).json({ error: "Tow not found." });
     return;
   }
 
   try {
-    const pdf = await generateTowPermitPdf(tow);
+    const draft = getTowPaperDraft(tow.id);
+    const pdf = await generateTowPermitPdf(tow, { state: draft.state || { text: {}, answers: {}, risk: {} } });
     const filename = towPermitFilename(tow);
     res.header("Content-Type", "application/pdf");
+    res.header('Cache-Control', 'private, no-store');
     if (req.query.preview === "true") {
       res.header("Content-Disposition", `inline; filename="${filename}"`);
     } else {
@@ -196,7 +201,7 @@ router.get("/:id/tow-checklist.pdf", async (req, res) => {
   } catch (error) {
     console.error("Tow checklist PDF generation failed:", error.message);
     if (error.code === "ENOENT") {
-      res.status(404).json({ error: "Tow checklist template not found. Add TowPermit.pdf to data/ or set TOW_PERMIT_TEMPLATE_PATH." });
+      res.status(404).json({ error: "Private tow paper assets are missing. Provision the editor page images and fields.json on this host." });
       return;
     }
     if (error.code === "PYTHON_UNAVAILABLE") {

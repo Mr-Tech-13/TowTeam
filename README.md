@@ -25,6 +25,18 @@ TowTeam is a self-hostable aircraft tow planning, workflow tracking, completion 
 
 ## Quick Start
 
+### Upgrading to v3.0.0
+
+Back up the SQLite database before upgrading. Startup applies migration
+`015_preserve_legacy_tow_papers.js` once, in a transaction. Every existing tow without
+an editor draft receives a saved paper using the legacy airline-based checklist rules
+and green risk selections. Existing editor drafts are left completely unchanged.
+This includes active, completed, and soft-deleted tows already present at upgrade.
+Tows created afterward automatically receive tow details and crew names, but checklist
+answers and risk selections remain blank until edited or explicitly autofilled by an
+authorized user. Previously downloaded PDF files are not changed. The migration preserves
+paper answers, not an immutable copy of each formerly generated PDF.
+
 ```bash
 npm install
 npm run db:migrate
@@ -53,7 +65,19 @@ docker compose up -d
 
 Before hosting with Docker, edit `.env` and replace `ADMIN_PASSWORD=change-me-now`. The first startup creates the initial admin account if no users exist. If the password is left blank or as a placeholder, TowTeam generates a random password and saves it to `data/initial-admin-password.txt` instead of printing it in server logs. The app is exposed at `http://localhost:8080`. SQLite data is stored in `./data`.
 
-To enable checklist PDF downloads, place the blank checklist at `data/TowPermit.pdf` or set `TOW_PERMIT_TEMPLATE_PATH` in `.env`. The template PDF is intentionally ignored by git. PDF generation uses Python with `pypdf` and `reportlab`; Docker and CI install the pinned versions from `requirements.txt` automatically. Set `PDF_PYTHON_BIN` only when Python is not available as `python3`.
+To enable the tow paper editor and PDF downloads, place the original blank checklist at
+`data/TowPermit.pdf` or set `TOW_PERMIT_TEMPLATE_PATH` in `.env`. Startup automatically
+renders its three pages and extracts form fields into `data/paper-editor-assets/`.
+Cached assets are reused unless the template changes or an asset is missing. The PDF
+and generated private assets are Git-ignored and excluded from Docker build contexts;
+they are served only through authenticated editor routes, never as public static files.
+For a Docker image deployment, mount your private data directory at `/app/data`.
+Both Docker deployment paths include the editor code, Python dependencies, and Poppler.
+For a non-Docker host, install Python with `requirements.txt` and Poppler (`pdftoppm`).
+Set `PDF_PYTHON_BIN` when Python is not available as `python3`; optionally set
+`TOW_PAPER_ASSETS_PATH` to another writable private cache directory. A missing PDF
+leaves the main app available without PDF editing; an invalid template or rendering
+failure stops startup with a diagnostic instead of serving stale template assets.
 
 The default Compose setup does not build a custom image. It runs the official Node image, mounts this project into the container, stores container dependencies in a named volume, builds the web UI on startup, and starts the server. After pulling code changes, use:
 

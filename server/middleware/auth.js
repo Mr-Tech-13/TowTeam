@@ -26,3 +26,8 @@ export function requireAdmin(req, res, next) {
   }
   next();
 }
+
+export function requireAutofillManager(req, res, next) {
+  if (!req.user?.canManageAutofill) return res.status(403).json({ error: 'Local administrator access required.' });
+  next();
+}

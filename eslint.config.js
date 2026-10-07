@@ -4,7 +4,7 @@ import react from "eslint-plugin-react";
 
 export default [
   {
-    ignores: ["dist/**", "node_modules/**", "data/**"]
+    ignores: ["dist/**", "node_modules/**", "data/**", "prototypes/tow-paper-editor/assets/**"]
   },
   js.configs.recommended,
   {

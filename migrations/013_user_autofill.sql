@@ -1,0 +1,1 @@
+ALTER TABLE users ADD COLUMN autofill INTEGER NOT NULL DEFAULT 0 CHECK (autofill IN (0, 1));

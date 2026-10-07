@@ -62,9 +62,28 @@ export function towPermitFilename(tow) {
   return `tow-checklist-${reg}-${date}.pdf`;
 }
 
-function towPermitPayload(tow, templatePath) {
+export function towPaperDetails(tow) {
   const startValue = tow.towStartedAt || tow.setupStartedAt;
   const finishValue = tow.towCompletedAt;
+  return {
+    Airline: fitText(tow.airline, 14),
+    "Aircraft Reg": fitText(tow.tailNumber, 14),
+    "Aircraft Type": fitText(tow.aircraftType, 22),
+    Date: formatDate(finishValue || startValue || tow.createdAt),
+    "Start Time": formatTime(startValue),
+    "Finish Time": formatTime(finishValue),
+    "Tow from": fitText(tow.gate, 26),
+    "Tow to": fitText(tow.towSpot, 26),
+    "Tractor Driver": fitText(tow.driver, 28),
+    "Wing Walker LH": fitText(tow.leftWingWalker, 28),
+    "Brake Operator": "MX",
+    "Wing Walker RH": fitText(tow.rightWingWalker, 28),
+    "Headset Operator": fitText(tow.driver, 28),
+    "Other team": fitText(tow.otherTeamMembers, 62)
+  };
+}
+
+function towPermitPayload(tow, templatePath) {
   const bypassPinCompletionReason = bypassPinCompletionReasonForAirline(tow.airline);
   const towPrepStep6Reason = towPrepStep6ReasonForAirline(tow.airline);
   return {
@@ -72,20 +91,7 @@ function towPermitPayload(tow, templatePath) {
     towPrepStep6Exception: Boolean(towPrepStep6Reason),
     bypassPinCompletionException: Boolean(bypassPinCompletionReason),
     fields: {
-      Airline: fitText(tow.airline, 14),
-      "Aircraft Reg": fitText(tow.tailNumber, 14),
-      "Aircraft Type": fitText(tow.aircraftType, 22),
-      Date: formatDate(finishValue || startValue || tow.createdAt),
-      "Start Time": formatTime(startValue),
-      "Finish Time": formatTime(finishValue),
-      "Tow from": fitText(tow.gate, 26),
-      "Tow to": fitText(tow.towSpot, 26),
-      "Tractor Driver": fitText(tow.driver, 28),
-      "Wing Walker LH": fitText(tow.leftWingWalker, 28),
-      "Brake Operator": "MX",
-      "Wing Walker RH": fitText(tow.rightWingWalker, 28),
-      "Headset Operator": fitText(tow.driver, 28),
-      "Other team": fitText(tow.otherTeamMembers, 62),
+      ...towPaperDetails(tow),
       undefined_26: "In Pushback",
       undefined_11: fitText(towPrepStep6Reason, 34),
       undefined_44: fitText(bypassPinCompletionReason, 34)
@@ -98,7 +104,7 @@ export async function generateTowPermitPdf(tow, options = {}) {
   const pythonBin = options.pythonBin || process.env.PDF_PYTHON_BIN || "python3";
   let child;
   try {
-    child = spawn(pythonBin, [helperPath], {
+    child = spawn(pythonBin, [options.state ? path.join(rootDir, 'server/scripts/fillEditedTowPermit.py') : helperPath], {
       stdio: ["pipe", "pipe", "pipe"]
     });
   } catch (error) {
@@ -112,7 +118,10 @@ export async function generateTowPermitPdf(tow, options = {}) {
   child.stdout.on("data", (chunk) => chunks.push(chunk));
   child.stderr.on("data", (chunk) => errorChunks.push(chunk));
 
-  child.stdin.end(JSON.stringify(towPermitPayload(tow, templatePath)));
+  child.stdin.end(JSON.stringify(options.state ? {
+    state: options.state,
+    assetsPath: options.assetsPath || path.resolve(rootDir, process.env.TOW_PAPER_ASSETS_PATH || 'data/paper-editor-assets')
+  } : towPermitPayload(tow, templatePath)));
 
   const exitCode = await new Promise((resolve, reject) => {
     child.on("error", (error) => {

@@ -8,8 +8,8 @@ import { AirlineSettings } from "./components/AirlineSettings.jsx";
 import { AppSettings } from "./components/AppSettings.jsx";
 import { TowForm } from "./components/TowForm.jsx";
 import { Workflow } from "./components/Workflow.jsx";
-import { QUICK_FILTER_TOW_SPOTS } from "../../shared/towSpots.js";
 import "./styles/main.css";
+import { version } from "../../package-lock.json";
 
 const emptyTow = {
   airline: "",
@@ -228,6 +228,7 @@ function AdminUsersPage({ currentUser, onBack, airlines, onAirlinesChange, setti
     loadDeletedTows();
   }, []);
 
+
   async function loadIssues() {
     try {
       setIssues(await api.listIssues());
@@ -272,6 +273,12 @@ function AdminUsersPage({ currentUser, onBack, airlines, onAirlinesChange, setti
     } catch (err) {
       setError(err.message);
     }
+  }
+
+  async function changeAutofill(user, autofill) {
+    setError('');
+    try { await api.updateUser(user.id, { autofill }); await loadUsers(); }
+    catch (err) { setError(err.message); }
   }
 
   async function changePassword(user) {
@@ -365,7 +372,7 @@ function AdminUsersPage({ currentUser, onBack, airlines, onAirlinesChange, setti
         </div>
         {error && <div className="notice error">{error}</div>}
         <div className="admin-subtabs">
-          {["users", "airlines", "settings", "issues", "audit", "trash", "backup"].map((view) => (
+          {["users", "airlines", "settings", "issues", "audit", "trash", ...(currentUser.canManageAutofill ? ["backup"] : [])].map((view) => (
             <button className={adminView === view ? "btn green" : "btn ghost"} key={view} onClick={() => setAdminView(view)} type="button">
               {view}
             </button>
@@ -390,19 +397,21 @@ function AdminUsersPage({ currentUser, onBack, airlines, onAirlinesChange, setti
                   <div>
                     <strong>{user.username}</strong>
                     <span>{user.role}{user.id === currentUser.id ? " - you" : ""}</span>
+                    {currentUser.canManageAutofill && <label className="check-row"><input type="checkbox" aria-label={`${user.username} Autofill`} checked={Boolean(user.autofill)} onChange={(event) => void changeAutofill(user, event.target.checked)} />Autofill</label>}
                   </div>
-                  <select value={user.role} onChange={(event) => changeRole(user, event.target.value)}>
+                  <select disabled={user.isLocalAdministrator} value={user.role} onChange={(event) => changeRole(user, event.target.value)}>
                     <option value="user">User</option>
                     <option value="admin">Admin</option>
                   </select>
                   <input
                     placeholder="New password"
+                    disabled={user.isLocalAdministrator && !currentUser.canManageAutofill}
                     type="password"
                     value={passwords[user.id] || ""}
                     onChange={(event) => setPasswords({ ...passwords, [user.id]: event.target.value })}
                   />
-                  <button className="btn blue" onClick={() => changePassword(user)}>Change Password</button>
-                  <button className="btn red" disabled={user.id === currentUser.id || user.username.toLowerCase() === "admin"} onClick={() => removeUser(user)}>Delete</button>
+                  <button className="btn blue" disabled={user.isLocalAdministrator && !currentUser.canManageAutofill} onClick={() => changePassword(user)}>Change Password</button>
+                  <button className="btn red" disabled={user.id === currentUser.id || user.isLocalAdministrator} onClick={() => removeUser(user)}>Delete</button>
                 </article>
               ))}
             </div>
@@ -454,7 +463,7 @@ function AdminUsersPage({ currentUser, onBack, airlines, onAirlinesChange, setti
             ))}
           </div>
         )}
-        {adminView === "backup" && (
+        {adminView === "backup" && currentUser.canManageAutofill && (
           <div className="admin-list">
             <article className="admin-row">
               <div>
@@ -574,6 +583,22 @@ export default function App() {
     }
     loadSession();
   }, []);
+
+  useEffect(() => {
+    if (!user) return undefined;
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('tow');
+    if (!/^\d+$/.test(id || '')) return undefined;
+    let cancelled = false;
+    api.getTow(id).then((tow) => {
+      if (cancelled) return;
+      openTow(tow);
+      const view = params.get('view');
+      if (['confirm', 'workflow', 'complete'].includes(view)) setTowPage(view);
+      window.history.replaceState(null, '', window.location.pathname);
+    }).catch((err) => { if (!cancelled) setManualError(err.message); });
+    return () => { cancelled = true; };
+  }, [user]);
 
   useEffect(() => {
     if (!user) return undefined;
@@ -820,7 +845,7 @@ export default function App() {
   }
 
   if (!user) {
-    return <LoginPage onLogin={setUser} />;
+    return <><LoginPage onLogin={setUser} /><span className="app-version">v{version}</span></>;
   }
 
   return (
@@ -890,6 +915,7 @@ export default function App() {
               <a className="btn blue" href={towChecklistUrl(activeTow.id)}>
                 <Download size={18} /> Checklist PDF
               </a>
+              <a className="btn teal" href={`/api/paper-editor/?tow=${activeTow.id}&return=confirm`}><Clipboard size={18} /> Edit Tow Paper</a>
               <a className="btn ghost" href={towChecklistPreviewUrl(activeTow.id)} rel="noreferrer" target="_blank">
                 <Eye size={18} /> Preview PDF
               </a>
@@ -925,12 +951,6 @@ export default function App() {
                   <button className="btn green" onClick={copySummary}>
                     <Clipboard size={18} /> Copy Summary
                   </button>
-                  <a className="btn blue" href={towChecklistUrl(activeTow.id)}>
-                    <Download size={18} /> Checklist PDF
-                  </a>
-                  <a className="btn ghost" href={towChecklistPreviewUrl(activeTow.id)} rel="noreferrer" target="_blank">
-                    <Eye size={18} /> Preview PDF
-                  </a>
                   {copyStatus && <p className="muted">{copyStatus}</p>}
                 </div>
                 <div className="paper-gate">
@@ -955,6 +975,7 @@ export default function App() {
               <a className="btn green" href={towChecklistUrl(activeTow.id)}>
                 <Download size={18} /> Checklist PDF
               </a>
+              <a className="btn teal" href={`/api/paper-editor/?tow=${activeTow.id}&return=workflow`}><Clipboard size={18} /> Edit Tow Paper</a>
               <a className="btn ghost" href={towChecklistPreviewUrl(activeTow.id)} rel="noreferrer" target="_blank">
                 <Eye size={18} /> Preview PDF
               </a>
@@ -984,11 +1005,12 @@ export default function App() {
               <a className="btn green" href={towChecklistUrl(activeTow.id)}>
                 <Download size={18} /> Checklist PDF
               </a>
+              <a className="btn teal" href={`/api/paper-editor/?tow=${activeTow.id}&return=complete`}><Clipboard size={18} /> Edit Tow Paper</a>
               <a className="btn ghost" href={towChecklistPreviewUrl(activeTow.id)} rel="noreferrer" target="_blank">
                 <Eye size={18} /> Preview PDF
               </a>
               <button className="btn blue" onClick={() => setTowPage("confirm")}>
-                Edit Historical Details
+                Edit Tow Details
               </button>
               {activeTow.status === "completed" && (
                 <button className="btn red" onClick={moveCompletedTowBackToActive}>
@@ -1076,18 +1098,6 @@ export default function App() {
               </div>
             </div>
             <div className="filters">
-              <div className="spot-quick-filters">
-                {QUICK_FILTER_TOW_SPOTS.map((spot) => (
-                  <button
-                    className={historyFilters.towSpot === spot ? "btn green" : "btn ghost"}
-                    key={spot}
-                    onClick={() => setHistoryFilters({ ...historyFilters, towSpot: historyFilters.towSpot === spot ? "" : spot })}
-                    type="button"
-                  >
-                    {spot}
-                  </button>
-                ))}
-              </div>
               {[
                 ["dateFrom", "From date"],
                 ["dateTo", "To date"],
@@ -1159,6 +1169,7 @@ export default function App() {
         )}
       </main>
       )}
+      <span className="app-version">v{version}</span>
       <button className="issue-button" onClick={() => setIssueOpen(true)} type="button">
         <Bug size={16} /> Report Issue
       </button>

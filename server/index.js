@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import { requireAuth } from "./middleware/auth.js";
 import { router as airlineRoutes } from "./routes/airlines.js";
 import { router as settingsRoutes } from "./routes/settings.js";
+import { router as paperEditorRoutes } from "./routes/paperEditor.js";
 import { router as auditRoutes } from "./routes/audit.js";
 import { router as authRoutes } from "./routes/auth.js";
 import { router as issueRoutes } from "./routes/issues.js";
@@ -18,6 +19,7 @@ import { router as maintenanceRoutes } from "./routes/maintenance.js";
 import { router as towRoutes } from "./routes/tows.js";
 import { router as userRoutes } from "./routes/users.js";
 import { deleteExpiredSessions, ensureDefaultAdmin } from "./services/users.js";
+import { preparePaperEditorAssets } from './services/paperEditorAssets.js';
 
 dotenv.config();
 
@@ -58,6 +60,9 @@ function sendIndexHtml(_req, res) {
 
 ensureDefaultAdmin();
 deleteExpiredSessions();
+const paperAssets = await preparePaperEditorAssets();
+if (!paperAssets) console.warn('Tow paper template is missing. Place it at data/TowPermit.pdf or configure TOW_PERMIT_TEMPLATE_PATH to enable PDF editing.');
+else console.log(`Private tow paper assets ${paperAssets}.`);
 
 app.use(helmet());
 app.use(cors({
@@ -77,6 +82,7 @@ app.use("/api", apiRateLimit);
 app.use(requireAuth);
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
+app.use("/api/paper-editor", paperEditorRoutes);
 app.use("/api/airlines", airlineRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/audit", auditRoutes);

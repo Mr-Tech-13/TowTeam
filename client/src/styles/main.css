@@ -36,7 +36,20 @@ button:disabled {
 .app-shell {
   width: min(1180px, 100%);
   margin: 0 auto;
-  padding: 14px;
+  padding: 14px 14px 64px;
+}
+
+.app-version {
+  position: fixed;
+  left: max(14px, env(safe-area-inset-left));
+  bottom: max(14px, env(safe-area-inset-bottom));
+  z-index: 15;
+  padding: 3px 5px;
+  background: #0b1220;
+  color: #94a3b8;
+  font-size: 11px;
+  line-height: 16px;
+  pointer-events: none;
 }
 
 .topbar {
@@ -578,6 +591,11 @@ textarea {
   border-color: #60a5fa;
 }
 
+.btn.teal {
+  background: #0f766e;
+  border-color: #5eead4;
+}
+
 .btn.ghost {
   background: #111827;
 }
@@ -971,7 +989,7 @@ pre {
   .airline-row > input:not([type="color"]) { grid-column: 1 / 3; }
   .airline-row > input[type="color"] { grid-row: 1; grid-column: 4; }
   .app-shell {
-    padding: 10px;
+    padding: 10px 10px 64px;
   }
 
   .tow-grid,

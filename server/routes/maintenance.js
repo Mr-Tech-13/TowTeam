@@ -1,11 +1,11 @@
 import express from "express";
-import { requireAdmin } from "../middleware/auth.js";
+import { requireAutofillManager } from "../middleware/auth.js";
 import { writeAudit } from "../services/audit.js";
 import { activatePreparedRestore, backupFilename, createDatabaseBackup, prepareDatabaseRestore } from "../services/maintenance.js";
 
 export const router = express.Router();
 
-router.use(requireAdmin);
+router.use(requireAutofillManager);
 
 router.get("/backup.sqlite", async (req, res) => {
   try {

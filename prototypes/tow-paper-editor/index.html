@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tow Paper Editor Prototype</title>
+  <link rel="stylesheet" href="editor.css">
+  <script defer src="assets/pdf-lib.min.js"></script>
+  <script defer src="assets/template.js"></script>
+  <script defer src="editor.js"></script>
+</head>
+<body>
+  <header>
+    <div><h1>Tow Paper</h1><span id="draft-scope" class="muted">Prototype / local draft</span></div>
+    <div class="actions">
+      <a id="menu" href="/" hidden>Menu</a>
+      <button id="reload" hidden>Reload Saved Draft</button>
+      <button id="save">Save Draft</button>
+      <button id="export" class="primary">Download PDF</button>
+      <button id="reset" title="Reset risk assessment and checklist only">Reset</button>
+    </div>
+  </header>
+  <div class="toolbar">
+    <nav aria-label="Paper pages">
+      <button data-page="0" class="selected">Details &amp; Risk</button>
+      <button data-page="1">TTWS &amp; Preparation</button>
+      <button data-page="2">Tow &amp; Completion</button>
+    </nav>
+    <span id="progress">0 / 25 answered</span>
+    <label class="zoom">Zoom<select id="zoom"><option value="fit">Fit</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option></select></label>
+  </div>
+  <main>
+    <div id="paper-scroll"><div id="paper"><img id="page-image" src="assets/page-1.png" alt="Blank Aircraft Towing Checklist page 1"><div id="fields"></div></div></div>
+    <aside>
+      <h2>Risk Assessment</h2>
+      <div id="risk-controls"></div>
+      <h2><span id="checklist-title">Checklist</span><button id="autofill" class="heading-button" title="Autofill blank checklist items" hidden>CHECKLIST</button></h2>
+      <div id="checklist-summary"></div>
+      <p id="message" role="status">Draft not saved</p>
+    </aside>
+  </main>
+</body>
+</html>

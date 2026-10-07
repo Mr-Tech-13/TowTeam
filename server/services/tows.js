@@ -1,4 +1,5 @@
 import { db, nowIso, rowToTow } from "../db/database.js";
+import { syncTowPaperDraftDetails } from './towPaperDrafts.js';
 
 const fields = [
   "airline",
@@ -347,8 +348,12 @@ export function updateTow(id, input) {
   })));
   tow.updatedAt = nowIso();
   tow.id = id;
-  updateTowStatement.run(tow);
-  return getTow(id);
+  return db.transaction(() => {
+    updateTowStatement.run(tow);
+    const updated = getTow(id);
+    syncTowPaperDraftDetails(existing, updated);
+    return updated;
+  })();
 }
 
 export function updateAircraftTypeForTows(filters = {}, aircraftType = "") {
@@ -360,8 +365,9 @@ export function updateAircraftTypeForTows(filters = {}, aircraftType = "") {
 
   const update = db.prepare("UPDATE tows SET aircraftType = @aircraftType, updatedAt = @updatedAt WHERE id = @id");
   const run = db.transaction(() => {
-    for (const id of ids) {
-      update.run({ id, aircraftType: cleanedAircraftType, updatedAt: nowIso() });
+    for (const tow of rows) {
+      update.run({ id: tow.id, aircraftType: cleanedAircraftType, updatedAt: nowIso() });
+      syncTowPaperDraftDetails(tow, getTow(tow.id));
     }
   });
   run();
@@ -388,13 +394,12 @@ export function logStep(id, step, timestamp = nowIso(), force = false) {
   if (!tow) return null;
   if (tow[step] && !force) throw new Error("Step has already been logged.");
   const status = workflowSteps[step];
-  stepUpdateStatements[step].run({
-    id,
-    timestamp,
-    status,
-    updatedAt: nowIso()
-  });
-  return getTow(id);
+  return db.transaction(() => {
+    stepUpdateStatements[step].run({ id, timestamp, status, updatedAt: nowIso() });
+    const updated = getTow(id);
+    syncTowPaperDraftDetails(tow, updated);
+    return updated;
+  })();
 }
 
 export function undoLastStep(id) {
@@ -404,12 +409,12 @@ export function undoLastStep(id) {
   const last = [...workflowOrder].reverse().find(([field]) => Boolean(tow[field]));
   if (!last) throw new Error("No workflow step to undo.");
   const [field, previousStatus] = last;
-  undoStepStatements[field].run({
-    id,
-    status: previousStatus,
-    updatedAt: nowIso()
-  });
-  return { tow: getTow(id), undoneStep: field };
+  return db.transaction(() => {
+    undoStepStatements[field].run({ id, status: previousStatus, updatedAt: nowIso() });
+    const updated = getTow(id);
+    syncTowPaperDraftDetails(tow, updated);
+    return { tow: updated, undoneStep: field };
+  })();
 }
 
 export function softDeleteTow(id, user, reason = "") {

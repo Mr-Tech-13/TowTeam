@@ -31,6 +31,9 @@ function publicUser(row) {
     id: row.id,
     username: row.username,
     role: row.role,
+    autofill: Boolean(row.autofill),
+    isLocalAdministrator: Boolean(row.isLocalAdmin),
+    canManageAutofill: row.role === 'admin' && Boolean(row.isLocalAdmin),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt
   };
@@ -43,46 +46,55 @@ export function ensureDefaultAdmin() {
   const configuredPassword = process.env.ADMIN_PASSWORD || process.env.LOCAL_AUTH_PASSWORD || "";
   const usesGeneratedPassword = ["", "admin", "change-me", "change-me-now"].includes(configuredPassword);
   const password = usesGeneratedPassword ? crypto.randomBytes(12).toString("base64url") : configuredPassword;
-  db.prepare("INSERT INTO users (username, passwordHash, role) VALUES (?, ?, 'admin')").run(username, hashPassword(password));
+  db.prepare("INSERT INTO users (username, passwordHash, role, isLocalAdmin) VALUES (?, ?, 'admin', 1)").run(username, hashPassword(password));
   if (usesGeneratedPassword) writeInitialAdminPassword(username, password);
   console.warn("Created initial admin account. Change the password after first login.");
 }
 
 export function listUsers() {
-  return db.prepare("SELECT id, username, role, createdAt, updatedAt FROM users ORDER BY username").all().map(publicUser);
+  return db.prepare("SELECT id, username, role, autofill, isLocalAdmin, createdAt, updatedAt FROM users ORDER BY username").all().map(publicUser);
 }
 
 export function getUserById(id) {
-  return publicUser(db.prepare("SELECT id, username, role, createdAt, updatedAt FROM users WHERE id = ?").get(id));
+  return publicUser(db.prepare("SELECT id, username, role, autofill, isLocalAdmin, createdAt, updatedAt FROM users WHERE id = ?").get(id));
 }
 
 export function getUserByUsername(username) {
   return db.prepare("SELECT * FROM users WHERE lower(username) = lower(?)").get(username);
 }
 
-export function createUser({ username, password, role = "user" }) {
+export function createUser({ username, password, role = "user", autofill = false }) {
   if (!username || !password) throw new Error("Username and password are required.");
   if (!["admin", "user"].includes(role)) throw new Error("Invalid role.");
+  if (typeof autofill !== 'boolean') throw new Error('Autofill permission must be true or false.');
+  if (getUserByUsername(username.trim())) throw new Error('That username already exists.');
   const result = db
-    .prepare("INSERT INTO users (username, passwordHash, role) VALUES (@username, @passwordHash, @role)")
-    .run({ username: username.trim(), passwordHash: hashPassword(password), role });
+    .prepare("INSERT INTO users (username, passwordHash, role, autofill) VALUES (@username, @passwordHash, @role, @autofill)")
+    .run({ username: username.trim(), passwordHash: hashPassword(password), role, autofill: Number(autofill) });
   return getUserById(result.lastInsertRowid);
 }
 
-export function updateUser(id, { username, role }) {
+export function updateUser(id, { username, role, autofill }) {
   const existing = getUserById(id);
   if (!existing) return null;
   const next = {
     id,
     username: username?.trim() || existing.username,
     role: role || existing.role,
+    autofill: Number(autofill === undefined ? existing.autofill : autofill),
     updatedAt: nowIso()
   };
   if (!["admin", "user"].includes(next.role)) throw new Error("Invalid role.");
+  if (autofill !== undefined && typeof autofill !== 'boolean') throw new Error('Autofill permission must be true or false.');
+  const duplicate = getUserByUsername(next.username);
+  if (duplicate && duplicate.id !== Number(id)) throw new Error('That username already exists.');
+  if (existing.isLocalAdministrator && next.role !== 'admin') {
+    throw new Error('The local administrator cannot be demoted.');
+  }
   if (existing.role === "admin" && next.role !== "admin" && adminCount() <= 1) {
     throw new Error("At least one admin user is required.");
   }
-  db.prepare("UPDATE users SET username = @username, role = @role, updatedAt = @updatedAt WHERE id = @id").run(next);
+  db.prepare("UPDATE users SET username = @username, role = @role, autofill = @autofill, updatedAt = @updatedAt WHERE id = @id").run(next);
   return getUserById(id);
 }
 
@@ -96,7 +108,7 @@ export function deleteUser(id, currentUserId) {
   const user = getUserById(id);
   if (!user) return false;
   if (Number(id) === Number(currentUserId)) throw new Error("You cannot delete your own account.");
-  if (user.username.toLowerCase() === "admin") throw new Error("The admin account cannot be deleted.");
+  if (user.isLocalAdministrator) throw new Error("The local administrator cannot be deleted.");
   if (user.role === "admin" && adminCount() <= 1) throw new Error("At least one admin user is required.");
   return db.prepare("DELETE FROM users WHERE id = ?").run(id).changes > 0;
 }
@@ -118,7 +130,7 @@ export function getUserForToken(token) {
   if (!token) return null;
   const row = db
     .prepare(
-      `SELECT users.id, users.username, users.role, users.createdAt, users.updatedAt
+      `SELECT users.id, users.username, users.role, users.autofill, users.isLocalAdmin, users.createdAt, users.updatedAt
        FROM sessions
        JOIN users ON users.id = sessions.userId
        WHERE sessions.tokenHash = ? AND sessions.expiresAt > ?`

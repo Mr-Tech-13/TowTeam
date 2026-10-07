@@ -5,6 +5,9 @@ test-results/
 playwright-report/
 .nyc_output/
 data/
+*.pdf
+prototypes/tow-paper-editor/assets/
+tmp/pdf-review/
 .env
 .env.*
 !.env.example

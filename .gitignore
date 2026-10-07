@@ -3,6 +3,11 @@ dist/
 coverage/
 test-results/
 playwright-report/
+tmp/pdf-review/
+# Private tow papers and document-derived prototype assets.
+*.pdf
+prototypes/tow-paper-editor/assets/
+data/paper-editor-assets/
 .nyc_output/
 data/*.sqlite
 data/towteam-stress-test.sqlite
