@@ -8,6 +8,10 @@ import { fileURLToPath, URL } from 'node:url';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const directory = path.join(root, 'server/tests');
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'towteam-tests-'));
+const resolved = path.resolve(temporary);
+if (path.dirname(resolved) !== path.resolve(os.tmpdir()) || !path.basename(resolved).startsWith('towteam-tests-')) {
+  throw new Error('Refusing to clean an unexpected test directory.');
+}
 try {
   const files = fs.readdirSync(directory).filter(name => name.endsWith('.test.js')).sort().map(name => path.join(directory, name));
   const result = spawnSync(process.execPath, [
@@ -19,9 +23,5 @@ try {
   if (result.error) throw result.error;
   process.exitCode = result.status ?? 1;
 } finally {
-  const resolved = path.resolve(temporary);
-  if (path.dirname(resolved) !== path.resolve(os.tmpdir()) || !path.basename(resolved).startsWith('towteam-tests-')) {
-    throw new Error('Refusing to clean an unexpected test directory.');
-  }
   fs.rmSync(resolved, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
 }
