@@ -21,8 +21,9 @@ function createFillableTemplate(templatePath, python) {
   execFileSync(python, [
     "-c",
     `
+import sys
 from reportlab.pdfgen import canvas
-c = canvas.Canvas("${templatePath}", pagesize=(612, 792))
+c = canvas.Canvas(sys.argv[1], pagesize=(612, 792))
 form = c.acroForm
 fields = [
   ("Airline", 96, 682), ("Aircraft Reg", 224, 682), ("Aircraft Type", 359, 682),
@@ -38,7 +39,7 @@ c.showPage()
 c.showPage()
 c.showPage()
 c.save()
-`
+`, templatePath
   ]);
 }
 

@@ -11,11 +11,12 @@ router.use((req, res, next) => {
   res.set('Cache-Control', 'private, no-store');
   next();
 });
-router.get('/assets/:name', (req, res) => {
-  const name = req.params.name;
-  const file = name === 'pdf-lib.min.js'
-    ? fileURLToPath(new URL('../../node_modules/pdf-lib/dist/pdf-lib.min.js', import.meta.url))
-    : path.join(paperEditorAssetsPath(), name);
-  res.sendFile(file, { dotfiles: 'deny' });
+router.get('/assets/pdf-lib.min.js', (_req, res) => {
+  res.sendFile(fileURLToPath(new URL('../../node_modules/pdf-lib/dist/pdf-lib.min.js', import.meta.url)), { dotfiles: 'deny' });
 });
+for (const name of ['template.js', 'page-1.png', 'page-2.png', 'page-3.png']) {
+  router.get(`/assets/${name}`, (_req, res) => {
+    res.sendFile(path.join(paperEditorAssetsPath(), name), { dotfiles: 'deny' });
+  });
+}
 router.use(express.static(path.resolve(directory), { fallthrough: false, etag: false, maxAge: 0 }));

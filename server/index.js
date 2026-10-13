@@ -21,7 +21,7 @@ import { router as userRoutes } from "./routes/users.js";
 import { deleteExpiredSessions, ensureDefaultAdmin } from "./services/users.js";
 import { preparePaperEditorAssets } from './services/paperEditorAssets.js';
 
-dotenv.config();
+dotenv.config({ quiet: true });
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");

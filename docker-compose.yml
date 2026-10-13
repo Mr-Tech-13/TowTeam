@@ -1,6 +1,6 @@
 services:
   towteam:
-    image: node:20-bookworm-slim
+    image: node:24-bookworm-slim
     container_name: towteam
     working_dir: /app
     restart: unless-stopped

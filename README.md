@@ -25,6 +25,21 @@ TowTeam is a self-hostable aircraft tow planning, workflow tracking, completion 
 
 ## Quick Start
 
+### Upgrading to v3.0.1
+
+This release updates ESLint, its core rules, Lucide, dotenv, and better-sqlite3, and
+uses fixed editor asset routes rather than request-derived filesystem paths.
+Use Node.js 24 or newer for direct installations. Docker and CI now use Node 24.
+Back up the database before deployment. No new database migration is required.
+Docker Compose users should recreate the service to switch the Node runtime:
+
+```bash
+docker compose up -d --force-recreate
+```
+
+For direct installations, upgrade Node first and run `npm ci` to install dependencies
+and the matching SQLite native binary before rebuilding and restarting the app.
+
 ### Upgrading to v3.0.0
 
 Back up the SQLite database before upgrading. Startup applies migration

@@ -23,7 +23,7 @@ try {
   const page = await first.newPage(); const errors=[];
   page.on('pageerror',(error)=>errors.push(error.message));
   await page.goto(base);
-  await page.getByText('v3.0.0',{exact:true}).waitFor();
+  await page.getByText('v3.0.1',{exact:true}).waitFor();
   for (const viewport of [{width:1440,height:1050},{width:390,height:844}]) {
     await page.setViewportSize(viewport);
     const label = await page.locator('.app-version').boundingBox();
