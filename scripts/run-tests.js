@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath, URL } from 'node:url';
+import { fileURLToPath, pathToFileURL, URL } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const directory = path.join(root, 'server/tests');
@@ -15,7 +15,7 @@ if (path.dirname(resolved) !== path.resolve(os.tmpdir()) || !path.basename(resol
 try {
   const files = fs.readdirSync(directory).filter(name => name.endsWith('.test.js')).sort().map(name => path.join(directory, name));
   const result = spawnSync(process.execPath, [
-    '--import', path.join(directory, 'setup.js'), '--test', '--test-concurrency=1', ...process.argv.slice(2), ...files
+    '--import', pathToFileURL(path.join(directory, 'setup.js')).href, '--test', '--test-concurrency=1', ...process.argv.slice(2), ...files
   ], {
     cwd: root, stdio: 'inherit',
     env: { ...process.env, NODE_ENV: 'test', TOWTEAM_TEST_ROOT: temporary, DATABASE_URL: path.join(temporary, 'runner.sqlite') }
