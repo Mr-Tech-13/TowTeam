@@ -196,11 +196,11 @@ visible search text when returning, and clearing the bar removes the filter. His
 search covers all completed records before pagination; CSV and Excel exports use the
 same search. The bulk aircraft-type editing panel is no longer shown in History.
 
-History also supports selecting completed tows and downloading their current saved
-checklist papers. A single selection downloads a PDF; multiple selections download a
-ZIP with a uniquely named PDF per tow. Select page and Clear selection are available.
-Selections carry across pages and clear when the search changes. Downloads are limited
-to 100 tows and 200 MB per archive. These are current paper exports, not immutable
+History can download the current saved checklist papers for the tows visible on the
+current page, without checkboxes. One visible tow downloads a PDF; multiple visible
+tows download a ZIP with a uniquely named PDF per tow. Search and pagination determine
+which cards are included. Downloads are limited to 100 tows and 200 MB per archive.
+These are current paper exports, not immutable
 archived originals; CSV and Excel continue to export matching tow data.
 
 ## Import Notes

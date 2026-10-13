@@ -181,11 +181,6 @@ main {
 .favicon-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .favicon-preview { width: 48px; height: 48px; display: grid; place-items: center; border: 1px solid #475263; border-radius: 4px; }
 .favicon-preview img { width: 32px; height: 32px; object-fit: contain; }
-.history-selection { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; flex-wrap: wrap; }
-.history-selection > span { color: #94a3b8; font-size: 13px; }
-.history-tow { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.history-tow > .check-row { margin: 0; font-size: 13px; }
-.history-tow > .tow-card { flex: 1; }
 
 .active-search svg {
   position: absolute;
