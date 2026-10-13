@@ -221,6 +221,12 @@ limited to 200 MiB of generated PDF payload before packaging. They are not snaps
 of previously downloaded papers.
 The History bulk aircraft-type panel has been removed; its API remains available.
 
+Admins can also use **Export Active Tow Papers** in Settings to download every
+currently active, non-deleted tow's saved paper, independent of tab search filters.
+One tow downloads a PDF; multiple tows download `active-tow-papers.zip`. The same
+100-tow and ZIP payload limits apply. An empty active list produces a message rather
+than an empty archive.
+
 ## Administration And Backups
 
 Regular users can create/edit tows, record workflow events, edit shared papers, and
@@ -320,7 +326,7 @@ login/logout/session inspection. Access restrictions are also enforced server-si
 | `POST /api/tows/:id/restore`; `DELETE /api/tows/:id/permanent` | Admin-only Trash operations. |
 | `GET /api/tows/export.csv`; `GET /api/tows/export.xls` | Filtered tow-data exports. |
 | `GET /api/tows/:id/tow-checklist.pdf` | Current saved paper; `preview=true` requests inline display. |
-| `POST /api/tows/paper-export` | Completed tow PDF/ZIP export; body `{ "ids": [1, 2] }`. |
+| `POST /api/tows/paper-export` | Completed tow PDF/ZIP export with `{ "ids": [1, 2] }`; admins can export all active papers with `{ "scope": "active" }`. |
 | `GET /api/tows/:id/paper-draft`; `PUT /api/tows/:id/paper-draft` | Shared draft read/save; saves require state and revision. |
 | `POST /api/tows/:id/paper-draft/autofill` | Requires the user's Autofill permission and current revision. |
 | `GET /api/airlines`; `POST /api/airlines`; `PUT /api/airlines/:code`; `DELETE /api/airlines/:code` | Read airlines; writes are admin-only. |

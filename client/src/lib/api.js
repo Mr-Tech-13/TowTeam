@@ -56,13 +56,13 @@ export const api = {
   listTows: (params = {}) => request(`/tows?${new URLSearchParams(params)}`),
   listTowsPage: (params = {}, page = 1, pageSize = 10) => request(`/tows?${new URLSearchParams({ ...params, paginated: "true", page, pageSize })}`),
   getTow: (id) => request(`/tows/${id}`),
-  downloadTowPapers: async (ids) => {
-    const response = await fetch('/api/tows/paper-export', { method: 'POST', credentials: 'include', headers, body: JSON.stringify({ ids }) });
+  downloadTowPapers: async (ids, scope = 'history') => {
+    const response = await fetch('/api/tows/paper-export', { method: 'POST', credentials: 'include', headers, body: JSON.stringify({ ids, scope }) });
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
       throw new Error(body.error || 'Unable to download tow papers.');
     }
-    return { blob: await response.blob(), filename: response.headers.get('content-disposition')?.match(/filename="([^"]+)"/)?.[1] || (ids.length === 1 ? 'tow-paper.pdf' : 'tow-papers.zip') };
+    return { blob: await response.blob(), filename: response.headers.get('content-disposition')?.match(/filename="([^"]+)"/)?.[1] || (response.headers.get('content-type')?.startsWith('application/pdf') ? 'tow-paper.pdf' : 'tow-papers.zip') };
   },
   createTow: (tow) => request("/tows", { method: "POST", body: JSON.stringify(tow) }),
   createBulk: (tows) => request("/tows/bulk", { method: "POST", body: JSON.stringify({ tows }) }),
