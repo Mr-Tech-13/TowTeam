@@ -25,6 +25,19 @@ TowTeam is a self-hostable aircraft tow planning, workflow tracking, completion 
 
 ## Quick Start
 
+### Upgrading to v3.0.2
+
+This release includes matching debounced Active and History search bars, removes the
+History bulk aircraft-type panel, and adds admin favicon upload and reset. It also
+isolates automated tests from the application database, excludes runner/editor files
+from the appropriate tooling, and restores the required PDF editor files.
+Node 24 remains required. No new database migration is needed. Back up the database
+and private files, pull the update, and recreate the Compose service:
+
+```bash
+docker compose up -d --force-recreate
+```
+
 ### Upgrading to v3.0.1
 
 This release updates ESLint, its core rules, Lucide, dotenv, and better-sqlite3, and
