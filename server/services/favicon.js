@@ -22,8 +22,10 @@ export function faviconUrl() {
   return `/favicon.png?v=${version}`;
 }
 
-export function saveFavicon(buffer) {
-  if (!Buffer.isBuffer(buffer) || buffer.length < 33 || buffer.length > faviconLimit) throw new Error('Upload a PNG file up to 256 KB.');
+export function saveFavicon(input) {
+  if (!Buffer.isBuffer(input)) throw new Error('Upload a PNG file up to 256 KB.');
+  const buffer = Buffer.from(input);
+  if (buffer.length < 33 || buffer.length > faviconLimit) throw new Error('Upload a PNG file up to 256 KB.');
   if (!buffer.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10])) || buffer.toString('ascii',12,16) !== 'IHDR') throw new Error('The favicon must be a valid PNG image.');
   const width = buffer.readUInt32BE(16), height = buffer.readUInt32BE(20);
   if (!width || !height || width > 512 || height > 512) throw new Error('The favicon must be no larger than 512 by 512 pixels.');

@@ -6,7 +6,7 @@ import '../db/migrate.js';
 import { db } from '../db/database.js';
 import { requireAuth } from '../middleware/auth.js';
 import { router } from '../routes/settings.js';
-import { serveFavicon, resetFavicon } from '../services/favicon.js';
+import { serveFavicon, resetFavicon, saveFavicon, getFavicon } from '../services/favicon.js';
 import { createUser, createSession } from '../services/users.js';
 
 test('favicon uploads are admin-only, validated, persistent, publicly readable, and resettable', async () => {
@@ -16,7 +16,7 @@ test('favicon uploads are admin-only, validated, persistent, publicly readable, 
   const userHeaders = { Cookie:`towteam_session=${createSession(user.id).token}`, 'Content-Type':'image/png' };
   const image = new pngjs.PNG({width:32,height:32}); image.data.fill(255);
   const png = pngjs.PNG.sync.write(image);
-  const app = express(); app.use(requireAuth); app.get('/favicon.png',serveFavicon); app.use('/api/settings',router);
+  const app = express(); app.use(express.json()); app.use(requireAuth); app.get('/favicon.png',serveFavicon); app.use('/api/settings',router);
   const server = app.listen(0,'127.0.0.1'); await new Promise(resolve=>server.once('listening',resolve));
   const base = `http://127.0.0.1:${server.address().port}`;
   try {
@@ -31,6 +31,12 @@ test('favicon uploads are admin-only, validated, persistent, publicly readable, 
     const uploaded = await fetch(base+'/api/settings/favicon',{method:'PUT',headers:adminHeaders,body:png});
     assert.equal(uploaded.status,200); const settings = await uploaded.json();
     assert.match(settings.faviconUrl,/^\/favicon.png\?v=[a-f0-9]{16}$/);
+    const original = getFavicon();
+    for (const body of ['png', [1, 2, 3], { length: 33 }, { type: 'Buffer', data: [...png] }]) {
+      const response = await fetch(base+'/api/settings/favicon',{method:'PUT',headers:{...adminHeaders,'Content-Type':'application/json'},body:JSON.stringify(body)});
+      assert.equal(response.status,400);
+      assert.deepEqual(getFavicon(),original);
+    }
     const served = await fetch(base+settings.faviconUrl);
     assert.equal(served.status,200); assert.match(served.headers.get('content-type'),/^image\/png/);
     assert.equal(served.headers.get('cache-control'),'no-store');
@@ -45,5 +51,12 @@ test('favicon uploads are admin-only, validated, persistent, publicly readable, 
   } finally {
     server.closeAllConnections(); await new Promise(resolve=>server.close(resolve));
     resetFavicon(); db.prepare('DELETE FROM users WHERE id IN (?,?)').run(admin.id,user.id);
+  }
+});
+
+test('favicon service rejects non-buffer values before inspecting their properties', () => {
+  const hostile = { get length() { throw new Error('Unexpected property access.'); } };
+  for (const input of [null, undefined, 'png', [], hostile, new Uint8Array(33), { type: 'Buffer', data: [] }]) {
+    assert.throws(() => saveFavicon(input), /Upload a PNG file up to 256 KB\./);
   }
 });
