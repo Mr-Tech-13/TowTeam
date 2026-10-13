@@ -3,7 +3,7 @@ import globals from "globals";
 
 export default [
   {
-    ignores: ["dist/**", "node_modules/**", "data/**", "prototypes/tow-paper-editor/assets/**"]
+    ignores: ["dist/**", "node_modules/**", "data/**", "actions-runner/**", "prototypes/tow-paper-editor/assets/**"]
   },
   js.configs.recommended,
   {

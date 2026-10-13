@@ -1,4 +1,5 @@
 node_modules/
+actions-runner/
 dist/
 coverage/
 test-results/
@@ -7,7 +8,6 @@ playwright-report/
 data/
 *.pdf
 prototypes/tow-paper-editor/assets/
-prototypes/
 tmp/pdf-review/
 .env
 .env.*

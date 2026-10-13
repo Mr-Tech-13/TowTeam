@@ -6,6 +6,10 @@ import dotenv from "dotenv";
 
 dotenv.config({ quiet: true });
 
+if (process.env.NODE_TEST_CONTEXT && !process.env.TOWTEAM_TEST_ROOT) {
+  throw new Error('Use npm test to run against isolated databases, never the application database.');
+}
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "../..");
 export const dbPath = path.resolve(rootDir, process.env.DATABASE_URL || "./data/towteam.sqlite");

@@ -157,6 +157,10 @@ Admin users can use the admin page for user management, issue reports, audit log
 
 ## Tests
 
+`npm test` creates a fresh temporary database for each test file, ignores the configured
+application database, and removes test databases afterward. Use this command rather
+than invoking `node --test` directly against your deployment environment.
+
 ```bash
 npm test
 npm run lint
