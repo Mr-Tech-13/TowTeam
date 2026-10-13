@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Bug, ChevronLeft, ChevronRight, Clipboard, Download, Eye, History, LayoutDashboard, LogOut, Plus, RefreshCcw, RotateCcw, Save, Search, Trash2, Upload, Users } from "lucide-react";
 import { api, backupDatabaseUrl, exportExcelUrl, exportUrl, towChecklistPreviewUrl, towChecklistUrl } from "./lib/api.js";
-import { completedSummary, fmtDate } from "./lib/summary.js";
+import { completedSummary } from "./lib/summary.js";
 import { applyWorkflowStep, pendingWorkflowStepCount, queueWorkflowStep, syncPendingWorkflowSteps } from "./lib/pendingWorkflowSteps.js";
 import { TowCard } from "./components/TowCard.jsx";
 import { AirlineSettings } from "./components/AirlineSettings.jsx";
@@ -47,26 +47,13 @@ function prepareTow(tow) {
   return deriveLocations(tow);
 }
 
-function matchesActiveSearch(tow, search) {
-  const query = search.trim().toLowerCase();
-  if (!query) return true;
-  return [
-    tow.airline,
-    `${tow.airline || ""}${tow.inboundFlightNumber || ""}`,
-    tow.inboundFlightNumber,
-    tow.tailNumber,
-    tow.aircraftType,
-    tow.gate,
-    tow.fromLocation,
-    tow.towSpot,
-    tow.toLocation,
-    tow.driver,
-    tow.leftWingWalker,
-    tow.rightWingWalker,
-    tow.otherTeamMembers,
-    tow.status?.replaceAll("_", " "),
-    fmtDate(tow.towCompletedAt || tow.createdAt)
-  ].some((value) => String(value || "").toLowerCase().includes(query));
+function useDebouncedSearch(value) {
+  const [query, setQuery] = useState(value.trim());
+  useEffect(() => {
+    const timer = window.setTimeout(() => setQuery(value.trim()), 350);
+    return () => window.clearTimeout(timer);
+  }, [value]);
+  return query;
 }
 
 function pad2(value) {
@@ -103,33 +90,38 @@ function parseTimestampInput(value, existingValue) {
 }
 
 function useTows(filters, enabled = true, pagination = null) {
+  const requestId = useRef(0);
   const [tows, setTows] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [pageInfo, setPageInfo] = useState({ page: 1, pageSize: 10, total: 0, totalPages: 1 });
 
   const load = async () => {
+    const id = ++requestId.current;
     setLoading(true);
     setError("");
     try {
       if (pagination) {
         const result = await api.listTowsPage(filters, pagination.page, pagination.pageSize);
+        if (id !== requestId.current) return;
         setTows(result.tows);
         setPageInfo({ page: result.page, pageSize: result.pageSize, total: result.total, totalPages: result.totalPages });
       } else {
         const result = await api.listTows(filters);
+        if (id !== requestId.current) return;
         setTows(result);
         setPageInfo({ page: 1, pageSize: result.length, total: result.length, totalPages: 1 });
       }
     } catch (err) {
-      setError(err.message);
+      if (id === requestId.current) setError(err.message);
     } finally {
-      setLoading(false);
+      if (id === requestId.current) setLoading(false);
     }
   };
 
   useEffect(() => {
     if (enabled) load();
+    return () => { requestId.current += 1; };
   }, [enabled, JSON.stringify(filters), JSON.stringify(pagination)]);
 
   return { tows, error, loading, load, pageInfo };
@@ -509,8 +501,8 @@ export default function App() {
   const [pasteText, setPasteText] = useState("");
   const [parseAttempted, setParseAttempted] = useState(false);
   const [candidates, setCandidates] = useState([]);
-  const [historyFilters, setHistoryFilters] = useState({});
-  const [historyPage, setHistoryPage] = useState(1);
+  const [historySearch, setHistorySearch] = useState("");
+  const [historyPaging, setHistoryPaging] = useState({ search: '', pageSize: 10, page: 1 });
   const [historyPageSize, setHistoryPageSize] = useState(10);
   const [activeSearch, setActiveSearch] = useState("");
   const [towPage, setTowPage] = useState("confirm");
@@ -522,23 +514,21 @@ export default function App() {
   const [issueStatus, setIssueStatus] = useState("");
   const [importMeta, setImportMeta] = useState(null);
   const [copyStatus, setCopyStatus] = useState("");
-  const [bulkAircraftType, setBulkAircraftType] = useState("");
-  const [bulkAircraftTypeStatus, setBulkAircraftTypeStatus] = useState("");
   const [pendingStepCount, setPendingStepCount] = useState(pendingWorkflowStepCount());
   const [workflowSyncStatus, setWorkflowSyncStatus] = useState("");
-  const historyQuery = { ...historyFilters, status: "completed" };
-  const filters = tab === "history" ? historyQuery : { status: "active" };
+  const activeSearchQuery = useDebouncedSearch(activeSearch);
+  const historySearchQuery = useDebouncedSearch(historySearch);
+  const historyPage = historyPaging.search === historySearchQuery && historyPaging.pageSize === historyPageSize ? historyPaging.page : 1;
+  const setHistoryPage = (page) => setHistoryPaging({ search: historySearchQuery, pageSize: historyPageSize, page });
+  const historyQuery = { search: historySearchQuery, status: "completed" };
+  const filters = tab === "history" ? historyQuery : { status: "active", search: activeSearchQuery };
   const historyPagination = tab === "history" ? { page: historyPage, pageSize: historyPageSize } : null;
   const { tows, error, loading, load, pageInfo } = useTows(filters, Boolean(user) && !adminPanel, historyPagination);
   const activeTows = useMemo(() => tows.filter((tow) => tow.status !== "completed"), [tows]);
-  const visibleActiveTows = useMemo(
-    () => activeTows.filter((tow) => matchesActiveSearch(tow, activeSearch)),
-    [activeTows, activeSearch]
-  );
-
+  const visibleActiveTows = activeTows;
   useEffect(() => {
-    setHistoryPage(1);
-  }, [JSON.stringify(historyFilters), historyPageSize]);
+    setHistoryPaging({ search: historySearchQuery, pageSize: historyPageSize, page: 1 });
+  }, [historySearchQuery, historyPageSize]);
 
   useEffect(() => {
     if (!user) return;
@@ -683,28 +673,6 @@ export default function App() {
       openTab("dashboard");
       await load();
     } catch (err) { setImportError(err.message); }
-  }
-
-  async function bulkSetAircraftType(event) {
-    event.preventDefault();
-    const aircraftType = bulkAircraftType.trim().toUpperCase();
-    if (!aircraftType) {
-      setBulkAircraftTypeStatus("Enter an aircraft type first.");
-      return;
-    }
-    if (pageInfo.total === 0) {
-      setBulkAircraftTypeStatus("No filtered tows to update.");
-      return;
-    }
-    if (!window.confirm(`Set aircraft type to ${aircraftType} for ${pageInfo.total} filtered completed tow${pageInfo.total === 1 ? "" : "s"}?`)) return;
-    try {
-      const result = await api.bulkUpdateAircraftType(historyQuery, aircraftType);
-      setBulkAircraftType("");
-      setBulkAircraftTypeStatus(`Updated ${result.count} tow${result.count === 1 ? "" : "s"} to ${result.aircraftType}.`);
-      await load();
-    } catch (err) {
-      setBulkAircraftTypeStatus(err.message);
-    }
   }
 
   async function refreshTow(nextTow) {
@@ -1097,43 +1065,20 @@ export default function App() {
                 <a className="btn green" href={exportExcelUrl(historyQuery)}><Download size={18} />Excel</a>
               </div>
             </div>
-            <div className="filters">
-              {[
-                ["dateFrom", "From date"],
-                ["dateTo", "To date"],
-                ["airline", "Airline"],
-                ["tailNumber", "Aircraft Reg"],
-                ["inboundFlightNumber", "Flight number"],
-                ["gate", "Tow from"],
-                ["towSpot", "Tow to"]
-              ].map(([field, label]) => (
-                <input
-                  key={field}
-                  type={field.startsWith("date") ? "date" : "search"}
-                  placeholder={label}
-                  onChange={(event) => setHistoryFilters({ ...historyFilters, [field]: event.target.value })}
-                />
-              ))}
-            </div>
-            <form className="bulk-update-panel" onSubmit={bulkSetAircraftType}>
-              <div>
-                <strong>Bulk Aircraft Type</strong>
-                <span>Applies to all {pageInfo.total} completed tow{pageInfo.total === 1 ? "" : "s"} matching the filters.</span>
-              </div>
+            <div className="active-search">
+              <Search aria-hidden="true" size={19} />
               <input
-                placeholder="Aircraft type, e.g. A220"
-                value={bulkAircraftType}
-                onChange={(event) => {
-                  setBulkAircraftType(event.target.value);
-                  setBulkAircraftTypeStatus("");
-                }}
+                aria-label="Search tow history"
+                placeholder="Search tow history"
+                type="search"
+                value={historySearch}
+                onChange={(event) => setHistorySearch(event.target.value)}
               />
-              <button className="btn blue" type="submit">Apply</button>
-              {bulkAircraftTypeStatus && <span className="muted">{bulkAircraftTypeStatus}</span>}
-            </form>
+            </div>
             <div className="tow-grid">
               {tows.map((tow) => <TowCard key={tow.id} tow={tow} onOpen={openTow} airlines={airlines} />)}
             </div>
+            {!loading && tows.length === 0 && <p className="muted empty-state">No completed tows match that search.</p>}
             <div className="history-pagination">
               <label>
                 <span>Per page</span>

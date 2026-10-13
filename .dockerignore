@@ -7,6 +7,7 @@ playwright-report/
 data/
 *.pdf
 prototypes/tow-paper-editor/assets/
+prototypes/
 tmp/pdf-review/
 .env
 .env.*

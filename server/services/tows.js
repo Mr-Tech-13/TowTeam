@@ -140,6 +140,18 @@ const automaticMissingDetailWarnings = ["Tow from missing.", "Tow to missing."];
 const manualReviewWarning = "Manually flagged for review.";
 const nullableFields = new Set(["deletedAt", "deletedBy", "deleteReason"]);
 export const towPageSizes = [5, 10, 25, 50, 100];
+const searchDateFormat = new Intl.DateTimeFormat('en-US', { month: 'numeric', day: 'numeric', year: '2-digit', timeZone: 'America/New_York' });
+db.function('tow_search_date', { deterministic: true }, (value) => {
+  const date = new Date(value);
+  return !value || Number.isNaN(date.getTime()) ? '' : searchDateFormat.format(date);
+});
+const towSearchFields = [
+  'airline', "COALESCE(airline, '') || COALESCE(inboundFlightNumber, '')", 'inboundFlightNumber',
+  'tailNumber', 'aircraftType', 'gate', 'fromLocation', 'towSpot', 'toLocation', 'driver',
+  'leftWingWalker', 'rightWingWalker', 'otherTeamMembers', "replace(status, '_', ' ')",
+  'tow_search_date(COALESCE(NULLIF(towCompletedAt, \'\'), createdAt))'
+];
+const towSearchCondition = `AND (@search = '' OR ${towSearchFields.map((field) => `instr(lower(COALESCE(${field}, '')), @search) > 0`).join(' OR ')})`;
 
 export function sanitizeTow(input) {
   const normalizedInput = deriveLocations(input);
@@ -217,6 +229,7 @@ export function listTows(filters = {}) {
          AND (@hasDate = 0 OR date(COALESCE(towCompletedAt, createdAt)) = @date)
          AND (@hasDateFrom = 0 OR date(COALESCE(towCompletedAt, createdAt)) >= @dateFrom)
          AND (@hasDateTo = 0 OR date(COALESCE(towCompletedAt, createdAt)) <= @dateTo)
+         ${towSearchCondition}
        ORDER BY
          CASE WHEN @activeStatus = 1 THEN
            CASE
@@ -252,7 +265,8 @@ export function listTowsPage(filters = {}, requestedPage = 1, requestedPageSize 
          AND (@hasTowSpot = 0 OR towSpot LIKE @towSpot)
          AND (@hasDate = 0 OR date(COALESCE(towCompletedAt, createdAt)) = @date)
          AND (@hasDateFrom = 0 OR date(COALESCE(towCompletedAt, createdAt)) >= @dateFrom)
-         AND (@hasDateTo = 0 OR date(COALESCE(towCompletedAt, createdAt)) <= @dateTo)`
+         AND (@hasDateTo = 0 OR date(COALESCE(towCompletedAt, createdAt)) <= @dateTo)
+         ${towSearchCondition}`
     )
     .get(params).count;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -272,6 +286,7 @@ export function listTowsPage(filters = {}, requestedPage = 1, requestedPageSize 
          AND (@hasDate = 0 OR date(COALESCE(towCompletedAt, createdAt)) = @date)
          AND (@hasDateFrom = 0 OR date(COALESCE(towCompletedAt, createdAt)) >= @dateFrom)
          AND (@hasDateTo = 0 OR date(COALESCE(towCompletedAt, createdAt)) <= @dateTo)
+         ${towSearchCondition}
        ORDER BY
          CASE WHEN @activeStatus = 1 THEN
            CASE
@@ -292,6 +307,7 @@ export function listTowsPage(filters = {}, requestedPage = 1, requestedPageSize 
 
 function towFilterParams(filters) {
   return {
+    search: typeof filters.search === 'string' ? filters.search.trim().toLowerCase() : '',
     activeStatus: filters.status === "active" ? 1 : 0,
     hasStatus: filters.status && filters.status !== "active" ? 1 : 0,
     status: filters.status || "",

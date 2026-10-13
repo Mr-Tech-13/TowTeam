@@ -13,7 +13,7 @@ TowTeam is a self-hostable aircraft tow planning, workflow tracking, completion 
 - Required GOAA steps for West Ramp / WR tows
 - Completed tow plain-text summaries
 - Downloadable Aircraft Towing Checklist PDFs generated from tow details
-- Searchable history by date, aircraft reg, flight number, tow from, and tow to
+- Matching Active and History search bars covering tow details, crew, status, and displayed date
 - Historical edit/delete with confirmation
 - CSV export
 - Excel-compatible history export with date range and tow filters
@@ -164,6 +164,13 @@ npm run build
 ```
 
 Parser tests cover the provided messy sample, bad flight spacing, missing tow spots, multi-flight blocks, shorthand directions, and shorthand/written direction conflicts.
+
+## Search
+
+Active and History searches apply after a 350 ms typing pause. Each tab retains its
+visible search text when returning, and clearing the bar removes the filter. History
+search covers all completed records before pagination; CSV and Excel exports use the
+same search. The bulk aircraft-type editing panel is no longer shown in History.
 
 ## Import Notes
 
