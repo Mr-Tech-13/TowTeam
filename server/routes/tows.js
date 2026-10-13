@@ -3,6 +3,7 @@ import { requireAdmin } from "../middleware/auth.js";
 import { writeAudit } from "../services/audit.js";
 import { requireBulkImport } from "../services/settings.js";
 import { router as towPaperDraftRoutes } from './towPaperDrafts.js';
+import { router as historyPaperExport } from './historyPaperExport.js';
 import { getTowPaperDraft } from '../services/towPaperDrafts.js';
 import { hasKnownTowSpot, parseTowPlan } from "../services/parser.js";
 import { generateTowPermitPdf, towPermitFilename } from "../services/towPermit.js";
@@ -22,6 +23,7 @@ import {
 
 export const router = express.Router();
 router.use('/:id/paper-draft', towPaperDraftRoutes);
+router.use('/paper-export', historyPaperExport);
 
 const exportColumns = [
   ["id", "ID"],

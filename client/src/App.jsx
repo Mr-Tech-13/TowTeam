@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Bug, ChevronLeft, ChevronRight, Clipboard, Download, Eye, History, LayoutDashboard, LogOut, Plus, RefreshCcw, RotateCcw, Save, Search, Trash2, Upload, Users } from "lucide-react";
+import { ArrowLeft, Bug, ChevronLeft, ChevronRight, Clipboard, Download, Eye, History, LayoutDashboard, LogOut, Plus, RefreshCcw, RotateCcw, Save, Search, Trash2, Upload, Users, X } from "lucide-react";
+import { maxPaperExportTows } from '../../shared/paperExport.js';
 import { api, backupDatabaseUrl, exportExcelUrl, exportUrl, towChecklistPreviewUrl, towChecklistUrl } from "./lib/api.js";
 import { completedSummary } from "./lib/summary.js";
 import { applyWorkflowStep, pendingWorkflowStepCount, queueWorkflowStep, syncPendingWorkflowSteps } from "./lib/pendingWorkflowSteps.js";
@@ -502,6 +503,9 @@ export default function App() {
   const [parseAttempted, setParseAttempted] = useState(false);
   const [candidates, setCandidates] = useState([]);
   const [historySearch, setHistorySearch] = useState("");
+  const [selectedTowIds, setSelectedTowIds] = useState(new Set());
+  const [paperDownloadBusy, setPaperDownloadBusy] = useState(false);
+  const [paperDownloadError, setPaperDownloadError] = useState('');
   const [historyPaging, setHistoryPaging] = useState({ search: '', pageSize: 10, page: 1 });
   const [historyPageSize, setHistoryPageSize] = useState(10);
   const [activeSearch, setActiveSearch] = useState("");
@@ -526,6 +530,32 @@ export default function App() {
   const { tows, error, loading, load, pageInfo } = useTows(filters, Boolean(user) && !adminPanel, historyPagination);
   const activeTows = useMemo(() => tows.filter((tow) => tow.status !== "completed"), [tows]);
   const visibleActiveTows = activeTows;
+  const selectionDisabled = loading || paperDownloadBusy || historySearch.trim() !== historySearchQuery;
+  const pageSelectedCount = tows.filter(tow => selectedTowIds.has(tow.id)).length;
+  function selectTow(id, selected) {
+    const next = new Set(selectedTowIds);
+    if (selected) next.add(id); else next.delete(id);
+    if (next.size > maxPaperExportTows) { setPaperDownloadError(`Select up to ${maxPaperExportTows} tows per download.`); return; }
+    setPaperDownloadError(''); setSelectedTowIds(next);
+  }
+  function selectHistoryPage(selected) {
+    const next = new Set(selectedTowIds);
+    for (const tow of tows) { if (selected) next.add(tow.id); else next.delete(tow.id); }
+    if (next.size > maxPaperExportTows) { setPaperDownloadError(`Select up to ${maxPaperExportTows} tows per download.`); return; }
+    setPaperDownloadError(''); setSelectedTowIds(next);
+  }
+  async function downloadSelectedPapers() {
+    if (!selectedTowIds.size || selectionDisabled) return;
+    setPaperDownloadBusy(true); setPaperDownloadError('');
+    try {
+      const { blob, filename } = await api.downloadTowPapers([...selectedTowIds]);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a'); link.href = url; link.download = filename;
+      document.body.append(link); link.click(); link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (err) { setPaperDownloadError(err.message); }
+    finally { setPaperDownloadBusy(false); }
+  }
   useEffect(() => {
     const icon = document.querySelector('link[rel="icon"]');
     if (icon && settings?.faviconUrl) icon.href = settings.faviconUrl;
@@ -1065,6 +1095,7 @@ export default function App() {
             <div className="section-head">
               <h2>Tow History Database</h2>
               <div className="export-actions">
+                <button className="btn teal" type="button" disabled={!selectedTowIds.size || selectionDisabled} onClick={() => void downloadSelectedPapers()}><Download size={18} />{paperDownloadBusy ? 'Preparing...' : selectedTowIds.size > 1 ? 'Download ZIP' : 'Download PDF'}</button>
                 <a className="btn blue" href={exportUrl(historyQuery)}><Download size={18} />CSV</a>
                 <a className="btn green" href={exportExcelUrl(historyQuery)}><Download size={18} />Excel</a>
               </div>
@@ -1076,11 +1107,22 @@ export default function App() {
                 placeholder="Search tow history"
                 type="search"
                 value={historySearch}
-                onChange={(event) => setHistorySearch(event.target.value)}
+                onChange={(event) => { setHistorySearch(event.target.value); setSelectedTowIds(new Set()); setPaperDownloadError(''); }}
               />
             </div>
+            <div className="history-selection">
+              <label className="check-row">
+                <input type="checkbox" aria-label="Select history page" disabled={selectionDisabled || !tows.length} checked={!!tows.length && pageSelectedCount === tows.length} ref={(node) => { if (node) node.indeterminate = pageSelectedCount > 0 && pageSelectedCount < tows.length; }} onChange={(event) => selectHistoryPage(event.target.checked)} />Select page
+              </label>
+              <span>{selectedTowIds.size} selected</span>
+              <button className="icon-btn" type="button" title="Clear selection" aria-label="Clear selection" disabled={!selectedTowIds.size || paperDownloadBusy} onClick={() => { setSelectedTowIds(new Set()); setPaperDownloadError(''); }}><X size={18} /></button>
+            </div>
+            {paperDownloadError && <div className="notice error" role="alert">{paperDownloadError}</div>}
             <div className="tow-grid">
-              {tows.map((tow) => <TowCard key={tow.id} tow={tow} onOpen={openTow} airlines={airlines} />)}
+              {tows.map((tow) => <div className="history-tow" key={tow.id}>
+                <label className="check-row"><input type="checkbox" aria-label={`Select tow ${tow.tailNumber || tow.id}`} checked={selectedTowIds.has(tow.id)} disabled={selectionDisabled} onChange={(event) => selectTow(tow.id, event.target.checked)} />Select</label>
+                <TowCard tow={tow} onOpen={openTow} airlines={airlines} />
+              </div>)}
             </div>
             {!loading && tows.length === 0 && <p className="muted empty-state">No completed tows match that search.</p>}
             <div className="history-pagination">
