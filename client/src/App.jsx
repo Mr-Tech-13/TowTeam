@@ -527,6 +527,10 @@ export default function App() {
   const activeTows = useMemo(() => tows.filter((tow) => tow.status !== "completed"), [tows]);
   const visibleActiveTows = activeTows;
   useEffect(() => {
+    const icon = document.querySelector('link[rel="icon"]');
+    if (icon && settings?.faviconUrl) icon.href = settings.faviconUrl;
+  }, [settings?.faviconUrl]);
+  useEffect(() => {
     setHistoryPaging({ search: historySearchQuery, pageSize: historyPageSize, page: 1 });
   }, [historySearchQuery, historyPageSize]);
 

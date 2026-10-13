@@ -177,6 +177,11 @@ main {
   margin-bottom: 14px;
 }
 
+.favicon-setting { margin-top: 20px; padding-top: 20px; border-top: 1px solid #39414d; }
+.favicon-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.favicon-preview { width: 48px; height: 48px; display: grid; place-items: center; border: 1px solid #475263; border-radius: 4px; }
+.favicon-preview img { width: 32px; height: 32px; object-fit: contain; }
+
 .active-search svg {
   position: absolute;
   left: 12px;

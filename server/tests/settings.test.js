@@ -35,7 +35,7 @@ test('bulk import is a persistent admin-only setting enforced for all users', as
     assert.equal((await request('/api/settings', tokens[0], 'PUT', { bulkImportEnabled: 'false' })).status, 400);
     assert.equal((await request('/api/settings', tokens[0], 'PUT', { bulkImportEnabled: false })).status, 200);
     assert.equal(db.prepare("SELECT value FROM app_settings WHERE key = 'bulkImportEnabled'").get().value, 'false');
-    assert.deepEqual(await (await request('/api/settings', tokens[1])).json(), { bulkImportEnabled: false });
+    assert.deepEqual(await (await request('/api/settings', tokens[1])).json(), { bulkImportEnabled: false, faviconUrl: '/favicon.png?v=default' });
     for (const token of tokens) {
       assert.equal((await request('/api/tows/parse', token, 'POST', { text: '' })).status, 403);
       assert.equal((await request('/api/tows/bulk', token, 'POST', { tows: [] })).status, 403);

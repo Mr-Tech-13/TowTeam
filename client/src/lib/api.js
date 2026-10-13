@@ -23,6 +23,8 @@ async function request(path, options = {}) {
 
 export const api = {
   getSettings: () => request('/settings'),
+  uploadFavicon: async (file) => request('/settings/favicon', { method: 'PUT', headers: { 'Content-Type': 'image/png' }, body: await file.arrayBuffer() }),
+  resetFavicon: () => request('/settings/favicon', { method: 'DELETE' }),
   updateSettings: (settings) => request('/settings', { method: 'PUT', body: JSON.stringify(settings) }),
   listAirlines: () => request('/airlines'),
   createAirline: (airline) => request('/airlines', { method: 'POST', body: JSON.stringify(airline) }),

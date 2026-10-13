@@ -1,7 +1,8 @@
 import { db } from '../db/database.js';
+import { faviconUrl } from './favicon.js';
 
 export function getSettings() {
-  return { bulkImportEnabled: db.prepare('SELECT value FROM app_settings WHERE key = ?').get('bulkImportEnabled')?.value === 'true' };
+  return { bulkImportEnabled: db.prepare('SELECT value FROM app_settings WHERE key = ?').get('bulkImportEnabled')?.value === 'true', faviconUrl: faviconUrl() };
 }
 
 export function updateSettings(input) {

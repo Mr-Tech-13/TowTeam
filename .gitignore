@@ -9,6 +9,7 @@ tmp/pdf-review/
 *.pdf
 prototypes/tow-paper-editor/assets/
 data/paper-editor-assets/
+data/branding/
 .nyc_output/
 data/*.sqlite
 data/towteam-stress-test.sqlite

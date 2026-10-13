@@ -20,6 +20,7 @@ import { router as towRoutes } from "./routes/tows.js";
 import { router as userRoutes } from "./routes/users.js";
 import { deleteExpiredSessions, ensureDefaultAdmin } from "./services/users.js";
 import { preparePaperEditorAssets } from './services/paperEditorAssets.js';
+import { serveFavicon } from './services/favicon.js';
 
 dotenv.config({ quiet: true });
 
@@ -82,6 +83,7 @@ app.use("/api", apiRateLimit);
 app.use(requireAuth);
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
+app.get('/favicon.png', serveFavicon);
 app.use("/api/paper-editor", paperEditorRoutes);
 app.use("/api/airlines", airlineRoutes);
 app.use("/api/settings", settingsRoutes);
