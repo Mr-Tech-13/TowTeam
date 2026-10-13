@@ -87,7 +87,8 @@ Cached assets are reused unless the template changes or an asset is missing. The
 and generated private assets are Git-ignored and excluded from Docker build contexts;
 they are served only through authenticated editor routes, never as public static files.
 For a Docker image deployment, mount your private data directory at `/app/data`.
-Both Docker deployment paths include the editor code, Python dependencies, and Poppler.
+Both Docker deployment paths include the editor code, Python dependencies, Poppler,
+and `build-essential` so the SQLite native module can compile when needed.
 For a non-Docker host, install Python with `requirements.txt` and Poppler (`pdftoppm`).
 Set `PDF_PYTHON_BIN` when Python is not available as `python3`; optionally set
 `TOW_PAPER_ASSETS_PATH` to another writable private cache directory. A missing PDF

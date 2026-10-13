@@ -1,7 +1,7 @@
 FROM node:24-bookworm-slim AS build
 WORKDIR /app
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends python3 python3-pip poppler-utils \
+  && apt-get install -y --no-install-recommends build-essential python3 python3-pip poppler-utils \
   && rm -rf /var/lib/apt/lists/*
 COPY package*.json ./
 COPY requirements.txt ./
@@ -14,7 +14,7 @@ FROM node:24-bookworm-slim
 WORKDIR /app
 ENV NODE_ENV=production
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends python3 python3-pip poppler-utils \
+  && apt-get install -y --no-install-recommends build-essential python3 python3-pip poppler-utils \
   && rm -rf /var/lib/apt/lists/*
 COPY package*.json ./
 COPY requirements.txt ./
