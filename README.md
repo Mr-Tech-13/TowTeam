@@ -284,11 +284,10 @@ NAS_MOUNT_PATH=/mnt/nas/towteam
 NAS_PDF_PATH=/nas/towteam
 ```
 
-`NAS_MOUNT_PATH` must already be the mounted NAS destination on the host. Inside
-that share, create a file named `.towteam-nas` containing exactly
-`towteam-paper-backup-v1` (a trailing newline is fine). Do not place this marker in
-an unmounted local fallback folder. The app checks the marker before transferring
-and does not create the destination directory.
+`NAS_MOUNT_PATH` must already be the mounted NAS destination on the host. TowTeam
+writes PDFs directly into the configured folder; no marker file is required.
+The destination must exist and be writable. TowTeam does not create it or distinguish
+a mounted NAS from a local folder, so ensure the mount is active before starting Docker.
 
 Start/update using both Compose files:
 
@@ -304,18 +303,18 @@ Compose override is needed. TowTeam does not mount the share itself. Restart aft
 changing `.env`; the site-specific deploy workflow does not include this override.
 
 When enabled, marking paperwork complete queues a saved-state snapshot in SQLite.
-The worker generates its PDF in `paper-backup-cache/` beside the database (normally
-`data/paper-backup-cache/`), then writes a temporary NAS file, reads it back to verify
+The worker generates its PDF in memory without a local PDF cache, then writes a
+temporary file directly in the destination folder, reads it back to verify
 its SHA-256 checksum, and renames it over `tow-ID.pdf`. Subsequent saved paper edits
 or mapped tow-detail changes queue a replacement **only for that tow**. Unchanged
 paper saves do not create duplicate work, and superseded generations are skipped.
 The stable filename prevents registration/date edits from leaving extra old copies.
 
 Jobs survive restarts. Failed transfers retry with increasing delays, capped at one
-hour. Successful cache files are removed after an hour, with cleanup checked every
-minute. Pending/failed current files stay cached regardless of age; obsolete cache
-generations are also eligible for cleanup. The durable queued state allows PDFs to
-be regenerated if their local cache is missing. Disabling transfers does not discard
+hour. Each retry regenerates the PDF from the durable queued state in SQLite;
+no local PDF cache is created or required. Leftover files from the previous
+`data/paper-backup-cache/` implementation are removed after an hour, with cleanup
+checked every minute. Disabling transfers does not discard
 pending jobs. Reopening/deleting a tow cancels pending work; it does not delete an
 already uploaded NAS paper.
 
@@ -327,14 +326,14 @@ Completed** queues current saved versions of all completed papers after confirma
 These controls and status endpoints are restricted to the local administrator;
 paths and NAS credentials are not returned to the browser.
 
-Only one TowTeam server process should run the worker against a given database/cache.
+Only one TowTeam server process should run the worker against a given database.
 The worker polls every 10 seconds and transfers sequentially. The progress bar tracks
 completed files, not bytes. An unavailable or stuck filesystem operation relies on
 the host's mount timeout/reconnect behavior; configure that on the server. Different
 TowTeam databases should use different destination folders to avoid tow-ID collisions.
 
-The database backup includes queue snapshots and upload metadata, but not cached or
-NAS PDF files. A writable NAS destination is not immutable: use protected NAS snapshots
+The database backup includes queue snapshots and upload metadata, but not destination
+PDF files. A writable NAS destination is not immutable: use protected NAS snapshots
 or an additional backup for recovery from accidental replacement or compromise. If
 you change the destination or restore a database whose upload records no longer
 match the NAS, use **Replace All Completed** to repopulate it.

@@ -6,9 +6,6 @@ import { generateTowPermitPdf, towPaperDetails } from './towPermit.js';
 
 const retention = 60 * 60 * 1000;
 const cacheDirectory = path.join(path.dirname(dbPath), 'paper-backup-cache');
-const markerName = '.towteam-nas';
-const markerContent = 'towteam-paper-backup-v1';
-const inFlight = new Set();
 let running = false;
 let timer;
 let lastCleanup = 0;
@@ -53,27 +50,40 @@ function reconcile(force = false) {
   return count;
 }
 
+function ioCode(error) {
+  return ['ENOENT', 'EACCES', 'EPERM', 'ENOTDIR', 'ENOTCONN', 'EIO', 'ESTALE', 'EROFS', 'ENOSPC', 'ETIMEDOUT'].includes(error?.code) ? error.code : 'IO_ERROR';
+}
+
 async function destination() {
   const { enabled, directory } = config();
   if (!enabled) throw new Error('NAS backups are disabled in .env.');
   if (!directory || !path.isAbsolute(directory)) throw new Error('Configure NAS_PDF_PATH as an absolute mounted folder path.');
   // Never create the destination: an absent NAS mount must not become a local backup.
-  if (!(await fs.stat(directory)).isDirectory()) throw new Error('NAS destination is not a directory.');
-  if ((await fs.readFile(path.join(directory, markerName), 'utf8')).trim() !== markerContent) throw new Error('NAS marker is missing or invalid.');
+  let info;
+  try { info = await fs.stat(directory); }
+  catch (error) { throw new Error(`Cannot access NAS folder (${ioCode(error)}). Check NAS_PDF_PATH and the Docker NAS mount.`, { cause: error }); }
+  if (!info.isDirectory()) throw new Error('NAS destination is not a directory.');
   return directory;
 }
 
 export async function testPaperBackupConnection() {
   let temporary;
+  let stage = 'checking NAS folder';
   try {
     const directory = await destination();
     temporary = path.join(directory, `.towteam-probe-${crypto.randomUUID()}.tmp`);
     const bytes = crypto.randomBytes(32);
+    stage = 'writing a test file';
     await fs.writeFile(temporary, bytes, { flag: 'wx', mode: 0o600 });
+    stage = 'reading the test file';
     if (!bytes.equals(await fs.readFile(temporary))) throw new Error('NAS verification failed.');
+    stage = 'deleting the test file';
+    await fs.unlink(temporary);
+    temporary = null;
     return { ok: true };
-  } catch {
-    const error = new Error('NAS connection test failed. Check the mounted folder, marker, and account permissions.');
+  } catch (cause) {
+    const detail = stage === 'checking NAS folder' ? cause.message : `${stage} (${ioCode(cause)}). Check NAS account permissions.`;
+    const error = new Error(`NAS connection test failed: ${detail}`, { cause });
     error.status = 400;
     throw error;
   } finally {
@@ -88,27 +98,14 @@ function isCurrent(job) {
 }
 
 async function transfer(job, generatePdf) {
-  const cacheName = `tow-${job.towId}-${job.generation}.pdf`;
-  const cached = path.join(cacheDirectory, cacheName);
-  inFlight.add(cacheName);
   let temporary;
   try {
-    db.prepare("UPDATE paperBackups SET status = 'generating', updatedAt = ? WHERE towId = ? AND generation = ?").run(nowIso(), job.towId, job.generation);
-    await fs.mkdir(cacheDirectory, { recursive: true, mode: 0o700 });
-    let pdf;
-    try {
-      pdf = await fs.readFile(cached);
-      if (!job.checksum || checksum(pdf) !== job.checksum) pdf = null;
-    } catch (error) { if (error.code !== 'ENOENT') throw error; }
-    if (!pdf) {
-      pdf = await generatePdf({ id: job.towId }, { state: JSON.parse(job.state) });
-      if (!isCurrent(job)) return;
-      await fs.writeFile(cached, pdf, { mode: 0o600 });
-    }
+    db.prepare("UPDATE paperBackups SET status = 'generating', cacheName = NULL, updatedAt = ? WHERE towId = ? AND generation = ?").run(nowIso(), job.towId, job.generation);
+    const pdf = await generatePdf({ id: job.towId }, { state: JSON.parse(job.state) });
     if (!isCurrent(job)) return;
     const hash = checksum(pdf);
-    db.prepare(`UPDATE paperBackups SET cacheName = ?, checksum = ?, status = 'transferring', updatedAt = ?
-      WHERE towId = ? AND generation = ?`).run(cacheName, hash, nowIso(), job.towId, job.generation);
+    db.prepare(`UPDATE paperBackups SET checksum = ?, status = 'transferring', updatedAt = ?
+      WHERE towId = ? AND generation = ?`).run(hash, nowIso(), job.towId, job.generation);
     const directory = await destination();
     temporary = path.join(directory, `.towteam-upload-${crypto.randomUUID()}.tmp`);
     await fs.writeFile(temporary, pdf, { flag: 'wx', mode: 0o600 });
@@ -128,7 +125,6 @@ async function transfer(job, generatePdf) {
       WHERE towId = ? AND generation = ? AND status != 'cancelled'`).run(attempts, retry, nowIso(), job.towId, job.generation);
   } finally {
     if (temporary) await fs.unlink(temporary).catch(() => {});
-    inFlight.delete(cacheName);
   }
 }
 
@@ -136,16 +132,13 @@ export async function cleanupPaperBackupCache(now = Date.now()) {
   let files;
   try { files = await fs.readdir(cacheDirectory); }
   catch (error) { if (error.code === 'ENOENT') return; throw error; }
-  const rows = db.prepare('SELECT cacheName, status, uploadedAt FROM paperBackups WHERE cacheName IS NOT NULL').all();
+  // Retire files from the old cache implementation; retries now regenerate from SQLite.
   for (const name of files) {
-    if (!/^tow-\d+-\d+\.pdf$/.test(name) || inFlight.has(name)) continue;
-    const row = rows.find(item => item.cacheName === name);
-    if (row && !['uploaded', 'cancelled'].includes(row.status)) continue;
+    if (!/^tow-\d+-\d+\.pdf$/.test(name)) continue;
     const file = path.join(cacheDirectory, name);
     const stat = await fs.lstat(file);
     if (!stat.isFile()) continue;
-    const ageFrom = row?.status === 'uploaded' ? Date.parse(row.uploadedAt) : stat.mtimeMs;
-    if (now - ageFrom < retention) continue;
+    if (now - stat.mtimeMs < retention) continue;
     await fs.unlink(file);
     db.prepare('UPDATE paperBackups SET cacheName = NULL WHERE cacheName = ?').run(name);
   }

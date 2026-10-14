@@ -17,7 +17,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { router } from '../routes/paperBackups.js';
 import { createUser, createSession } from '../services/users.js';
 
-test('completed paper backups persist snapshots, replace edited tows, retry safely, and retain pending cache', async () => {
+test('completed papers write directly without cache, replace edited tows, and retry from saved snapshots', async () => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'towteam-nas-test-'));
   const previous = { enabled: process.env.NAS_BACKUP_ENABLED, nas: process.env.NAS_PDF_PATH, assets: process.env.TOW_PAPER_ASSETS_PATH };
   const python = process.env.PDF_PYTHON_BIN || 'python3';
@@ -45,15 +45,12 @@ test('completed paper backups persist snapshots, replace edited tows, retry safe
     await runPaperBackupWorker();
     assert.equal(job(tow.id).status, 'failed');
     assert.ok(job(tow.id).checksum && job(tow.id).nextAttemptAt);
-    assert.ok(await fs.stat(path.join(cache, job(tow.id).cacheName)));
-    await cleanupPaperBackupCache(Date.now() + 2 * 60 * 60 * 1000);
-    assert.ok(await fs.stat(path.join(cache, job(tow.id).cacheName)));
-    await assert.rejects(testPaperBackupConnection(), /connection test failed/);
+    assert.equal(job(tow.id).cacheName, null);
+    await assert.rejects(fs.stat(cache), { code: 'ENOENT' });
+    await assert.rejects(testPaperBackupConnection(), /Cannot access NAS folder \(ENOENT\)/);
     await fs.mkdir(nas);
-    await assert.rejects(testPaperBackupConnection(), /connection test failed/);
-    await fs.writeFile(path.join(nas, '.towteam-nas'), 'towteam-paper-backup-v1\n');
     assert.deepEqual(await testPaperBackupConnection(), { ok: true });
-    assert.deepEqual(await fs.readdir(nas), ['.towteam-nas']);
+    assert.deepEqual(await fs.readdir(nas), []);
     db.prepare('UPDATE paperBackups SET nextAttemptAt = NULL').run();
     await runPaperBackupWorker();
     assert.equal(job(tow.id).status, 'uploaded');
@@ -102,7 +99,11 @@ test('completed paper backups persist snapshots, replace edited tows, retry safe
     enqueuePaperBackup(second, getTowPaperDraft(second.id).state, true);
     assert.equal(job(second.id).status, 'queued');
     await runPaperBackupWorker();
-    const savedCache = path.join(cache, job(second.id).cacheName);
+    assert.equal(job(second.id).cacheName, null);
+    await assert.rejects(fs.stat(cache), { code: 'ENOENT' });
+    await fs.mkdir(cache);
+    const savedCache = path.join(cache, 'tow-999999-1.pdf');
+    await fs.writeFile(savedCache, pdf);
     await cleanupPaperBackupCache(Date.now() + 59 * 60 * 1000);
     assert.ok(await fs.stat(savedCache));
     await cleanupPaperBackupCache(Date.now() + 61 * 60 * 1000);
