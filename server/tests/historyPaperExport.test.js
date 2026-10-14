@@ -91,7 +91,7 @@ test('History downloads one saved PDF or a ZIP with uniquely named saved papers'
     const contents = JSON.parse(execFileSync(python,['-c',"import sys,json,io,zipfile; from pypdf import PdfReader; z=zipfile.ZipFile(sys.argv[1]); print(json.dumps([{'name':n,'text':' '.join(p.extract_text() for p in PdfReader(io.BytesIO(z.read(n))).pages)} for n in z.namelist()]))",zip],{encoding:'utf8'}));
     assert.equal(contents.length,2); assert.equal(new Set(contents.map(item=>item.name)).size,2);
     assert.ok(contents.every(item=>!/[\\/]/.test(item.name) && item.name.endsWith('.pdf')));
-    assert.ok(contents.every(item=>/^\d{4}-\d{2}-\d{2}-SAME(?:-tow-\d+)?\.pdf$/.test(item.name)));
+    assert.ok(contents.every(item=>/^\d{4}-\d{2}-\d{2}-SAME-\d{4}(?:-\d+)?\.pdf$/.test(item.name)));
     assert.ok(contents.some(item=>item.text.includes('SAVED0'))); assert.ok(contents.some(item=>item.text.includes('SAVED1')));
     process.env.TOW_PAPER_ASSETS_PATH = path.join(dir,'missing');
     const failed = await request(tows.slice(0,2).map(tow=>tow.id)); assert.equal(failed.status,500);

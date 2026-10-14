@@ -2,7 +2,7 @@
 
 TowTeam is a self-hosted aircraft tow planning, workflow tracking, and history app.
 It uses React/Vite, Express, and SQLite, with a mobile-friendly dark interface.
-The current version is **3.0.2**. The on-screen version is read from
+The current version is **3.1.0**. The on-screen version is read from
 `package-lock.json` when the frontend is built.
 
 ## Features
@@ -292,10 +292,11 @@ binds using `NAS_MOUNT_PATH`; it is unnecessary for the default data folder.
 
 When enabled, completing paperwork queues its saved state in SQLite. The worker
 generates a PDF in memory, writes a temporary file directly in the destination,
-reads it back to verify its SHA-256 checksum, then renames it over `YYYY-MM-DD-TAIL.pdf`.
-Downloads and PDFs inside ZIP exports use the same naming, using the actual tow date
-in America/New_York and the aircraft registration. A tow-ID suffix is added only
-to avoid duplicate names. Missing details use explicit unknown-date/aircraft names.
+reads it back to verify its SHA-256 checksum, then renames it over `YYYY-MM-DD-TAIL-HHMM.pdf`.
+Downloads and PDFs inside ZIP exports use the same naming, using the actual tow date,
+aircraft registration, and 24-hour completion time in America/New_York. Active tows
+without completion use their start time, or creation time if not started. Exact
+duplicates receive a numeric suffix such as `-2`. Missing details use explicit unknown names.
 Existing backup records regenerate under the new names; old differently named
 files are not automatically deleted.
 Saved paper edits or mapped tow-detail changes replace only that tow's file.

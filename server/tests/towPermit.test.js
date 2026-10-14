@@ -67,9 +67,10 @@ test("generates a tow checklist pdf from fillable form fields", async () => {
   );
 
   assert.ok(pdfBytes.length > 1000);
-  assert.equal(towPermitFilename({ tailNumber: "N219BZ", towCompletedAt: "2026-05-25T23:25:00.000-04:00" }), '2026-05-25-N219BZ.pdf');
-  assert.equal(towPermitFilename({ tailNumber: 'n229bz', towCompletedAt: '2026-10-14T01:00:00Z' }), '2026-10-13-N229BZ.pdf');
-  assert.equal(towPermitFilename({ tailNumber: '../N229BZ', createdAt: '2026-10-13T12:00:00Z' }), '2026-10-13-_N229BZ.pdf');
+  assert.equal(towPermitFilename({ tailNumber: "N219BZ", towCompletedAt: "2026-05-25T23:25:00.000-04:00" }), '2026-05-25-N219BZ-2325.pdf');
+  assert.equal(towPermitFilename({ tailNumber: 'n229bz', towCompletedAt: '2026-10-14T01:00:00Z' }), '2026-10-13-N229BZ-2100.pdf');
+  assert.equal(towPermitFilename({ tailNumber: '../N229BZ', createdAt: '2026-10-13T12:00:00Z' }), '2026-10-13-_N229BZ-0800.pdf');
+  assert.equal(towPermitFilename({ tailNumber: 'N229BZ', towCompletedAt: '2026-10-14T04:00:00Z' }), '2026-10-14-N229BZ-0000.pdf');
 });
 
 test("sets airline-specific bypass pin completion reasons", () => {

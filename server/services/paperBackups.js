@@ -30,7 +30,7 @@ export function enqueuePaperBackup(tow, state, force = false) {
   let filename = base;
   let collision = 0;
   while (duplicate.get(filename, tow.id)) {
-    filename = `${base.slice(0, -4)}-tow-${tow.id}${collision ? `-${collision}` : ''}.pdf`;
+    filename = `${base.slice(0, -4)}-${collision + 2}.pdf`;
     collision += 1;
   }
   const fingerprint = checksum(JSON.stringify({ state: snapshot, filename }));

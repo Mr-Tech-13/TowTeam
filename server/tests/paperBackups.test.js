@@ -57,7 +57,7 @@ test('completed papers write directly without cache, replace edited tows, and re
     assert.deepEqual(paperBackupStatus().jobs, []);
     assert.ok((await fs.stat(nas)).isDirectory());
     const destination = path.join(nas, job(tow.id).filename);
-    assert.match(job(tow.id).filename, /^\d{4}-\d{2}-\d{2}-NAS-ONE\.pdf$/);
+    assert.match(job(tow.id).filename, /^\d{4}-\d{2}-\d{2}-NAS-ONE-\d{4}\.pdf$/);
     const pdf = await fs.readFile(destination);
     assert.equal(crypto.createHash('sha256').update(pdf).digest('hex'), job(tow.id).checksum);
     const text = execFileSync(python, ['-c', "import sys; from pypdf import PdfReader; print(' '.join(p.extract_text() for p in PdfReader(sys.argv[1]).pages))", destination], { encoding: 'utf8' });

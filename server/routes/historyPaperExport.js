@@ -58,7 +58,7 @@ router.post('/', async (req, res) => {
       let name = base;
       let collision = 0;
       while (names.has(name)) {
-        name = `${base.slice(0, -4)}-tow-${tow.id}${collision ? `-${collision}` : ''}.pdf`;
+        name = `${base.slice(0, -4)}-${collision + 2}.pdf`;
         collision += 1;
       }
       names.add(name);

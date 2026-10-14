@@ -59,10 +59,11 @@ export function towPermitTemplatePath() {
 export function towPermitFilename(tow) {
   const reg = safeText(tow.tailNumber || "unknown-aircraft").toUpperCase().replace(/[^a-z0-9-]+/gi, "_");
   const value = tow.towCompletedAt || tow.towStartedAt || tow.createdAt;
-  const parts = value ? new Intl.DateTimeFormat('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'America/New_York' }).formatToParts(new Date(value)) : [];
+  const parts = value ? new Intl.DateTimeFormat('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: 'America/New_York' }).formatToParts(new Date(value)) : [];
   const part = type => parts.find(item => item.type === type)?.value;
   const date = value ? `${part('year')}-${part('month')}-${part('day')}` : 'unknown-date';
-  return `${date}-${reg}.pdf`;
+  const time = value ? `${part('hour')}${part('minute')}` : 'unknown-time';
+  return `${date}-${reg}-${time}.pdf`;
 }
 
 export function towPaperDetails(tow) {
