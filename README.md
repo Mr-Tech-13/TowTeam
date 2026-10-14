@@ -134,6 +134,9 @@ three sample tows every time it runs. Use it only for a disposable/demo database
 | `TOW_PERMIT_TEMPLATE_PATH` | `./data/TowPermit.pdf` | Private supported blank checklist template. |
 | `TOW_PAPER_ASSETS_PATH` | `./data/paper-editor-assets` | Writable private generated-asset cache. |
 | `PDF_PYTHON_BIN` | `python3` | Python interpreter for PDF preparation/export. |
+| `NAS_BACKUP_ENABLED` | `false` | Enable completed-paper transfer jobs. |
+| `NAS_PDF_PATH` | `/nas/towteam` | Absolute mounted NAS destination as seen by the app. |
+| `NAS_MOUNT_PATH` | `/mnt/nas/towteam` | Host-side folder for the optional NAS Compose override. |
 
 Rate limits are configurable through the corresponding `*_RATE_LIMIT_WINDOW_MS`
 and `*_RATE_LIMIT_MAX` settings. Defaults are 300 API requests/minute, 20 login
@@ -265,6 +268,77 @@ a pre-restore backup, replaces the database, and exits the process. Compose's
 `restart: unless-stopped` restarts it; a direct installation needs a supervisor or
 manual restart. Migrations run on the next startup.
 
+## NAS Paper Backups
+
+NAS transfer configuration belongs in `.env`, not browser settings. This implementation
+uses a **mounted folder**, not a direct SMB/SFTP login from TowTeam. Mount a dedicated
+NAS share on the server using a restricted account; manage its credentials with the
+host's mount/secret configuration. Keep the share on a private network or VPN and
+use the NAS's supported encrypted connection options.
+
+For Docker Compose, set:
+
+```dotenv
+NAS_BACKUP_ENABLED=true
+NAS_MOUNT_PATH=/mnt/nas/towteam
+NAS_PDF_PATH=/nas/towteam
+```
+
+`NAS_MOUNT_PATH` must already be the mounted NAS destination on the host. Inside
+that share, create a file named `.towteam-nas` containing exactly
+`towteam-paper-backup-v1` (a trailing newline is fine). Do not place this marker in
+an unmounted local fallback folder. The app checks the marker before transferring
+and does not create the destination directory.
+
+Start/update using both Compose files:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.nas.yml up -d --force-recreate
+```
+
+Keep using both files on subsequent updates. The override mounts only the dedicated
+folder at `/nas/towteam` and disables automatic host-folder creation using
+[`create_host_path: false`](https://docs.docker.com/reference/compose-file/services/#long-syntax-5).
+For a direct installation, set `NAS_PDF_PATH` to the actual mounted folder; no
+Compose override is needed. TowTeam does not mount the share itself. Restart after
+changing `.env`; the site-specific deploy workflow does not include this override.
+
+When enabled, marking paperwork complete queues a saved-state snapshot in SQLite.
+The worker generates its PDF in `paper-backup-cache/` beside the database (normally
+`data/paper-backup-cache/`), then writes a temporary NAS file, reads it back to verify
+its SHA-256 checksum, and renames it over `tow-ID.pdf`. Subsequent saved paper edits
+or mapped tow-detail changes queue a replacement **only for that tow**. Unchanged
+paper saves do not create duplicate work, and superseded generations are skipped.
+The stable filename prevents registration/date edits from leaving extra old copies.
+
+Jobs survive restarts. Failed transfers retry with increasing delays, capped at one
+hour. Successful cache files are removed after an hour, with cleanup checked every
+minute. Pending/failed current files stay cached regardless of age; obsolete cache
+generations are also eligible for cleanup. The durable queued state allows PDFs to
+be regenerated if their local cache is missing. Disabling transfers does not discard
+pending jobs. Reopening/deleting a tow cancels pending work; it does not delete an
+already uploaded NAS paper.
+
+Enabling backups also queues existing completed tows that have no current backup
+record. The local administrator's Settings panel shows uploaded/pending/failed
+counts, a progress bar, and the latest 50 jobs. **Test Connection** verifies write,
+read, and delete access; **Transfer Pending** retries pending work; **Replace All
+Completed** queues current saved versions of all completed papers after confirmation.
+These controls and status endpoints are restricted to the local administrator;
+paths and NAS credentials are not returned to the browser.
+
+Only one TowTeam server process should run the worker against a given database/cache.
+The worker polls every 10 seconds and transfers sequentially. The progress bar tracks
+completed files, not bytes. An unavailable or stuck filesystem operation relies on
+the host's mount timeout/reconnect behavior; configure that on the server. Different
+TowTeam databases should use different destination folders to avoid tow-ID collisions.
+
+The database backup includes queue snapshots and upload metadata, but not cached or
+NAS PDF files. A writable NAS destination is not immutable: use protected NAS snapshots
+or an additional backup for recovery from accidental replacement or compromise. If
+you change the destination or restore a database whose upload records no longer
+match the NAS, use **Replace All Completed** to repopulate it.
+
 ## Import Notes
 
 The parser supports blank-line-separated flight blocks, spaced flight numbers,
@@ -288,7 +362,9 @@ parsing is additionally implemented in `server/services/parser.js`.
 
 Node 24 is required starting with v3.0.1. Direct installations should use `npm ci`
 after changing Node versions to install the matching SQLite native dependency,
-then rebuild and restart. v3.0.1 and v3.0.2 introduce no new database migration.
+then rebuild and restart. The original v3.0.1/v3.0.2 updates needed no new migration;
+the NAS backup feature adds `016_paper_backups.sql`, applied automatically at startup.
+Back up the database before deploying it. NAS transfer remains disabled by default.
 
 When upgrading from a pre-v3.0.0 database, migration
 `015_preserve_legacy_tow_papers.js` runs once, transactionally. Existing active,
@@ -335,6 +411,7 @@ login/logout/session inspection. Access restrictions are also enforced server-si
 | `POST /api/issues`; `GET /api/issues`; `PATCH /api/issues/:id` | Submit issues; listing/updating requires admin. |
 | `GET /api/audit` | Admin audit access; Autofill details are restricted for other admins. |
 | `GET /api/maintenance/backup.sqlite`; `POST /api/maintenance/restore.sqlite` | Local administrator only; restore uses binary `application/octet-stream`. |
+| `GET /api/settings/paper-backups`; `POST /api/settings/paper-backups/test`; `POST /api/settings/paper-backups/retry` | Local administrator NAS status/test/retry controls; retry accepts `{ "replace": true }` for replacing all completed papers. |
 
 Workflow step identifiers are `setupStartedAt`, `goaaCalledAt`, `goaaArrivalAt`,
 `pushStartedAt` (retained API support), `towStartedAt`, `towCompletedAt`, and

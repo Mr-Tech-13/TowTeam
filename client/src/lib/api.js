@@ -22,6 +22,9 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+  paperBackupStatus: () => request('/settings/paper-backups'),
+  testPaperBackupConnection: () => request('/settings/paper-backups/test', { method: 'POST', body: '{}' }),
+  retryPaperBackups: (replace = false) => request('/settings/paper-backups/retry', { method: 'POST', body: JSON.stringify({ replace }) }),
   getSettings: () => request('/settings'),
   uploadFavicon: async (file) => request('/settings/favicon', { method: 'PUT', headers: { 'Content-Type': 'image/png' }, body: await file.arrayBuffer() }),
   resetFavicon: () => request('/settings/favicon', { method: 'DELETE' }),

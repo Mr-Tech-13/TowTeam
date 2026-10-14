@@ -21,6 +21,7 @@ import { router as userRoutes } from "./routes/users.js";
 import { deleteExpiredSessions, ensureDefaultAdmin } from "./services/users.js";
 import { preparePaperEditorAssets } from './services/paperEditorAssets.js';
 import { serveFavicon } from './services/favicon.js';
+import { startPaperBackupWorker } from './services/paperBackups.js';
 
 dotenv.config({ quiet: true });
 
@@ -64,6 +65,7 @@ deleteExpiredSessions();
 const paperAssets = await preparePaperEditorAssets();
 if (!paperAssets) console.warn('Tow paper template is missing. Place it at data/TowPermit.pdf or configure TOW_PERMIT_TEMPLATE_PATH to enable PDF editing.');
 else console.log(`Private tow paper assets ${paperAssets}.`);
+startPaperBackupWorker();
 
 app.use(helmet());
 app.use(cors({

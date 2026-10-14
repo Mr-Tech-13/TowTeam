@@ -371,7 +371,7 @@ function AdminUsersPage({ currentUser, onBack, airlines, onAirlinesChange, setti
           ))}
         </div>
         {adminView === "airlines" && <AirlineSettings airlines={airlines} onChange={onAirlinesChange} />}
-        {adminView === "settings" && <AppSettings settings={settings} onChange={onSettingsChange} />}
+        {adminView === "settings" && <AppSettings settings={settings} onChange={onSettingsChange} canManageBackups={currentUser.canManageAutofill} />}
         {adminView === "users" && (
           <>
             <form className="user-create" onSubmit={createUser}>

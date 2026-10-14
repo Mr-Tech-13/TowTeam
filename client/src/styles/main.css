@@ -1020,3 +1020,12 @@ pre {
     padding: 12px;
   }
 }
+.backup-summary { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.paper-backup-setting progress { display: block; width: 100%; height: 12px; margin: 12px 0; accent-color: #16a34a; }
+.backup-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+.backup-jobs { list-style: none; margin: 16px 0 0; padding: 0; }
+.backup-jobs li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; border-top: 1px solid #374151; padding: 10px 0; }
+.backup-jobs li div { display: flex; flex-direction: column; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
+.backup-jobs li small { width: 100%; color: #fca5a5; }
+.app-shell:has(.paper-backup-setting) > .app-version { position: static; display: inline-block; margin-top: 18px; }
+.app-shell:has(.paper-backup-setting) > .issue-button { position: static; float: right; margin-top: 12px; }

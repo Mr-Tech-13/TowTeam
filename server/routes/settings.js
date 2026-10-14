@@ -3,8 +3,10 @@ import { requireAdmin } from '../middleware/auth.js';
 import { getSettings, updateSettings } from '../services/settings.js';
 import { writeAudit } from '../services/audit.js';
 import { faviconLimit, saveFavicon, resetFavicon } from '../services/favicon.js';
+import { router as paperBackupRoutes } from './paperBackups.js';
 
 export const router = express.Router();
+router.use('/paper-backups', paperBackupRoutes);
 router.get('/', (_req, res) => res.json(getSettings()));
 router.put('/favicon', requireAdmin, express.raw({ type: ['image/png', 'application/octet-stream'], limit: faviconLimit }), (req, res) => {
   try {

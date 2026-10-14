@@ -1,5 +1,5 @@
 import { db, nowIso, rowToTow } from "../db/database.js";
-import { syncTowPaperDraftDetails } from './towPaperDrafts.js';
+import { syncTowPaperDraftDetails, queueTowPaperBackup } from './towPaperDrafts.js';
 
 const fields = [
   "airline",
@@ -338,7 +338,9 @@ export function getTow(id) {
 export function createTow(input) {
   const tow = completeTowParams(sanitizeTow({ status: "planned", ...input, deletedAt: null, deletedBy: null, deleteReason: null }));
   const result = createTowStatement.run(tow);
-  return getTow(result.lastInsertRowid);
+  const created = getTow(result.lastInsertRowid);
+  queueTowPaperBackup(created);
+  return created;
 }
 
 export function updateTow(id, input) {
@@ -368,6 +370,7 @@ export function updateTow(id, input) {
     updateTowStatement.run(tow);
     const updated = getTow(id);
     syncTowPaperDraftDetails(existing, updated);
+    queueTowPaperBackup(updated);
     return updated;
   })();
 }
@@ -384,6 +387,7 @@ export function updateAircraftTypeForTows(filters = {}, aircraftType = "") {
     for (const tow of rows) {
       update.run({ id: tow.id, aircraftType: cleanedAircraftType, updatedAt: nowIso() });
       syncTowPaperDraftDetails(tow, getTow(tow.id));
+      queueTowPaperBackup(getTow(tow.id));
     }
   });
   run();
@@ -414,6 +418,7 @@ export function logStep(id, step, timestamp = nowIso(), force = false) {
     stepUpdateStatements[step].run({ id, timestamp, status, updatedAt: nowIso() });
     const updated = getTow(id);
     syncTowPaperDraftDetails(tow, updated);
+    queueTowPaperBackup(updated);
     return updated;
   })();
 }
@@ -429,6 +434,7 @@ export function undoLastStep(id) {
     undoStepStatements[field].run({ id, status: previousStatus, updatedAt: nowIso() });
     const updated = getTow(id);
     syncTowPaperDraftDetails(tow, updated);
+    queueTowPaperBackup(updated);
     return { tow: updated, undoneStep: field };
   })();
 }

@@ -1,0 +1,9 @@
+# Optional: merge with docker-compose.yml after mounting the NAS share on the host.
+services:
+  towteam:
+    volumes:
+      - type: bind
+        source: ${NAS_MOUNT_PATH:?Set NAS_MOUNT_PATH to an existing mounted NAS folder}
+        target: /nas/towteam
+        bind:
+          create_host_path: false

@@ -1,5 +1,11 @@
 import { db, nowIso } from '../db/database.js';
 import { towPaperDetails } from './towPermit.js';
+import { enqueuePaperBackup } from './paperBackups.js';
+
+export function queueTowPaperBackup(tow) {
+  if (process.env.NAS_BACKUP_ENABLED !== 'true' || !tow || tow.deletedAt || tow.status !== 'completed') return enqueuePaperBackup(tow, null);
+  return enqueuePaperBackup(tow, getTowPaperDraft(tow.id).state);
+}
 
 export function getTowPaperDraft(towId) {
   const row = db.prepare('SELECT state, revision, updatedAt FROM towPaperDrafts WHERE towId = ?').get(towId);
@@ -51,6 +57,8 @@ export function saveTowPaperDraft(towId, input, userId) {
       VALUES (?, ?, ?, ?, ?) ON CONFLICT(towId) DO UPDATE SET
       state = excluded.state, revision = excluded.revision, updatedBy = excluded.updatedBy, updatedAt = excluded.updatedAt`)
       .run(towId, state, current.revision + 1, userId, nowIso());
-    return getTowPaperDraft(towId);
+    const saved = getTowPaperDraft(towId);
+    enqueuePaperBackup(db.prepare('SELECT * FROM tows WHERE id = ?').get(towId), saved.state);
+    return saved;
   })();
 }
