@@ -32,8 +32,7 @@ try {
   await page.goto(base);
   await page.getByRole('button', { name: 'Users', exact: true }).click();
   await page.getByRole('button', { name: /^settings$/i }).click();
-  await page.getByRole('button', { name: 'Test Connection', exact: true }).click();
-  await page.getByText('Connection verified.', { exact: true }).waitFor();
+  assert.equal(await page.getByRole('button', { name: 'Test Connection', exact: true }).count(), 0);
   await page.getByRole('button', { name: 'Transfer Pending', exact: true }).click();
   const first = await waitUploaded();
   const original = await fs.readFile(path.join(nas, `tow-${id}.pdf`));
@@ -45,14 +44,14 @@ try {
   page.once('dialog', dialog => void dialog.accept());
   await page.getByRole('button', { name: 'Replace All Completed', exact: true }).click();
   await page.getByText('Replacement uploads queued.', { exact: true }).waitFor();
-  await page.waitForFunction(() => globalThis.document.querySelector('progress[aria-label="NAS paper backup progress"]')?.value === 100);
+  await page.waitForFunction(() => globalThis.document.querySelector('progress[aria-label="Folder backup progress"]')?.value === 100);
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 1050 });
     assert.equal(await page.evaluate(() => globalThis.document.documentElement.scrollWidth <= globalThis.innerWidth), true);
     await page.screenshot({ path: `tmp/pdf-review/nas-backup-settings-${width}.png`, fullPage: true });
   }
   assert.deepEqual(errors, []);
-  console.log('NAS settings: connection test, pending transfer, edited-paper replacement, force replace, progress, and desktop/mobile layout passed against a simulated NAS folder.');
+  console.log('Folder backups: pending transfer, edited-paper replacement, force replace, progress, and desktop/mobile layout passed.');
 } finally {
   if (id) {
     await context.request.delete(`${base}/api/tows/${id}`, { data: { reason: 'NAS UI verification cleanup' } });

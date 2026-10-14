@@ -18,7 +18,7 @@ try {
     '--import', pathToFileURL(path.join(directory, 'setup.js')).href, '--test', '--test-concurrency=1', ...process.argv.slice(2), ...files
   ], {
     cwd: root, stdio: 'inherit',
-    env: { ...process.env, NODE_ENV: 'test', NAS_BACKUP_ENABLED: 'false', NAS_PDF_PATH: '', TOWTEAM_TEST_ROOT: temporary, DATABASE_URL: path.join(temporary, 'runner.sqlite') }
+    env: { ...process.env, NODE_ENV: 'test', PAPER_BACKUP_ENABLED: 'false', PAPER_BACKUP_PATH: '', NAS_BACKUP_ENABLED: 'false', NAS_PDF_PATH: '', TOWTEAM_TEST_ROOT: temporary, DATABASE_URL: path.join(temporary, 'runner.sqlite') }
   });
   if (result.error) throw result.error;
   process.exitCode = result.status ?? 1;

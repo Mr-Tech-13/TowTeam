@@ -1,9 +1,9 @@
 import { db, nowIso } from '../db/database.js';
 import { towPaperDetails } from './towPermit.js';
-import { enqueuePaperBackup } from './paperBackups.js';
+import { enqueuePaperBackup, paperBackupsEnabled } from './paperBackups.js';
 
 export function queueTowPaperBackup(tow) {
-  if (process.env.NAS_BACKUP_ENABLED !== 'true' || !tow || tow.deletedAt || tow.status !== 'completed') return enqueuePaperBackup(tow, null);
+  if (!paperBackupsEnabled() || !tow || tow.deletedAt || tow.status !== 'completed') return enqueuePaperBackup(tow, null);
   return enqueuePaperBackup(tow, getTowPaperDraft(tow.id).state);
 }
 

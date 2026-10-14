@@ -12,22 +12,23 @@ import { db, dbPath } from '../db/database.js';
 import { createTow, updateTow, logStep, undoLastStep } from '../services/tows.js';
 import { getTowPaperDraft, saveTowPaperDraft } from '../services/towPaperDrafts.js';
 import { preparePaperEditorAssets } from '../services/paperEditorAssets.js';
-import { runPaperBackupWorker, cleanupPaperBackupCache, paperBackupStatus, enqueuePaperBackup, testPaperBackupConnection } from '../services/paperBackups.js';
+import { runPaperBackupWorker, cleanupPaperBackupCache, paperBackupStatus, enqueuePaperBackup, clearPaperBackupQueue } from '../services/paperBackups.js';
 import { requireAuth } from '../middleware/auth.js';
 import { router } from '../routes/paperBackups.js';
 import { createUser, createSession } from '../services/users.js';
 
 test('completed papers write directly without cache, replace edited tows, and retry from saved snapshots', async () => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'towteam-nas-test-'));
-  const previous = { enabled: process.env.NAS_BACKUP_ENABLED, nas: process.env.NAS_PDF_PATH, assets: process.env.TOW_PAPER_ASSETS_PATH };
+  const previous = { enabled: process.env.PAPER_BACKUP_ENABLED, nas: process.env.PAPER_BACKUP_PATH, assets: process.env.TOW_PAPER_ASSETS_PATH };
   const python = process.env.PDF_PYTHON_BIN || 'python3';
   const nas = path.join(directory, 'nas');
   const cache = path.join(path.dirname(dbPath), 'paper-backup-cache');
   const ids = [];
   const job = id => db.prepare('SELECT * FROM paperBackups WHERE towId = ?').get(id);
   try {
-    process.env.NAS_BACKUP_ENABLED = 'true';
-    process.env.NAS_PDF_PATH = nas;
+    process.env.PAPER_BACKUP_ENABLED = 'true';
+    process.env.PAPER_BACKUP_PATH = nas;
+    await fs.writeFile(nas, 'Not a directory');
     process.env.TOW_PAPER_ASSETS_PATH = path.join(directory, 'assets');
     const template = path.join(directory, 'TowPermit.pdf');
     execFileSync(python, [fileURLToPath(new URL('./fixtures/towPaperTemplate.py', import.meta.url)), template]);
@@ -47,13 +48,12 @@ test('completed papers write directly without cache, replace edited tows, and re
     assert.ok(job(tow.id).checksum && job(tow.id).nextAttemptAt);
     assert.equal(job(tow.id).cacheName, null);
     await assert.rejects(fs.stat(cache), { code: 'ENOENT' });
-    await assert.rejects(testPaperBackupConnection(), /Cannot access NAS folder \(ENOENT\)/);
-    await fs.mkdir(nas);
-    assert.deepEqual(await testPaperBackupConnection(), { ok: true });
-    assert.deepEqual(await fs.readdir(nas), []);
+    assert.match(job(tow.id).error, /Cannot prepare backup folder/);
+    await fs.unlink(nas);
     db.prepare('UPDATE paperBackups SET nextAttemptAt = NULL').run();
     await runPaperBackupWorker();
     assert.equal(job(tow.id).status, 'uploaded');
+    assert.ok((await fs.stat(nas)).isDirectory());
     const destination = path.join(nas, job(tow.id).filename);
     const pdf = await fs.readFile(destination);
     assert.equal(crypto.createHash('sha256').update(pdf).digest('hex'), job(tow.id).checksum);
@@ -112,14 +112,14 @@ test('completed papers write directly without cache, replace edited tows, and re
     assert.ok(await fs.stat(path.join(nas, job(second.id).filename)));
   } finally {
     for (const id of ids) db.prepare('DELETE FROM tows WHERE id = ?').run(id);
-    process.env.NAS_BACKUP_ENABLED = previous.enabled;
-    process.env.NAS_PDF_PATH = previous.nas;
+    process.env.PAPER_BACKUP_ENABLED = previous.enabled;
+    process.env.PAPER_BACKUP_PATH = previous.nas;
     if (previous.assets === undefined) delete process.env.TOW_PAPER_ASSETS_PATH; else process.env.TOW_PAPER_ASSETS_PATH = previous.assets;
     await fs.rm(directory, { recursive: true, force: true });
   }
 });
 
-test('NAS backup controls are local-administrator-only and do not expose environment paths', async () => {
+test('folder backup controls are local-administrator-only and have no connection-test endpoint', async () => {
   const admin = createUser({ username: 'nas-local', password: 'test-only', role: 'admin' });
   const other = createUser({ username: 'nas-other', password: 'test-only', role: 'admin' });
   db.prepare('UPDATE users SET isLocalAdmin = 1 WHERE id = ?').run(admin.id);
@@ -129,15 +129,61 @@ test('NAS backup controls are local-administrator-only and do not expose environ
   const headers = id => ({ Cookie: `towteam_session=${createSession(id).token}`, 'Content-Type': 'application/json' });
   try {
     assert.equal((await fetch(base)).status, 401);
-    for (const suffix of ['', '/test', '/retry']) {
+    for (const suffix of ['', '/retry', '/clear']) {
       assert.equal((await fetch(base + suffix, { method: suffix ? 'POST' : 'GET', headers: headers(other.id), ...(suffix ? { body: '{}' } : {}) })).status, 403);
     }
     const response = await fetch(base, { headers: headers(admin.id) }); assert.equal(response.status, 200);
-    const body = await response.json(); assert.equal(body.enabled, false); assert.equal(Object.hasOwn(body, 'directory'), false);
+    const body = await response.json(); assert.equal(body.enabled, false); assert.equal(path.basename(body.directory), 'paper-backups');
+    assert.equal((await fetch(base + '/test', { method: 'POST', headers: headers(admin.id), body: '{}' })).status, 404);
+    assert.equal(Object.hasOwn(body, 'password'), false);
+    assert.equal((await fetch(base + '/clear', { method: 'POST', headers: headers(admin.id), body: '{}' })).status, 200);
     assert.equal((await fetch(base + '/retry', { method: 'POST', headers: headers(admin.id), body: '{"replace":"true"}' })).status, 400);
     assert.equal((await fetch(base + '/retry', { method: 'POST', headers: headers(admin.id), body: '{}' })).status, 400);
   } finally {
     server.closeAllConnections(); await new Promise(resolve => server.close(resolve));
     db.prepare('DELETE FROM users WHERE id IN (?, ?)').run(admin.id, other.id);
+  }
+});
+
+test('clear queue cancels in-flight generation, survives reconciliation, and leaves uploaded files untouched', async () => {
+  const nas = await fs.mkdtemp(path.join(os.tmpdir(), 'towteam-clear-test-'));
+  const previous = { enabled: process.env.PAPER_BACKUP_ENABLED, nas: process.env.PAPER_BACKUP_PATH };
+  const ids = [];
+  const row = id => db.prepare('SELECT * FROM paperBackups WHERE towId = ?').get(id);
+  try {
+    process.env.PAPER_BACKUP_ENABLED = 'true'; process.env.PAPER_BACKUP_PATH = nas;
+    const uploaded = createTow({ airline: 'MX', status: 'completed' }); ids.push(uploaded.id);
+    const pdf = Buffer.from('%PDF-saved-test');
+    await runPaperBackupWorker({ generatePdf: async () => pdf });
+    const file = path.join(nas, `tow-${uploaded.id}.pdf`);
+    const queued = createTow({ airline: 'MX', status: 'completed' }); ids.push(queued.id);
+    let release, signal;
+    const started = new Promise(resolve => { signal = resolve; });
+    const blocked = new Promise(resolve => { release = resolve; });
+    const worker = runPaperBackupWorker({ generatePdf: async () => { signal(); await blocked; return pdf; } });
+    await started;
+    assert.deepEqual(clearPaperBackupQueue(), { cleared: 1 });
+    release(); await worker;
+    assert.equal(row(queued.id).status, 'cleared');
+    assert.equal(row(uploaded.id).status, 'uploaded');
+    assert.equal(paperBackupStatus().pending, 0);
+    assert.deepEqual(await fs.readFile(file), pdf);
+    await assert.rejects(fs.stat(path.join(nas, `tow-${queued.id}.pdf`)), { code: 'ENOENT' });
+    await runPaperBackupWorker({ generatePdf: async () => { assert.fail('Cleared jobs must not be requeued automatically.'); } });
+    assert.equal(row(queued.id).status, 'cleared');
+    const draft = getTowPaperDraft(queued.id);
+    draft.state.text['Aircraft Reg'] = 'CHANGED';
+    saveTowPaperDraft(queued.id, { state: draft.state, revision: draft.revision }, null);
+    assert.equal(row(queued.id).status, 'queued');
+    process.env.PAPER_BACKUP_ENABLED = 'false';
+    assert.deepEqual(clearPaperBackupQueue(), { cleared: 1 });
+    assert.equal(row(queued.id).status, 'cleared');
+    process.env.PAPER_BACKUP_ENABLED = 'true';
+    enqueuePaperBackup(queued, getTowPaperDraft(queued.id).state, true);
+    assert.equal(row(queued.id).status, 'queued');
+  } finally {
+    for (const id of ids) db.prepare('DELETE FROM tows WHERE id = ?').run(id);
+    process.env.PAPER_BACKUP_ENABLED = previous.enabled; process.env.PAPER_BACKUP_PATH = previous.nas;
+    await fs.rm(nas, { recursive: true, force: true });
   }
 });

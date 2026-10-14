@@ -1027,5 +1027,7 @@ pre {
 .backup-jobs li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; border-top: 1px solid #374151; padding: 10px 0; }
 .backup-jobs li div { display: flex; flex-direction: column; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
 .backup-jobs li small { width: 100%; color: #fca5a5; }
+.backup-folder { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; }
+.backup-folder code { overflow-wrap: anywhere; }
 .app-shell:has(.paper-backup-setting) > .app-version { position: static; display: inline-block; margin-top: 18px; }
 .app-shell:has(.paper-backup-setting) > .issue-button { position: static; float: right; margin-top: 12px; }

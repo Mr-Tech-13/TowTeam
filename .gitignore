@@ -11,6 +11,7 @@ tmp/pdf-review/
 prototypes/tow-paper-editor/assets/
 data/paper-editor-assets/
 data/paper-backup-cache/
+data/paper-backups/
 data/branding/
 .nyc_output/
 data/*.sqlite
