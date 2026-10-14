@@ -43,7 +43,7 @@ try {
   await page.getByText(/Page 2 of 2/).waitFor();
   const zipPromise = page.waitForEvent('download');
   await page.getByRole('button',{name:'Download ZIP',exact:true}).click();
-  const zip = await zipPromise; assert.equal(zip.suggestedFilename(),'tow-papers.zip');
+  const zip = await zipPromise; assert.match(zip.suggestedFilename(),/^towpermits-\d{4}-\d{2}-\d{2}\.zip$/);
   await zip.saveAs('tmp/pdf-review/history-selected.zip');
   assert.equal((await fs.readFile('tmp/pdf-review/history-selected.zip')).subarray(0,2).toString(),'PK');
   assert.deepEqual(exports[2],[ids[1],ids[0]]);

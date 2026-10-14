@@ -1,3 +1,5 @@
+import { paperArchiveFilename } from '../../../shared/paperExport.js';
+
 const headers = { "Content-Type": "application/json" };
 
 async function request(path, options = {}) {
@@ -65,7 +67,7 @@ export const api = {
       const body = await response.json().catch(() => ({}));
       throw new Error(body.error || 'Unable to download tow papers.');
     }
-    return { blob: await response.blob(), filename: response.headers.get('content-disposition')?.match(/filename="([^"]+)"/)?.[1] || (response.headers.get('content-type')?.startsWith('application/pdf') ? 'tow-paper.pdf' : 'tow-papers.zip') };
+    return { blob: await response.blob(), filename: response.headers.get('content-disposition')?.match(/filename="([^"]+)"/)?.[1] || (response.headers.get('content-type')?.startsWith('application/pdf') ? 'tow-paper.pdf' : paperArchiveFilename(scope)) };
   },
   createTow: (tow) => request("/tows", { method: "POST", body: JSON.stringify(tow) }),
   createBulk: (tows) => request("/tows/bulk", { method: "POST", body: JSON.stringify({ tows }) }),
