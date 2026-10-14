@@ -36,6 +36,7 @@ try {
   page.once('dialog', dialog => void dialog.accept());
   await page.getByRole('button', { name: 'Replace All Completed', exact: true }).click();
   await page.waitForFunction(() => globalThis.document.querySelector('progress')?.value === 100);
+  assert.equal(await page.locator('.backup-jobs li').count(), 0);
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 1050 });
     assert.equal(await page.evaluate(() => globalThis.document.documentElement.scrollWidth <= globalThis.innerWidth), true);

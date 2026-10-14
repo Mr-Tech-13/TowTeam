@@ -53,6 +53,8 @@ test('completed papers write directly without cache, replace edited tows, and re
     db.prepare('UPDATE paperBackups SET nextAttemptAt = NULL').run();
     await runPaperBackupWorker();
     assert.equal(job(tow.id).status, 'uploaded');
+    assert.equal(paperBackupStatus().uploaded, 1);
+    assert.deepEqual(paperBackupStatus().jobs, []);
     assert.ok((await fs.stat(nas)).isDirectory());
     const destination = path.join(nas, job(tow.id).filename);
     const pdf = await fs.readFile(destination);
@@ -60,12 +62,14 @@ test('completed papers write directly without cache, replace edited tows, and re
     const text = execFileSync(python, ['-c', "import sys; from pypdf import PdfReader; print(' '.join(p.extract_text() for p in PdfReader(sys.argv[1]).pages))", destination], { encoding: 'utf8' });
     assert.match(text, /SNAPSHOT/);
     const second = createTow({ airline: 'MX', tailNumber: 'NAS-TWO', status: 'completed' }); ids.push(second.id);
+    assert.equal(paperBackupStatus().jobs[0].towId, second.id);
     await runPaperBackupWorker();
     const secondPdf = await fs.readFile(path.join(nas, job(second.id).filename));
     const draft = getTowPaperDraft(tow.id);
     draft.state.text['Aircraft Reg'] = 'EDITED';
     saveTowPaperDraft(tow.id, { state: draft.state, revision: draft.revision }, null);
     assert.equal(job(tow.id).status, 'queued');
+    assert.ok(paperBackupStatus().jobs.some(item => item.towId === tow.id));
     assert.equal(job(second.id).status, 'uploaded');
     await runPaperBackupWorker();
     assert.notDeepEqual(await fs.readFile(destination), pdf);

@@ -171,5 +171,5 @@ export function paperBackupStatus() {
   const uploaded = rows.filter(row => row.status === 'uploaded').length;
   return { enabled: config().enabled, configured: Boolean(config().directory), directory: config().directory, running,
     total, uploaded, pending: total - uploaded, failed: rows.filter(row => row.status === 'failed').length,
-    progress: total ? Math.round(uploaded / total * 100) : 0, jobs: rows.slice(0, 50) };
+    progress: total ? Math.round(uploaded / total * 100) : 0, jobs: rows.filter(row => row.status !== 'uploaded').slice(0, 50) };
 }

@@ -5,6 +5,7 @@ import path from 'node:path';
 import process from 'node:process';
 import console from 'node:console';
 import { setTimeout } from 'node:timers/promises';
+import crypto from 'node:crypto';
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_PACKAGE || 'playwright');
 const base = 'http://127.0.0.1:43182';
@@ -17,8 +18,11 @@ async function waitUploaded(previousChecksum) {
     const response = await context.request.get(`${base}/api/settings/paper-backups`);
     assert.equal(response.status(), 200);
     const status = await response.json();
-    const job = status.jobs.find(job => job.towId === id);
-    if (job?.status === 'uploaded' && job.checksum !== previousChecksum) return job;
+    if (!status.jobs.some(job => job.towId === id) && status.uploaded > 0) {
+      const bytes = await fs.readFile(path.join(nas, `tow-${id}.pdf`));
+      const checksum = crypto.createHash('sha256').update(bytes).digest('hex');
+      if (checksum !== previousChecksum) return { checksum };
+    }
     await setTimeout(500);
   }
   throw new Error('NAS test upload did not finish.');

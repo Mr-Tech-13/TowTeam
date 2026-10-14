@@ -300,7 +300,8 @@ hour, regenerating the PDF from the queued state. No local PDF cache is used.
 Old `data/paper-backup-cache/` files are cleaned up after an hour. Reopening or
 deleting a tow cancels pending work without deleting existing destination papers.
 
-Settings shows the folder, progress, pending/failed counts, and latest 50 jobs.
+Settings shows the folder, progress, pending/failed counts, and latest 50 non-uploaded
+jobs. Successfully uploaded papers disappear from the list but remain counted in totals.
 **Transfer Pending** retries outstanding writes. **Replace All Completed** queues
 all completed papers again after confirmation. **Clear Queue** skips pending work
 without deleting PDFs; skipped versions stay cleared across polls/restarts until
