@@ -57,6 +57,7 @@ test('completed papers write directly without cache, replace edited tows, and re
     assert.deepEqual(paperBackupStatus().jobs, []);
     assert.ok((await fs.stat(nas)).isDirectory());
     const destination = path.join(nas, job(tow.id).filename);
+    assert.match(job(tow.id).filename, /^\d{4}-\d{2}-\d{2}-NAS-ONE\.pdf$/);
     const pdf = await fs.readFile(destination);
     assert.equal(crypto.createHash('sha256').update(pdf).digest('hex'), job(tow.id).checksum);
     const text = execFileSync(python, ['-c', "import sys; from pypdf import PdfReader; print(' '.join(p.extract_text() for p in PdfReader(sys.argv[1]).pages))", destination], { encoding: 'utf8' });
@@ -159,7 +160,7 @@ test('clear queue cancels in-flight generation, survives reconciliation, and lea
     const uploaded = createTow({ airline: 'MX', status: 'completed' }); ids.push(uploaded.id);
     const pdf = Buffer.from('%PDF-saved-test');
     await runPaperBackupWorker({ generatePdf: async () => pdf });
-    const file = path.join(nas, `tow-${uploaded.id}.pdf`);
+    const file = path.join(nas, row(uploaded.id).filename);
     const queued = createTow({ airline: 'MX', status: 'completed' }); ids.push(queued.id);
     let release, signal;
     const started = new Promise(resolve => { signal = resolve; });
@@ -172,7 +173,8 @@ test('clear queue cancels in-flight generation, survives reconciliation, and lea
     assert.equal(row(uploaded.id).status, 'uploaded');
     assert.equal(paperBackupStatus().pending, 0);
     assert.deepEqual(await fs.readFile(file), pdf);
-    await assert.rejects(fs.stat(path.join(nas, `tow-${queued.id}.pdf`)), { code: 'ENOENT' });
+    assert.notEqual(row(queued.id).filename, row(uploaded.id).filename);
+    await assert.rejects(fs.stat(path.join(nas, row(queued.id).filename)), { code: 'ENOENT' });
     await runPaperBackupWorker({ generatePdf: async () => { assert.fail('Cleared jobs must not be requeued automatically.'); } });
     assert.equal(row(queued.id).status, 'cleared');
     const draft = getTowPaperDraft(queued.id);

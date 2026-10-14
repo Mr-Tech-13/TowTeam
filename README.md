@@ -225,7 +225,8 @@ The History bulk aircraft-type panel has been removed; its API remains available
 
 Admins can also use **Export Active Tow Papers** in Settings to download every
 currently active, non-deleted tow's saved paper, independent of tab search filters.
-One tow downloads a PDF; multiple tows download `active-tow-papers.zip`. The same
+One tow downloads a PDF; multiple tows download `activetowpermits-YYYY-MM-DD.zip`. History
+ZIPs use `towpermits-YYYY-MM-DD.zip`. The archive date is the export date in America/New_York. The same
 100-tow and ZIP payload limits apply. An empty active list produces a message rather
 than an empty archive.
 
@@ -291,7 +292,12 @@ binds using `NAS_MOUNT_PATH`; it is unnecessary for the default data folder.
 
 When enabled, completing paperwork queues its saved state in SQLite. The worker
 generates a PDF in memory, writes a temporary file directly in the destination,
-reads it back to verify its SHA-256 checksum, then renames it over `tow-ID.pdf`.
+reads it back to verify its SHA-256 checksum, then renames it over `YYYY-MM-DD-TAIL.pdf`.
+Downloads and PDFs inside ZIP exports use the same naming, using the actual tow date
+in America/New_York and the aircraft registration. A tow-ID suffix is added only
+to avoid duplicate names. Missing details use explicit unknown-date/aircraft names.
+Existing backup records regenerate under the new names; old differently named
+files are not automatically deleted.
 Saved paper edits or mapped tow-detail changes replace only that tow's file.
 Unchanged saves do not duplicate work; superseded generations are skipped.
 

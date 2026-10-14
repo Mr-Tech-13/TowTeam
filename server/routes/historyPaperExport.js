@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { ZipArchive } from 'archiver';
-import { maxPaperExportTows } from '../../shared/paperExport.js';
+import { maxPaperExportTows, paperArchiveFilename } from '../../shared/paperExport.js';
 import { getTow, listTows } from '../services/tows.js';
 import { getTowPaperDraft } from '../services/towPaperDrafts.js';
 import { generateTowPermitPdf, towPermitFilename } from '../services/towPermit.js';
@@ -13,6 +13,7 @@ import { writeAudit } from '../services/audit.js';
 export const router = express.Router();
 router.post('/', async (req, res) => {
   const scope = req.body?.scope || 'history';
+  const archiveFilename = paperArchiveFilename(scope);
   if (!['history', 'active'].includes(scope)) return res.status(400).json({ error: 'Invalid paper export scope.' });
   if (scope === 'active' && req.user.role !== 'admin') return res.status(403).json({ error: 'Admin role required.' });
   const activeTows = scope === 'active' ? listTows({ status: 'active' }) : null;
@@ -51,11 +52,20 @@ router.post('/', async (req, res) => {
       await fs.writeFile(path.join(temporary, `${tow.id}.pdf`), pdf, { mode: 0o600 });
     }
     archive = new ZipArchive({ store: true });
+    const names = new Set();
     for (const { tow } of papers) {
-      archive.file(path.join(temporary, `${tow.id}.pdf`), { name: `${towPermitFilename(tow).slice(0, -4)}-tow-${tow.id}.pdf` });
+      const base = towPermitFilename(tow);
+      let name = base;
+      let collision = 0;
+      while (names.has(name)) {
+        name = `${base.slice(0, -4)}-tow-${tow.id}${collision ? `-${collision}` : ''}.pdf`;
+        collision += 1;
+      }
+      names.add(name);
+      archive.file(path.join(temporary, `${tow.id}.pdf`), { name });
     }
     writeAudit(req.user, 'tow.paper_export', { entityType: 'tow', details: { ids, scope, format: 'zip' } });
-    res.type('zip').attachment(scope === 'active' ? 'active-tow-papers.zip' : 'tow-papers.zip');
+    res.type('zip').attachment(archiveFilename);
     const sending = pipeline(archive, res);
     await Promise.all([sending, archive.finalize()]);
   } catch (error) {

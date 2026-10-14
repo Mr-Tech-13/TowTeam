@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { db, dbPath, nowIso } from '../db/database.js';
-import { generateTowPermitPdf, towPaperDetails } from './towPermit.js';
+import { generateTowPermitPdf, towPaperDetails, towPermitFilename } from './towPermit.js';
 
 const retention = 60 * 60 * 1000;
 const cacheDirectory = path.join(path.dirname(dbPath), 'paper-backup-cache');
@@ -25,15 +25,24 @@ export function enqueuePaperBackup(tow, state, force = false) {
   }
   const sorted = value => Object.fromEntries(Object.entries(value || {}).sort(([a], [b]) => a.localeCompare(b)));
   const snapshot = JSON.stringify({ text: sorted(state.text), answers: sorted(state.answers), risk: sorted(state.risk) });
-  const fingerprint = checksum(snapshot);
+  const base = towPermitFilename(tow);
+  const duplicate = db.prepare('SELECT towId FROM paperBackups WHERE lower(filename) = lower(?) AND towId != ?');
+  let filename = base;
+  let collision = 0;
+  while (duplicate.get(filename, tow.id)) {
+    filename = `${base.slice(0, -4)}-tow-${tow.id}${collision ? `-${collision}` : ''}.pdf`;
+    collision += 1;
+  }
+  const fingerprint = checksum(JSON.stringify({ state: snapshot, filename }));
   const current = db.prepare('SELECT fingerprint, status FROM paperBackups WHERE towId = ?').get(tow.id);
   if (!force && current?.fingerprint === fingerprint && current.status !== 'cancelled') return false;
   db.prepare(`INSERT INTO paperBackups (towId, fingerprint, state, filename, updatedAt)
     VALUES (?, ?, ?, ?, ?) ON CONFLICT(towId) DO UPDATE SET
     generation = generation + 1, fingerprint = excluded.fingerprint, state = excluded.state,
+    filename = excluded.filename,
     status = 'queued', attempts = 0, nextAttemptAt = NULL, cacheName = NULL,
     checksum = NULL, error = NULL, updatedAt = excluded.updatedAt`)
-    .run(tow.id, fingerprint, snapshot, `tow-${tow.id}.pdf`, nowIso());
+    .run(tow.id, fingerprint, snapshot, filename, nowIso());
   return true;
 }
 
@@ -90,7 +99,8 @@ async function transfer(job, generatePdf) {
     if (!isCurrent(job)) return;
     // Verified temporary files replace only this tow's destination, never the whole archive.
     stage = 'replacing destination PDF';
-    await fs.rename(temporary, path.join(directory, `tow-${job.towId}.pdf`));
+    if (!/^[a-z0-9_-]+\.pdf$/i.test(job.filename)) throw new Error('Invalid backup filename.');
+    await fs.rename(temporary, path.join(directory, job.filename));
     temporary = null;
     db.prepare(`UPDATE paperBackups SET status = 'uploaded', uploadedAt = ?, error = NULL,
       nextAttemptAt = NULL, updatedAt = ? WHERE towId = ? AND generation = ?`)

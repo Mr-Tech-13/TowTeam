@@ -6,20 +6,21 @@ import process from 'node:process';
 import console from 'node:console';
 import { setTimeout } from 'node:timers/promises';
 import crypto from 'node:crypto';
+import { towPermitFilename } from '../server/services/towPermit.js';
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_PACKAGE || 'playwright');
 const base = 'http://127.0.0.1:43182';
 const nas = path.resolve('tmp/pdf-review/nas-test');
 const browser = await chromium.launch({ channel: 'msedge', headless: true });
 const context = await browser.newContext({ viewport: { width: 1440, height: 1050 } });
-let id;
+let id, filename;
 async function waitUploaded(previousChecksum) {
   for (let attempt = 0; attempt < 50; attempt += 1) {
     const response = await context.request.get(`${base}/api/settings/paper-backups`);
     assert.equal(response.status(), 200);
     const status = await response.json();
     if (!status.jobs.some(job => job.towId === id) && status.uploaded > 0) {
-      const bytes = await fs.readFile(path.join(nas, `tow-${id}.pdf`));
+      const bytes = await fs.readFile(path.join(nas, filename));
       const checksum = crypto.createHash('sha256').update(bytes).digest('hex');
       if (checksum !== previousChecksum) return { checksum };
     }
@@ -30,7 +31,7 @@ async function waitUploaded(previousChecksum) {
 try {
   assert.equal((await context.request.post(`${base}/api/auth/login`, { data: { username: 'preview', password: 'local-preview-only' } })).status(), 200);
   const created = await context.request.post(`${base}/api/tows`, { data: { airline: 'MX', tailNumber: 'NAS-UI', status: 'completed' } });
-  assert.equal(created.status(), 201); id = (await created.json()).id;
+  assert.equal(created.status(), 201); const tow = await created.json(); id = tow.id; filename = towPermitFilename(tow);
   const page = await context.newPage(); const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto(base);
@@ -39,12 +40,12 @@ try {
   assert.equal(await page.getByRole('button', { name: 'Test Connection', exact: true }).count(), 0);
   await page.getByRole('button', { name: 'Transfer Pending', exact: true }).click();
   const first = await waitUploaded();
-  const original = await fs.readFile(path.join(nas, `tow-${id}.pdf`));
+  const original = await fs.readFile(path.join(nas, filename));
   const draft = await (await context.request.get(`${base}/api/tows/${id}/paper-draft`)).json();
   draft.state.text['Aircraft Reg'] = 'NAS-UI-EDIT';
   assert.equal((await context.request.put(`${base}/api/tows/${id}/paper-draft`, { data: { state: draft.state, revision: draft.revision } })).status(), 200);
   await waitUploaded(first.checksum);
-  assert.notDeepEqual(await fs.readFile(path.join(nas, `tow-${id}.pdf`)), original);
+  assert.notDeepEqual(await fs.readFile(path.join(nas, filename)), original);
   page.once('dialog', dialog => void dialog.accept());
   await page.getByRole('button', { name: 'Replace All Completed', exact: true }).click();
   await page.getByText('Replacement uploads queued.', { exact: true }).waitFor();
@@ -60,7 +61,7 @@ try {
   if (id) {
     await context.request.delete(`${base}/api/tows/${id}`, { data: { reason: 'NAS UI verification cleanup' } });
     await context.request.delete(`${base}/api/tows/${id}/permanent`);
-    await fs.unlink(path.join(nas, `tow-${id}.pdf`)).catch(() => {});
+    await fs.unlink(path.join(nas, filename)).catch(() => {});
   }
   await browser.close();
 }

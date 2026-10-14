@@ -14,6 +14,13 @@ import { createTow, deleteTow } from '../services/tows.js';
 import { createUser, createSession } from '../services/users.js';
 import { getTowPaperDraft, saveTowPaperDraft } from '../services/towPaperDrafts.js';
 import { preparePaperEditorAssets } from '../services/paperEditorAssets.js';
+import { paperArchiveFilename } from '../../shared/paperExport.js';
+
+test('archive names use the export date in New York and distinguish active from History', () => {
+  const date = new Date('2026-10-14T01:00:00Z');
+  assert.equal(paperArchiveFilename('history', date), 'towpermits-2026-10-13.zip');
+  assert.equal(paperArchiveFilename('active', date), 'activetowpermits-2026-10-13.zip');
+});
 
 test('History downloads one saved PDF or a ZIP with uniquely named saved papers', async () => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(),'tow-export-test-'));
@@ -59,7 +66,7 @@ test('History downloads one saved PDF or a ZIP with uniquely named saved papers'
     db.prepare("UPDATE tows SET deletedAt = '2026-10-13' WHERE id = ?").run(deleted.id);
     tows.push(progress,deleted);
     const activeMultiple = await activeRequest(); assert.equal(activeMultiple.status,200);
-    assert.match(activeMultiple.headers.get('content-disposition'),/active-tow-papers\.zip/);
+    assert.match(activeMultiple.headers.get('content-disposition'),/activetowpermits-\d{4}-\d{2}-\d{2}\.zip/);
     const activeZip = path.join(dir,'active.zip'); await fs.writeFile(activeZip,Buffer.from(await activeMultiple.arrayBuffer()));
     const activeContents = JSON.parse(execFileSync(python,['-c',"import sys,json,io,zipfile; from pypdf import PdfReader; z=zipfile.ZipFile(sys.argv[1]); print(json.dumps([{'name':n,'text':' '.join(p.extract_text() for p in PdfReader(io.BytesIO(z.read(n))).pages)} for n in z.namelist()]))",activeZip],{encoding:'utf8'}));
     assert.equal(activeContents.length,2);
@@ -79,10 +86,12 @@ test('History downloads one saved PDF or a ZIP with uniquely named saved papers'
     assert.match(text,/SAVED0/);
     const multiple = await request(tows.slice(0,2).map(tow=>tow.id)); assert.equal(multiple.status,200);
     assert.match(multiple.headers.get('content-type'),/^application\/zip/);
+    assert.match(multiple.headers.get('content-disposition'),/filename="towpermits-\d{4}-\d{2}-\d{2}\.zip"/);
     const zip = path.join(dir,'multiple.zip'); await fs.writeFile(zip,Buffer.from(await multiple.arrayBuffer()));
     const contents = JSON.parse(execFileSync(python,['-c',"import sys,json,io,zipfile; from pypdf import PdfReader; z=zipfile.ZipFile(sys.argv[1]); print(json.dumps([{'name':n,'text':' '.join(p.extract_text() for p in PdfReader(io.BytesIO(z.read(n))).pages)} for n in z.namelist()]))",zip],{encoding:'utf8'}));
     assert.equal(contents.length,2); assert.equal(new Set(contents.map(item=>item.name)).size,2);
     assert.ok(contents.every(item=>!/[\\/]/.test(item.name) && item.name.endsWith('.pdf')));
+    assert.ok(contents.every(item=>/^\d{4}-\d{2}-\d{2}-SAME(?:-tow-\d+)?\.pdf$/.test(item.name)));
     assert.ok(contents.some(item=>item.text.includes('SAVED0'))); assert.ok(contents.some(item=>item.text.includes('SAVED1')));
     process.env.TOW_PAPER_ASSETS_PATH = path.join(dir,'missing');
     const failed = await request(tows.slice(0,2).map(tow=>tow.id)); assert.equal(failed.status,500);

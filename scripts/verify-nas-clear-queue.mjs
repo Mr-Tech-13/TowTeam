@@ -4,19 +4,20 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import console from 'node:console';
+import { towPermitFilename } from '../server/services/towPermit.js';
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_PACKAGE || 'playwright');
 const base = 'http://127.0.0.1:43183';
 const folder = path.resolve('tmp/pdf-review/nas-clear-ui');
 const browser = await chromium.launch({ channel: 'msedge', headless: true });
 const context = await browser.newContext({ viewport: { width: 1440, height: 1050 } });
-let id;
+let id, filename;
 try {
   await assert.rejects(fs.stat(folder), { code: 'ENOENT' });
   await fs.writeFile(folder, 'Not a directory');
   assert.equal((await context.request.post(`${base}/api/auth/login`, { data: { username: 'preview', password: 'local-preview-only' } })).status(), 200);
   const created = await context.request.post(`${base}/api/tows`, { data: { airline: 'MX', tailNumber: 'CLEAR-UI', status: 'completed' } });
-  assert.equal(created.status(), 201); id = (await created.json()).id;
+  assert.equal(created.status(), 201); const tow = await created.json(); id = tow.id; filename = towPermitFilename(tow);
   const page = await context.newPage(); const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto(base);
@@ -48,7 +49,7 @@ try {
   if (id) {
     await context.request.delete(`${base}/api/tows/${id}`, { data: { reason: 'Clear queue UI test cleanup' } });
     await context.request.delete(`${base}/api/tows/${id}/permanent`);
-    await fs.unlink(path.join(folder, `tow-${id}.pdf`)).catch(() => {});
+    await fs.unlink(path.join(folder, filename)).catch(() => {});
   }
   await fs.rmdir(folder).catch(() => {});
   await browser.close();

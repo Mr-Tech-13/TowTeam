@@ -57,9 +57,12 @@ export function towPermitTemplatePath() {
 }
 
 export function towPermitFilename(tow) {
-  const reg = safeText(tow.tailNumber || "aircraft").replace(/[^a-z0-9-]+/gi, "_");
-  const date = formatDate(tow.towCompletedAt || tow.towStartedAt || tow.createdAt).replaceAll("/", "-") || "tow";
-  return `tow-checklist-${reg}-${date}.pdf`;
+  const reg = safeText(tow.tailNumber || "unknown-aircraft").toUpperCase().replace(/[^a-z0-9-]+/gi, "_");
+  const value = tow.towCompletedAt || tow.towStartedAt || tow.createdAt;
+  const parts = value ? new Intl.DateTimeFormat('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'America/New_York' }).formatToParts(new Date(value)) : [];
+  const part = type => parts.find(item => item.type === type)?.value;
+  const date = value ? `${part('year')}-${part('month')}-${part('day')}` : 'unknown-date';
+  return `${date}-${reg}.pdf`;
 }
 
 export function towPaperDetails(tow) {
