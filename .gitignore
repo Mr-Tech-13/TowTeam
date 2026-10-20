@@ -48,3 +48,6 @@ secrets/
 .DS_Store
 npm-debug.log*
 scripts/generate-stress-db.js
+handoff.md
+/mobile app
+server/tests/mobileAuth.test.js

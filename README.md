@@ -389,11 +389,14 @@ the editor directory from a deployment.
 ## API Overview
 
 Session authentication is required for `/api` routes except health and
-login/logout/session inspection. Access restrictions are also enforced server-side.
+login/token/logout/session inspection. Browsers use the HttpOnly session cookie.
+Native clients obtain a bearer session from `POST /api/auth/token`, store it in the
+platform secure credential store, and send `Authorization: Bearer <token>`.
+Access restrictions are also enforced server-side.
 
 | Routes | Purpose/access |
 | --- | --- |
-| `GET /api/health`; `POST /api/auth/login`; `POST /api/auth/logout`; `GET /api/auth/me` | Public health/authentication endpoints. |
+| `GET /api/health`; `POST /api/auth/login`; `POST /api/auth/token`; `POST /api/auth/logout`; `GET /api/auth/me` | Public health/authentication endpoints. `/token` returns `{ token, tokenType, expiresAt, user }` for native clients; logout and me accept cookie or bearer auth. |
 | `GET /api/tows`; `GET /api/tows/:id`; `POST /api/tows`; `PUT /api/tows/:id` | List/read/create/edit tows. Use `status=active` or `status=completed`; `paginated=true&page=1&pageSize=10` enables pagination. |
 | `POST /api/tows/parse`; `POST /api/tows/bulk` | Import; blocked for everyone when Bulk Import is disabled. |
 | `PATCH /api/tows/bulk/aircraft-type` | Retained bulk aircraft-type API; no longer exposed in History. |
