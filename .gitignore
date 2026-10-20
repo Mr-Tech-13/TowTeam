@@ -49,5 +49,5 @@ secrets/
 npm-debug.log*
 scripts/generate-stress-db.js
 handoff.md
-/mobile app
+/IOS
 server/tests/mobileAuth.test.js
