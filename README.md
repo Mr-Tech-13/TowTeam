@@ -83,6 +83,22 @@ When deploying that image, provide runtime configuration and mount the private d
 directory at `/app/data`; private PDFs and database files are excluded from the
 build context.
 
+### Backup And Selective Transfer
+
+The local administrator can open **Administration > Backup** for two different tools:
+
+- **SQLite backup/restore** copies or replaces the complete database. Use this for
+  disaster recovery because it includes every database table.
+- **Selective data transfer** creates a TowTeam JSON package containing only checked
+  categories. Tows include their editable paper drafts. Login sessions, generated
+  PDFs, cached files, and folder-backup files are never included.
+
+Selective imports can add only missing records, merge and overwrite matching records,
+or replace only the selected categories. Categories not selected remain unchanged.
+Every selective import creates a full pre-import SQLite backup first. Replacing Users
+always preserves the receiving installation's local administrator account. User export
+files contain password hashes and should be protected like complete database backups.
+
 ## Direct Installation And Development
 
 Copy `.env.example` to `.env`, set the initial admin password, and install dependencies:
@@ -223,7 +239,7 @@ limited to 200 MiB of generated PDF payload before packaging. They are not snaps
 of previously downloaded papers.
 The History bulk aircraft-type panel has been removed; its API remains available.
 
-Admins can also use **Export Active Tow Papers** in Settings to download every
+Super Admins can also use **Export Active Tow Papers** in Settings to download every
 currently active, non-deleted tow's saved paper, independent of tab search filters.
 One tow downloads a PDF; multiple tows download `activetowpermits-YYYY-MM-DD.zip`. History
 ZIPs use `towpermits-YYYY-MM-DD.zip`. The archive date is the export date in America/New_York. The same
@@ -234,11 +250,12 @@ than an empty archive.
 
 Regular users can create/edit tows, record workflow events, edit shared papers, and
 export data. Admins additionally manage ordinary user accounts, airline settings,
-global settings, issue reports, audit logs, and Trash.
+and Trash. Super Admins also manage global settings, issue reports, and audit logs.
 
 The protected local administrator identity is independent of username. Only that
-account can manage Autofill permissions and use database backup/restore. Other
-admins cannot view/manage those permission settings or modify the protected account.
+account can grant Super Admin access, manage Autofill permissions, and use database
+backup/restore. Other administrators cannot manage those permissions or modify the
+protected account. Regular Admins also cannot modify protected Super Admin accounts.
 The local administrator cannot be deleted or demoted, and its identity cannot be
 assigned through the user API.
 
@@ -249,7 +266,7 @@ entry has no flight-number or ETA fields; imported values are retained.
 The Bulk Import setting enables/disables the import UI and parse/bulk endpoints
 **for everyone**, including admins. It is enabled by default.
 
-Favicon upload/reset is available to admins in Settings. Uploads must be PNG,
+Favicon upload/reset is available to Super Admins in Settings. Uploads must be PNG,
 at most **256 KiB** and **512 x 512 pixels**; they are decoded/re-encoded before
 storage. The file lives in `branding/favicon.png` beside the database. The favicon
 is public so it can appear before login; tow papers remain authenticated.
@@ -385,14 +402,14 @@ login/logout/session inspection. Access restrictions are also enforced server-si
 | `POST /api/tows/:id/restore`; `DELETE /api/tows/:id/permanent` | Admin-only Trash operations. |
 | `GET /api/tows/export.csv`; `GET /api/tows/export.xls` | Filtered tow-data exports. |
 | `GET /api/tows/:id/tow-checklist.pdf` | Current saved paper; `preview=true` requests inline display. |
-| `POST /api/tows/paper-export` | Completed tow PDF/ZIP export with `{ "ids": [1, 2] }`; admins can export all active papers with `{ "scope": "active" }`. |
+| `POST /api/tows/paper-export` | Completed tow PDF/ZIP export with `{ "ids": [1, 2] }`; Super Admins can export all active papers with `{ "scope": "active" }`. |
 | `GET /api/tows/:id/paper-draft`; `PUT /api/tows/:id/paper-draft` | Shared draft read/save; saves require state and revision. |
 | `POST /api/tows/:id/paper-draft/autofill` | Requires the user's Autofill permission and current revision. |
 | `GET /api/airlines`; `POST /api/airlines`; `PUT /api/airlines/:code`; `DELETE /api/airlines/:code` | Read airlines; writes are admin-only. |
-| `GET /api/settings`; `PUT /api/settings`; `PUT /api/settings/favicon`; `DELETE /api/settings/favicon` | Read settings; writes are admin-only. Favicon upload uses binary PNG. |
+| `GET /api/settings`; `PUT /api/settings`; `PUT /api/settings/favicon`; `DELETE /api/settings/favicon` | Read settings; writes require Super Admin. Favicon upload uses binary PNG. |
 | `GET /api/users`; `POST /api/users`; `PUT /api/users/:id`; `PUT /api/users/:id/password`; `DELETE /api/users/:id` | Admin user management, subject to local-administrator protections. |
-| `POST /api/issues`; `GET /api/issues`; `PATCH /api/issues/:id` | Submit issues; listing/updating requires admin. |
-| `GET /api/audit` | Admin audit access; Autofill details are restricted for other admins. |
+| `POST /api/issues`; `GET /api/issues`; `PATCH /api/issues/:id` | Submit issues; listing/updating requires Super Admin. |
+| `GET /api/audit` | Super Admin audit access; Autofill details remain restricted to the local administrator. |
 | `GET /api/maintenance/backup.sqlite`; `POST /api/maintenance/restore.sqlite` | Local administrator only; restore uses binary `application/octet-stream`. |
 | `GET /api/settings/paper-backups`; `POST /api/settings/paper-backups/retry`; `POST /api/settings/paper-backups/clear` | Local administrator folder status/retry/clear controls; retry accepts `{ "replace": true }` for replacing all completed papers. |
 

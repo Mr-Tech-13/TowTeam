@@ -28,7 +28,7 @@ test('History downloads one saved PDF or a ZIP with uniquely named saved papers'
   const python = process.env.PDF_PYTHON_BIN || 'python3';
   process.env.TOW_PAPER_ASSETS_PATH = path.join(dir,'assets');
   const user = createUser({username:`export-user-${Date.now()}`,password:'test-only'});
-  const admin = createUser({username:`export-admin-${Date.now()}`,password:'test-only',role:'admin'});
+  const admin = createUser({username:`export-admin-${Date.now()}`,password:'test-only',role:'super_admin'});
   const tows = [createTow({airline:'MX',tailNumber:'SAME',gate:'Gate 1',towSpot:'NL614',status:'completed'}),
     createTow({airline:'MX',tailNumber:'SAME',gate:'Gate 1',towSpot:'NL614',status:'completed'}),
     createTow({airline:'MX',tailNumber:'ACTIVE',status:'planned'})];

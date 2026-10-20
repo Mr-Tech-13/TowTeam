@@ -91,6 +91,18 @@ export const api = {
       body: buffer
     });
   },
+  exportPortableData: async (categories, onProgress) => {
+    const response = await fetch(`/api/maintenance/export.json?${new URLSearchParams({ categories: categories.join(',') })}`, { credentials: 'include' });
+    return downloadResponse(response, 'towteam-export.json', onProgress);
+  },
+  importPortableData: async (file, categories, mode) => {
+    const buffer = await file.arrayBuffer();
+    return request(`/maintenance/import.json?${new URLSearchParams({ categories: categories.join(','), mode })}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/octet-stream' },
+      body: buffer
+    });
+  },
   listTows: (params = {}) => request(`/tows?${new URLSearchParams(params)}`),
   listTowsPage: (params = {}, page = 1, pageSize = 10) => request(`/tows?${new URLSearchParams({ ...params, paginated: "true", page, pageSize })}`),
   getTow: (id) => request(`/tows/${id}`),

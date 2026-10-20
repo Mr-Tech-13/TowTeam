@@ -1,9 +1,8 @@
 import { useRef, useState } from 'react';
 import { Download, Image as ImageIcon, RotateCcw, Upload } from 'lucide-react';
 import { api } from '../lib/api.js';
-import { PaperBackupSettings } from './PaperBackupSettings.jsx';
 
-export function AppSettings({ settings, onChange, canManageBackups = false }) {
+export function AppSettings({ settings, onChange }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [exporting, setExporting] = useState(false);
@@ -77,7 +76,6 @@ export function AppSettings({ settings, onChange, canManageBackups = false }) {
           <button className="icon-btn" type="button" title="Reset favicon" aria-label="Reset favicon" disabled={busy || !hasFavicon} onClick={() => void reset()}><RotateCcw size={18} /></button>
         </div>
       </div>
-      {canManageBackups && <PaperBackupSettings />}
     </section>
   );
 }

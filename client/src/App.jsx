@@ -6,6 +6,7 @@ import { applyWorkflowStep, pendingWorkflowStepCount, queueWorkflowStep, syncPen
 import { TowCard } from "./components/TowCard.jsx";
 import { AirlineSettings } from "./components/AirlineSettings.jsx";
 import { AppSettings } from "./components/AppSettings.jsx";
+import { PaperBackupSettings } from "./components/PaperBackupSettings.jsx";
 import { TowForm } from "./components/TowForm.jsx";
 import { Workflow } from "./components/Workflow.jsx";
 import "./styles/main.css";
@@ -191,6 +192,26 @@ function AuditDetails({ details }) {
   );
 }
 
+const portableDataOptions = [
+  ["tows", "Tows and paper drafts"],
+  ["airlines", "Airlines and aircraft types"],
+  ["settings", "Application settings"],
+  ["users", "User accounts"],
+  ["issues", "Issue reports"],
+  ["audit", "Audit log"]
+];
+
+function saveDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
 function AdminUsersPage({ currentUser, onBack, airlines, onAirlinesChange, settings, onSettingsChange }) {
   const [adminView, setAdminView] = useState("users");
   const [users, setUsers] = useState([]);
@@ -202,6 +223,12 @@ function AdminUsersPage({ currentUser, onBack, airlines, onAirlinesChange, setti
   const [restoreFile, setRestoreFile] = useState(null);
   const [restoreConfirm, setRestoreConfirm] = useState("");
   const [maintenanceStatus, setMaintenanceStatus] = useState("");
+  const [portableCategories, setPortableCategories] = useState(["tows"]);
+  const [portableImportFile, setPortableImportFile] = useState(null);
+  const [portableImportMode, setPortableImportMode] = useState("merge");
+  const [portableStatus, setPortableStatus] = useState("");
+  const [portableBusy, setPortableBusy] = useState(false);
+  const [portableProgress, setPortableProgress] = useState(null);
   const [error, setError] = useState("");
 
   async function loadUsers() {
@@ -215,10 +242,12 @@ function AdminUsersPage({ currentUser, onBack, airlines, onAirlinesChange, setti
 
   useEffect(() => {
     loadUsers();
-    loadIssues();
-    loadAudit();
+    if (currentUser.canManageSettings) {
+      loadIssues();
+      loadAudit();
+    }
     loadDeletedTows();
-  }, []);
+  }, [currentUser.canManageSettings]);
 
 
   async function loadIssues() {
@@ -353,6 +382,52 @@ function AdminUsersPage({ currentUser, onBack, airlines, onAirlinesChange, setti
     }
   }
 
+  function togglePortableCategory(category) {
+    setPortableCategories((current) => current.includes(category)
+      ? current.filter((value) => value !== category)
+      : [...current, category]);
+  }
+
+  async function exportPortableData() {
+    setPortableStatus("");
+    if (!portableCategories.length) { setPortableStatus("Select at least one category."); return; }
+    setPortableBusy(true);
+    setPortableProgress(null);
+    try {
+      const result = await api.exportPortableData(portableCategories, ({ percent }) => setPortableProgress(percent));
+      saveDownload(result.blob, result.filename);
+      setPortableProgress(100);
+      setPortableStatus("Selected data exported.");
+    } catch (err) {
+      setPortableStatus(err.message);
+      setPortableProgress(null);
+    } finally {
+      setPortableBusy(false);
+    }
+  }
+
+  async function importPortableData(event) {
+    event.preventDefault();
+    setPortableStatus("");
+    if (!portableImportFile) { setPortableStatus("Choose a TowTeam JSON export file."); return; }
+    if (!portableCategories.length) { setPortableStatus("Select at least one category."); return; }
+    if (portableImportMode === "replace" && !window.confirm(`Replace the selected categories: ${portableCategories.join(", ")}? Unselected categories will remain unchanged.`)) return;
+    setPortableBusy(true);
+    try {
+      const result = await api.importPortableData(portableImportFile, portableCategories, portableImportMode);
+      setPortableStatus(`Import complete. Pre-import backup: ${result.preImportBackup}.`);
+      setPortableImportFile(null);
+      await Promise.all([loadUsers(), loadIssues(), loadAudit(), loadDeletedTows()]);
+      const [nextAirlines, nextSettings] = await Promise.all([api.listAirlines(), api.getSettings()]);
+      onAirlinesChange(nextAirlines);
+      onSettingsChange(nextSettings);
+    } catch (err) {
+      setPortableStatus(err.message);
+    } finally {
+      setPortableBusy(false);
+    }
+  }
+
   return (
     <main>
       <section className="page-panel">
@@ -364,14 +439,14 @@ function AdminUsersPage({ currentUser, onBack, airlines, onAirlinesChange, setti
         </div>
         {error && <div className="notice error">{error}</div>}
         <div className="admin-subtabs">
-          {["users", "airlines", "settings", "issues", "audit", "trash", ...(currentUser.canManageAutofill ? ["backup"] : [])].map((view) => (
+          {["users", "airlines", ...(currentUser.canManageSettings ? ["settings", "issues", "audit"] : []), "trash", ...(currentUser.canManageAutofill ? ["backup"] : [])].map((view) => (
             <button className={adminView === view ? "btn green" : "btn ghost"} key={view} onClick={() => setAdminView(view)} type="button">
               {view}
             </button>
           ))}
         </div>
         {adminView === "airlines" && <AirlineSettings airlines={airlines} onChange={onAirlinesChange} />}
-        {adminView === "settings" && <AppSettings settings={settings} onChange={onSettingsChange} canManageBackups={currentUser.canManageAutofill} />}
+        {adminView === "settings" && <AppSettings settings={settings} onChange={onSettingsChange} />}
         {adminView === "users" && (
           <>
             <form className="user-create" onSubmit={createUser}>
@@ -380,6 +455,7 @@ function AdminUsersPage({ currentUser, onBack, airlines, onAirlinesChange, setti
               <select value={newUser.role} onChange={(event) => setNewUser({ ...newUser, role: event.target.value })}>
                 <option value="user">User</option>
                 <option value="admin">Admin</option>
+                {currentUser.canManageAutofill && <option value="super_admin">Super Admin</option>}
               </select>
               <button className="btn green" type="submit">Create User</button>
             </form>
@@ -388,22 +464,24 @@ function AdminUsersPage({ currentUser, onBack, airlines, onAirlinesChange, setti
                 <article className="user-row" key={user.id}>
                   <div>
                     <strong>{user.username}</strong>
-                    <span>{user.role}{user.id === currentUser.id ? " - you" : ""}</span>
+                    <span>{user.accountType === "local_admin" ? "Local Administrator" : user.accountType === "super_admin" ? "Super Admin" : user.role === "admin" ? "Admin" : "User"}{user.id === currentUser.id ? " - you" : ""}</span>
                     {currentUser.canManageAutofill && <label className="check-row"><input type="checkbox" aria-label={`${user.username} Autofill`} checked={Boolean(user.autofill)} onChange={(event) => void changeAutofill(user, event.target.checked)} />Autofill</label>}
                   </div>
-                  <select disabled={user.isLocalAdministrator} value={user.role} onChange={(event) => changeRole(user, event.target.value)}>
+                  <select disabled={user.isLocalAdministrator || (user.isSuperAdministrator && !currentUser.canManageAutofill)} value={user.accountType} onChange={(event) => changeRole(user, event.target.value)}>
                     <option value="user">User</option>
                     <option value="admin">Admin</option>
+                    {(currentUser.canManageAutofill || user.isSuperAdministrator) && <option value="super_admin">Super Admin</option>}
+                    {user.isLocalAdministrator && <option value="local_admin">Local Administrator</option>}
                   </select>
                   <input
                     placeholder="New password"
-                    disabled={user.isLocalAdministrator && !currentUser.canManageAutofill}
+                    disabled={(user.isLocalAdministrator && !currentUser.canManageAutofill) || (user.isSuperAdministrator && user.id !== currentUser.id && !currentUser.canManageAutofill)}
                     type="password"
                     value={passwords[user.id] || ""}
                     onChange={(event) => setPasswords({ ...passwords, [user.id]: event.target.value })}
                   />
-                  <button className="btn blue" disabled={user.isLocalAdministrator && !currentUser.canManageAutofill} onClick={() => changePassword(user)}>Change Password</button>
-                  <button className="btn red" disabled={user.id === currentUser.id || user.isLocalAdministrator} onClick={() => removeUser(user)}>Delete</button>
+                  <button className="btn blue" disabled={(user.isLocalAdministrator && !currentUser.canManageAutofill) || (user.isSuperAdministrator && user.id !== currentUser.id && !currentUser.canManageAutofill)} onClick={() => changePassword(user)}>Change Password</button>
+                  <button className="btn red" disabled={user.id === currentUser.id || user.isLocalAdministrator || (user.isSuperAdministrator && !currentUser.canManageAutofill)} onClick={() => removeUser(user)}>Delete</button>
                 </article>
               ))}
             </div>
@@ -457,6 +535,45 @@ function AdminUsersPage({ currentUser, onBack, airlines, onAirlinesChange, setti
         )}
         {adminView === "backup" && currentUser.canManageAutofill && (
           <div className="admin-list">
+            <PaperBackupSettings />
+            <article className="admin-row portable-transfer">
+              <div>
+                <strong>Selective Data Transfer</strong>
+                <span>Export or import only the selected categories. Login sessions and generated PDF files are never included.</span>
+                <fieldset className="portable-categories">
+                  <legend>Data categories</legend>
+                  {portableDataOptions.map(([value, label]) => (
+                    <label className="check-row" key={value}>
+                      <input checked={portableCategories.includes(value)} onChange={() => togglePortableCategory(value)} type="checkbox" />
+                      {label}
+                    </label>
+                  ))}
+                </fieldset>
+                {portableCategories.includes("users") && <p className="warning-text">User exports contain password hashes. Store the export like a database backup.</p>}
+                <div className="portable-actions">
+                  <button className="btn blue" disabled={portableBusy || !portableCategories.length} onClick={() => void exportPortableData()} type="button">
+                    <Download size={18} /> Export Selected
+                  </button>
+                  {portableProgress !== null && <progress aria-label="Export progress" max="100" value={portableProgress} />}
+                </div>
+              </div>
+            </article>
+            <form className="admin-row portable-transfer" onSubmit={importPortableData}>
+              <div>
+                <strong>Import Selected Data</strong>
+                <span>The file must contain every category selected above.</span>
+                <input accept=".json,application/json" onChange={(event) => setPortableImportFile(event.target.files?.[0] || null)} type="file" />
+                <select value={portableImportMode} onChange={(event) => setPortableImportMode(event.target.value)}>
+                  <option value="add">Add missing records; keep matching records unchanged</option>
+                  <option value="merge">Add missing records and overwrite matching records</option>
+                  <option value="replace">Replace selected categories; keep unselected categories</option>
+                </select>
+                {portableStatus && <p className="muted">{portableStatus}</p>}
+              </div>
+              <button className={portableImportMode === "replace" ? "btn red" : "btn green"} disabled={portableBusy || !portableImportFile || !portableCategories.length} type="submit">
+                <Upload size={18} /> Import
+              </button>
+            </form>
             <article className="admin-row">
               <div>
                 <strong>Download SQLite Backup</strong>
@@ -866,7 +983,7 @@ export default function App() {
           <h1>TowTeam</h1>
         </div>
         <div className="top-actions">
-          <span className="user-pill">{user.username} ({user.role})</span>
+          <span className="user-pill">{user.username} ({user.accountType === "local_admin" ? "local admin" : user.accountType === "super_admin" ? "super admin" : user.role})</span>
           {user.role === "admin" && (
             <button className="icon-btn" onClick={() => { setActiveTow(null); setAdminPanel(true); }} title="Users" type="button">
               <Users size={20} />

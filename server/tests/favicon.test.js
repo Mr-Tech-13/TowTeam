@@ -9,8 +9,8 @@ import { router } from '../routes/settings.js';
 import { serveFavicon, resetFavicon, saveFavicon, getFavicon } from '../services/favicon.js';
 import { createUser, createSession } from '../services/users.js';
 
-test('favicon uploads are admin-only, validated, persistent, publicly readable, and resettable', async () => {
-  const admin = createUser({username:`icon-admin-${Date.now()}`,password:'test-only',role:'admin'});
+test('favicon uploads are Super Admin-only, validated, persistent, publicly readable, and resettable', async () => {
+  const admin = createUser({username:`icon-admin-${Date.now()}`,password:'test-only',role:'super_admin'});
   const user = createUser({username:`icon-user-${Date.now()}`,password:'test-only'});
   const adminHeaders = { Cookie:`towteam_session=${createSession(admin.id).token}`, 'Content-Type':'image/png' };
   const userHeaders = { Cookie:`towteam_session=${createSession(user.id).token}`, 'Content-Type':'image/png' };

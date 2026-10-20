@@ -1,6 +1,10 @@
-import { getUserForToken, parseCookie, sessionCookieName } from "../services/users.js";
+import { bearerToken, getUserForToken, parseCookie, sessionCookieName } from "../services/users.js";
 
-const publicApiPaths = new Set(["/api/health", "/api/auth/login", "/api/auth/logout", "/api/auth/me"]);
+const publicApiPaths = new Set(["/api/health", "/api/auth/login", "/api/auth/token", "/api/auth/logout", "/api/auth/me"]);
+
+export function requestSessionToken(req) {
+  return bearerToken(req.get("authorization")) || parseCookie(req.get("cookie"), sessionCookieName());
+}
 
 export function requireAuth(req, res, next) {
   if (!req.path.startsWith("/api") || publicApiPaths.has(req.path)) {
@@ -8,7 +12,7 @@ export function requireAuth(req, res, next) {
     return;
   }
 
-  const token = parseCookie(req.get("cookie"), sessionCookieName());
+  const token = requestSessionToken(req);
   const user = getUserForToken(token);
   if (!user) {
     res.status(401).json({ error: "Authentication required." });
@@ -22,6 +26,14 @@ export function requireAuth(req, res, next) {
 export function requireAdmin(req, res, next) {
   if (req.user?.role !== "admin") {
     res.status(403).json({ error: "Admin role required." });
+    return;
+  }
+  next();
+}
+
+export function requireSuperAdmin(req, res, next) {
+  if (!req.user?.canManageSettings) {
+    res.status(403).json({ error: "Super Admin access required." });
     return;
   }
   next();

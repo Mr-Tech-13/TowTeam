@@ -1,0 +1,1 @@
+ALTER TABLE users ADD COLUMN isSuperAdmin INTEGER NOT NULL DEFAULT 0 CHECK (isSuperAdmin IN (0, 1));

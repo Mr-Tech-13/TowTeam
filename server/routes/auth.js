@@ -6,10 +6,9 @@ import {
   createSession,
   deleteSession,
   getUserForToken,
-  parseCookie,
-  sessionCookie,
-  sessionCookieName
+  sessionCookie
 } from "../services/users.js";
+import { requestSessionToken } from "../middleware/auth.js";
 
 export const router = express.Router();
 const loginRateLimit = rateLimit({
@@ -31,15 +30,27 @@ router.post("/login", loginRateLimit, (req, res) => {
   res.json({ user });
 });
 
+router.post("/token", loginRateLimit, (req, res) => {
+  const user = authenticate(req.body.username, req.body.password);
+  if (!user) {
+    res.status(401).json({ error: "Invalid username or password." });
+    return;
+  }
+  const session = createSession(user.id);
+  res.set("Cache-Control", "no-store");
+  res.json({ token: session.token, tokenType: "Bearer", expiresAt: session.expiresAt, user });
+});
+
 router.post("/logout", (req, res) => {
-  const token = parseCookie(req.get("cookie"), sessionCookieName());
+  const token = requestSessionToken(req);
   deleteSession(token);
   res.setHeader("Set-Cookie", clearSessionCookie());
   res.status(204).end();
 });
 
 router.get("/me", (req, res) => {
-  const token = parseCookie(req.get("cookie"), sessionCookieName());
+  const token = requestSessionToken(req);
   const user = getUserForToken(token);
+  res.set("Cache-Control", "no-store");
   res.json({ user });
 });

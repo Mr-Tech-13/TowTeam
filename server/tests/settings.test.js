@@ -9,12 +9,13 @@ import { router as towsRouter } from '../routes/tows.js';
 import { getSettings, updateSettings } from '../services/settings.js';
 import { createSession, createUser } from '../services/users.js';
 
-test('bulk import is a persistent admin-only setting enforced for all users', async () => {
+test('bulk import is a persistent Super Admin setting enforced for all users', async () => {
   const original = getSettings();
   const suffix = Date.now();
-  const admin = createUser({ username: `settings-admin-${suffix}`, password: 'test-only', role: 'admin' });
+  const admin = createUser({ username: `settings-admin-${suffix}`, password: 'test-only', role: 'super_admin' });
+  const regularAdmin = createUser({ username: `settings-regular-admin-${suffix}`, password: 'test-only', role: 'admin' });
   const member = createUser({ username: `settings-member-${suffix}`, password: 'test-only' });
-  const tokens = [createSession(admin.id).token, createSession(member.id).token];
+  const tokens = [createSession(admin.id).token, createSession(member.id).token, createSession(regularAdmin.id).token];
   const app = express();
   app.use(express.json());
   app.use(requireAuth);
@@ -32,6 +33,7 @@ test('bulk import is a persistent admin-only setting enforced for all users', as
     assert.equal((await request('/api/settings')).status, 401);
     assert.equal((await request('/api/settings', tokens[1])).status, 200);
     assert.equal((await request('/api/settings', tokens[1], 'PUT', { bulkImportEnabled: false })).status, 403);
+    assert.equal((await request('/api/settings', tokens[2], 'PUT', { bulkImportEnabled: false })).status, 403);
     assert.equal((await request('/api/settings', tokens[0], 'PUT', { bulkImportEnabled: 'false' })).status, 400);
     assert.equal((await request('/api/settings', tokens[0], 'PUT', { bulkImportEnabled: false })).status, 200);
     assert.equal(db.prepare("SELECT value FROM app_settings WHERE key = 'bulkImportEnabled'").get().value, 'false');
@@ -52,6 +54,6 @@ test('bulk import is a persistent admin-only setting enforced for all users', as
     await new Promise((resolve) => server.close(resolve));
     updateSettings(original);
     if (towId) db.prepare('DELETE FROM tows WHERE id = ?').run(towId);
-    db.prepare('DELETE FROM users WHERE id IN (?, ?)').run(admin.id, member.id);
+    db.prepare('DELETE FROM users WHERE id IN (?, ?, ?)').run(admin.id, regularAdmin.id, member.id);
   }
 });

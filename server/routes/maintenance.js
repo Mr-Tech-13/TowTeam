@@ -1,7 +1,7 @@
 import express from "express";
 import { requireAutofillManager } from "../middleware/auth.js";
 import { writeAudit } from "../services/audit.js";
-import { activatePreparedRestore, backupFilename, createDatabaseBackup, prepareDatabaseRestore } from "../services/maintenance.js";
+import { activatePreparedRestore, backupFilename, createDatabaseBackup, createPortableExport, importPortableExport, prepareDatabaseRestore } from "../services/maintenance.js";
 
 export const router = express.Router();
 
@@ -14,6 +14,39 @@ router.get("/backup.sqlite", async (req, res) => {
     res.download(backupPath, backupFilename(backupPath));
   } catch (error) {
     res.status(500).json({ error: error.message || "Unable to create backup." });
+  }
+});
+
+router.get("/export.json", (req, res) => {
+  try {
+    const categories = String(req.query.categories || "tows").split(",").filter(Boolean);
+    const payload = createPortableExport(categories);
+    const filename = `towteam-export-${nowDateSlug()}.json`;
+    writeAudit(req.user, "maintenance.portable_export", { entityType: "database", details: { categories: payload.categories, filename } });
+    res.set({
+      "Content-Type": "application/json; charset=utf-8",
+      "Content-Disposition": `attachment; filename="${filename}"`,
+      "Cache-Control": "no-store"
+    });
+    res.send(JSON.stringify(payload));
+  } catch (error) {
+    res.status(400).json({ error: error.message || "Unable to export selected data." });
+  }
+});
+
+router.post("/import.json", express.raw({ type: "application/octet-stream", limit: "200mb" }), async (req, res) => {
+  try {
+    if (!Buffer.isBuffer(req.body)) {
+      res.status(400).json({ error: "Upload a valid TowTeam export file." });
+      return;
+    }
+    const categories = String(req.query.categories || "").split(",").filter(Boolean);
+    const mode = String(req.query.mode || "merge");
+    const result = await importPortableExport(Buffer.from(req.body), categories, mode);
+    writeAudit(req.user, "maintenance.portable_import", { entityType: "database", details: result });
+    res.json(result);
+  } catch (error) {
+    res.status(400).json({ error: error.message || "Unable to import selected data." });
   }
 });
 
@@ -37,3 +70,7 @@ router.post("/restore.sqlite", express.raw({ type: "application/octet-stream", l
     res.status(400).json({ error: error.message || "Unable to restore backup." });
   }
 });
+
+function nowDateSlug() {
+  return new Date().toISOString().replace(/[:.]/g, "-");
+}

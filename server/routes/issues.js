@@ -2,6 +2,7 @@ import express from "express";
 import rateLimit from "express-rate-limit";
 import { db } from "../db/database.js";
 import { writeAudit } from "../services/audit.js";
+import { requireSuperAdmin } from "../middleware/auth.js";
 
 export const router = express.Router();
 const issueRateLimit = rateLimit({
@@ -42,19 +43,11 @@ router.post("/", (req, res) => {
   writeAudit(req.user, "issue.create", { entityType: "issue", entityId: result.lastInsertRowid });
 });
 
-router.get("/", (req, res) => {
-  if (req.user.role !== "admin") {
-    res.status(403).json({ error: "Admin role required." });
-    return;
-  }
+router.get("/", requireSuperAdmin, (req, res) => {
   res.json(db.prepare("SELECT * FROM issueReports ORDER BY createdAt DESC LIMIT 200").all());
 });
 
-router.patch("/:id", (req, res) => {
-  if (req.user.role !== "admin") {
-    res.status(403).json({ error: "Admin role required." });
-    return;
-  }
+router.patch("/:id", requireSuperAdmin, (req, res) => {
   const status = req.body.status === "closed" ? "closed" : "open";
   const result = db.prepare("UPDATE issueReports SET status = ? WHERE id = ?").run(status, req.params.id);
   if (!result.changes) {

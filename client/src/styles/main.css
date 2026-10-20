@@ -1043,5 +1043,12 @@ pre {
 .backup-jobs li small { width: 100%; color: #fca5a5; }
 .backup-folder { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; }
 .backup-folder code { overflow-wrap: anywhere; }
+.portable-transfer { align-items: flex-end; }
+.portable-transfer > div { flex: 1 1 520px; }
+.portable-categories { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; margin: 14px 0; padding: 12px; border: 1px solid #374151; border-radius: 6px; }
+.portable-categories legend { padding: 0 6px; color: #d1d5db; }
+.portable-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.portable-actions progress { width: min(280px, 100%); height: 12px; accent-color: #3b82f6; }
+.portable-transfer input[type="file"], .portable-transfer select { display: block; width: min(620px, 100%); margin-top: 12px; }
 .app-shell:has(.paper-backup-setting) > .app-version { position: static; display: inline-block; margin-top: 18px; }
 .app-shell:has(.paper-backup-setting) > .issue-button { position: static; float: right; margin-top: 12px; }

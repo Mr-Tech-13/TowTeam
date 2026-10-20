@@ -27,13 +27,18 @@ export function verifyPassword(password, storedHash) {
 
 function publicUser(row) {
   if (!row) return null;
+  const isLocalAdministrator = Boolean(row.isLocalAdmin);
+  const isSuperAdministrator = Boolean(row.isSuperAdmin) && !isLocalAdministrator;
   return {
     id: row.id,
     username: row.username,
     role: row.role,
     autofill: Boolean(row.autofill),
-    isLocalAdministrator: Boolean(row.isLocalAdmin),
-    canManageAutofill: row.role === 'admin' && Boolean(row.isLocalAdmin),
+    accountType: isLocalAdministrator ? "local_admin" : isSuperAdministrator ? "super_admin" : row.role,
+    isLocalAdministrator,
+    isSuperAdministrator,
+    canManageSettings: row.role === "admin" && (isSuperAdministrator || isLocalAdministrator),
+    canManageAutofill: row.role === 'admin' && isLocalAdministrator,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt
   };
@@ -52,11 +57,11 @@ export function ensureDefaultAdmin() {
 }
 
 export function listUsers() {
-  return db.prepare("SELECT id, username, role, autofill, isLocalAdmin, createdAt, updatedAt FROM users ORDER BY username").all().map(publicUser);
+  return db.prepare("SELECT id, username, role, autofill, isLocalAdmin, isSuperAdmin, createdAt, updatedAt FROM users ORDER BY username").all().map(publicUser);
 }
 
 export function getUserById(id) {
-  return publicUser(db.prepare("SELECT id, username, role, autofill, isLocalAdmin, createdAt, updatedAt FROM users WHERE id = ?").get(id));
+  return publicUser(db.prepare("SELECT id, username, role, autofill, isLocalAdmin, isSuperAdmin, createdAt, updatedAt FROM users WHERE id = ?").get(id));
 }
 
 export function getUserByUsername(username) {
@@ -65,12 +70,12 @@ export function getUserByUsername(username) {
 
 export function createUser({ username, password, role = "user", autofill = false }) {
   if (!username || !password) throw new Error("Username and password are required.");
-  if (!["admin", "user"].includes(role)) throw new Error("Invalid role.");
+  if (!["admin", "super_admin", "user"].includes(role)) throw new Error("Invalid role.");
   if (typeof autofill !== 'boolean') throw new Error('Autofill permission must be true or false.');
   if (getUserByUsername(username.trim())) throw new Error('That username already exists.');
   const result = db
-    .prepare("INSERT INTO users (username, passwordHash, role, autofill) VALUES (@username, @passwordHash, @role, @autofill)")
-    .run({ username: username.trim(), passwordHash: hashPassword(password), role, autofill: Number(autofill) });
+    .prepare("INSERT INTO users (username, passwordHash, role, autofill, isSuperAdmin) VALUES (@username, @passwordHash, @role, @autofill, @isSuperAdmin)")
+    .run({ username: username.trim(), passwordHash: hashPassword(password), role: role === "super_admin" ? "admin" : role, autofill: Number(autofill), isSuperAdmin: Number(role === "super_admin") });
   return getUserById(result.lastInsertRowid);
 }
 
@@ -80,7 +85,8 @@ export function updateUser(id, { username, role, autofill }) {
   const next = {
     id,
     username: username?.trim() || existing.username,
-    role: role || existing.role,
+    role: role === "super_admin" ? "admin" : role || existing.role,
+    isSuperAdmin: Number(role === undefined ? existing.isSuperAdministrator : role === "super_admin"),
     autofill: Number(autofill === undefined ? existing.autofill : autofill),
     updatedAt: nowIso()
   };
@@ -94,7 +100,7 @@ export function updateUser(id, { username, role, autofill }) {
   if (existing.role === "admin" && next.role !== "admin" && adminCount() <= 1) {
     throw new Error("At least one admin user is required.");
   }
-  db.prepare("UPDATE users SET username = @username, role = @role, autofill = @autofill, updatedAt = @updatedAt WHERE id = @id").run(next);
+  db.prepare("UPDATE users SET username = @username, role = @role, autofill = @autofill, isSuperAdmin = @isSuperAdmin, updatedAt = @updatedAt WHERE id = @id").run(next);
   return getUserById(id);
 }
 
@@ -130,7 +136,7 @@ export function getUserForToken(token) {
   if (!token) return null;
   const row = db
     .prepare(
-      `SELECT users.id, users.username, users.role, users.autofill, users.isLocalAdmin, users.createdAt, users.updatedAt
+      `SELECT users.id, users.username, users.role, users.autofill, users.isLocalAdmin, users.isSuperAdmin, users.createdAt, users.updatedAt
        FROM sessions
        JOIN users ON users.id = sessions.userId
        WHERE sessions.tokenHash = ? AND sessions.expiresAt > ?`
@@ -174,6 +180,11 @@ export function parseCookie(header, name) {
     .map((part) => part.trim())
     .map((part) => part.split("="))
     .find(([key]) => key === name)?.[1];
+}
+
+export function bearerToken(header) {
+  const match = String(header || "").match(/^Bearer ([A-Za-z0-9_-]{32,256})$/);
+  return match?.[1] || "";
 }
 
 function adminCount() {

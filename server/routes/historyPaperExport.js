@@ -15,7 +15,7 @@ router.post('/', async (req, res) => {
   const scope = req.body?.scope || 'history';
   const archiveFilename = paperArchiveFilename(scope);
   if (!['history', 'active'].includes(scope)) return res.status(400).json({ error: 'Invalid paper export scope.' });
-  if (scope === 'active' && req.user.role !== 'admin') return res.status(403).json({ error: 'Admin role required.' });
+  if (scope === 'active' && !req.user.canManageSettings) return res.status(403).json({ error: 'Super Admin access required.' });
   const activeTows = scope === 'active' ? listTows({ status: 'active' }) : null;
   if (activeTows && !activeTows.length) return res.status(400).json({ error: 'There are no active tow papers to export.' });
   if (activeTows && activeTows.length > maxPaperExportTows) return res.status(400).json({ error: `Active paper export is limited to ${maxPaperExportTows} tows.` });

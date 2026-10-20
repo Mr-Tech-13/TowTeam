@@ -15,14 +15,15 @@ function visibleUser(req, user) {
 
 router.use((req, res, next) => {
   if (req.method === 'GET') return next();
-  if (['isLocalAdmin', 'isLocalAdministrator', 'canManageAutofill'].some((key) => Object.hasOwn(req.body || {}, key))) {
+  if (['isLocalAdmin', 'isLocalAdministrator', 'isSuperAdmin', 'isSuperAdministrator', 'canManageAutofill', 'canManageSettings'].some((key) => Object.hasOwn(req.body || {}, key))) {
     return res.status(403).json({ error: 'Local administrator identity cannot be changed through the user API.' });
   }
   if (req.user.canManageAutofill) return next();
   const targetId = req.path.split('/')[1];
   const target = targetId ? getUserById(targetId) : null;
-  if (Object.hasOwn(req.body || {}, 'autofill') || target?.isLocalAdministrator) {
-    return res.status(403).json({ error: 'Only the local administrator can manage Autofill permissions or the local administrator account.' });
+  const ownPasswordChange = req.path.endsWith('/password') && Number(targetId) === Number(req.user.id);
+  if (Object.hasOwn(req.body || {}, 'autofill') || req.body?.role === 'super_admin' || target?.isLocalAdministrator || (target?.isSuperAdministrator && !ownPasswordChange)) {
+    return res.status(403).json({ error: 'Only the local administrator can manage Super Admin, Autofill, or protected administrator accounts.' });
   }
   next();
 });

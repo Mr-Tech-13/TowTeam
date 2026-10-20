@@ -39,8 +39,13 @@ test('only the local administrator can manage autofill, regardless of username',
     assert.equal((await req('/api/maintenance/restore.sqlite',adminToken,'POST',{})).status,403);
     const allowed=await req(`/api/users/${member.id}`,adminToken,'PUT',{role:'user'});assert.equal(allowed.status,200);assert.equal(Object.hasOwn(await allowed.json(),'autofill'),false);
     assert.equal((await req(`/api/users/${member.id}`,ownerToken,'PUT',{autofill:false})).status,200);
-    const logs=await(await req('/api/audit',adminToken)).json();assert.ok(logs.every(log=>!Object.hasOwn(JSON.parse(log.details),'autofill')));
-    for(const key of ['canManageAutofill','isLocalAdmin','isLocalAdministrator']){
+    assert.equal((await req('/api/audit',adminToken)).status,403);
+    assert.equal((await req(`/api/users/${member.id}`,adminToken,'PUT',{role:'super_admin'})).status,403);
+    assert.equal((await req(`/api/users/${member.id}`,ownerToken,'PUT',{role:'super_admin'})).status,200);
+    const superToken=createSession(member.id).token;
+    assert.equal(getUserForToken(superToken).canManageSettings,true);
+    assert.equal((await req('/api/audit',superToken)).status,200);
+    for(const key of ['canManageAutofill','canManageSettings','isLocalAdmin','isLocalAdministrator','isSuperAdmin','isSuperAdministrator']){
       assert.equal((await req(`/api/users/${admin.id}`,adminToken,'PUT',{[key]:true})).status,403);
       assert.equal((await req(`/api/users/${admin.id}`,ownerToken,'PUT',{[key]:true})).status,403);
     }
