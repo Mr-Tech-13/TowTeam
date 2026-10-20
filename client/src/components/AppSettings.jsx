@@ -7,6 +7,7 @@ export function AppSettings({ settings, onChange, canManageBackups = false }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(null);
   const input = useRef(null);
   const hasFavicon = settings?.faviconUrl && !settings.faviconUrl.endsWith('=default');
   async function upload(event) {
@@ -34,14 +35,17 @@ export function AppSettings({ settings, onChange, canManageBackups = false }) {
     finally { setBusy(false); }
   }
   async function exportActivePapers() {
-    setExporting(true); setError('');
+    setExporting(true); setError(''); setExportProgress({ label: 'Preparing active tow papers...', percent: null });
     try {
-      const { blob, filename } = await api.downloadTowPapers(undefined, 'active');
+      const { blob, filename } = await api.downloadTowPapers(undefined, 'active', progress => {
+        setExportProgress({ label: 'Downloading active tow papers...', percent: progress.percent });
+      });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a'); link.href = url; link.download = filename;
       document.body.append(link); link.click(); link.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 60000);
-    } catch (err) { setError(err.message); }
+      setExportProgress({ label: 'Active tow paper download ready.', percent: 100 });
+    } catch (err) { setError(err.message); setExportProgress(null); }
     finally { setExporting(false); }
   }
   return (
@@ -57,6 +61,10 @@ export function AppSettings({ settings, onChange, canManageBackups = false }) {
         <button className="btn blue" type="button" disabled={exporting} onClick={() => void exportActivePapers()}>
           <Download size={18} />{exporting ? 'Preparing papers...' : 'Export Active Tow Papers'}
         </button>
+        {exportProgress && <div className="export-progress" role="status">
+          <span>{exportProgress.label}{exportProgress.percent !== null ? ` ${exportProgress.percent}%` : ''}</span>
+          <progress max="100" {...(exportProgress.percent !== null ? { value: exportProgress.percent } : {})} />
+        </div>}
       </div>
       <div className="favicon-setting">
         <h3>Favicon</h3>

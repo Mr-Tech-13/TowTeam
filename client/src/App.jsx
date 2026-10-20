@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Bug, ChevronLeft, ChevronRight, Clipboard, Download, Eye, History, LayoutDashboard, LogOut, Plus, RefreshCcw, RotateCcw, Save, Search, Trash2, Upload, Users } from "lucide-react";
-import { api, backupDatabaseUrl, exportExcelUrl, exportUrl, towChecklistPreviewUrl, towChecklistUrl } from "./lib/api.js";
+import { api, backupDatabaseUrl, towChecklistPreviewUrl, towChecklistUrl } from "./lib/api.js";
 import { completedSummary } from "./lib/summary.js";
 import { applyWorkflowStep, pendingWorkflowStepCount, queueWorkflowStep, syncPendingWorkflowSteps } from "./lib/pendingWorkflowSteps.js";
 import { TowCard } from "./components/TowCard.jsx";
@@ -496,6 +496,7 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [adminPanel, setAdminPanel] = useState(false);
   const [tab, setTab] = useState("dashboard");
+  const [towOriginTab, setTowOriginTab] = useState("dashboard");
   const [activeTow, setActiveTow] = useState(null);
   const [manualTow, setManualTow] = useState(emptyTow);
   const [pasteText, setPasteText] = useState("");
@@ -504,6 +505,7 @@ export default function App() {
   const [historySearch, setHistorySearch] = useState("");
   const [paperDownloadBusy, setPaperDownloadBusy] = useState(false);
   const [paperDownloadError, setPaperDownloadError] = useState('');
+  const [exportProgress, setExportProgress] = useState(null);
   const [historyPaging, setHistoryPaging] = useState({ search: '', pageSize: 10, page: 1 });
   const [historyPageSize, setHistoryPageSize] = useState(10);
   const [activeSearch, setActiveSearch] = useState("");
@@ -529,16 +531,34 @@ export default function App() {
   const activeTows = useMemo(() => tows.filter((tow) => tow.status !== "completed"), [tows]);
   const visibleActiveTows = activeTows;
   const paperDownloadDisabled = loading || paperDownloadBusy || !tows.length || tows.some(tow => tow.status !== 'completed') || historySearch.trim() !== historySearchQuery;
+  function saveBrowserDownload(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a'); link.href = url; link.download = filename;
+    document.body.append(link); link.click(); link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+  function showExportProgress(label, progress) {
+    setExportProgress({ label, percent: progress?.percent ?? null });
+  }
   async function downloadVisiblePapers() {
     if (paperDownloadDisabled) return;
-    setPaperDownloadBusy(true); setPaperDownloadError('');
+    setPaperDownloadBusy(true); setPaperDownloadError(''); setExportProgress({ label: 'Preparing tow papers...', percent: null });
     try {
-      const { blob, filename } = await api.downloadTowPapers(tows.map(tow => tow.id));
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a'); link.href = url; link.download = filename;
-      document.body.append(link); link.click(); link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
-    } catch (err) { setPaperDownloadError(err.message); }
+      const { blob, filename } = await api.downloadTowPapers(tows.map(tow => tow.id), 'history', progress => showExportProgress('Downloading tow papers...', progress));
+      saveBrowserDownload(blob, filename);
+      setExportProgress({ label: 'Tow paper download ready.', percent: 100 });
+    } catch (err) { setPaperDownloadError(err.message); setExportProgress(null); }
+    finally { setPaperDownloadBusy(false); }
+  }
+  async function downloadHistoryData(format) {
+    if (loading || paperDownloadBusy) return;
+    const label = format === 'csv' ? 'CSV' : 'Excel';
+    setPaperDownloadBusy(true); setPaperDownloadError(''); setExportProgress({ label: `Preparing ${label} export...`, percent: null });
+    try {
+      const { blob, filename } = await api.downloadTowData(format, historyQuery, progress => showExportProgress(`Downloading ${label} export...`, progress));
+      saveBrowserDownload(blob, filename);
+      setExportProgress({ label: `${label} download ready.`, percent: 100 });
+    } catch (err) { setPaperDownloadError(err.message); setExportProgress(null); }
     finally { setPaperDownloadBusy(false); }
   }
   useEffect(() => {
@@ -601,7 +621,9 @@ export default function App() {
     let cancelled = false;
     api.getTow(id).then((tow) => {
       if (cancelled) return;
-      openTow(tow);
+      const originTab = ['dashboard', 'setup', 'history'].includes(params.get('tab')) ? params.get('tab') : 'dashboard';
+      setTab(originTab);
+      openTow(tow, originTab);
       const view = params.get('view');
       if (['confirm', 'workflow', 'complete'].includes(view)) setTowPage(view);
       window.history.replaceState(null, '', window.location.pathname);
@@ -787,14 +809,15 @@ export default function App() {
     }
   }
 
-  function openTow(tow) {
+  function openTow(tow, originTab = tab) {
+    setTowOriginTab(originTab);
     setActiveTow(tow);
     if (tow.status === "completed") setTowPage("complete");
     else if (tow.status === "planned") setTowPage("confirm");
     else setTowPage("workflow");
   }
 
-  async function returnToMenu(nextTab = tab) {
+  async function returnToMenu(nextTab = towOriginTab) {
     if (activeTow && towPage === "confirm") {
       await saveActiveTow();
     }
@@ -902,7 +925,7 @@ export default function App() {
               <a className="btn blue" href={towChecklistUrl(activeTow.id)}>
                 <Download size={18} /> Checklist PDF
               </a>
-              <a className="btn teal" href={`/api/paper-editor/?tow=${activeTow.id}&return=confirm`}><Clipboard size={18} /> Edit Tow Paper</a>
+              <a className="btn teal" href={`/api/paper-editor/?tow=${activeTow.id}&return=confirm&tab=${towOriginTab}`}><Clipboard size={18} /> Edit Tow Paper</a>
               <a className="btn ghost" href={towChecklistPreviewUrl(activeTow.id)} rel="noreferrer" target="_blank">
                 <Eye size={18} /> Preview PDF
               </a>
@@ -962,7 +985,7 @@ export default function App() {
               <a className="btn green" href={towChecklistUrl(activeTow.id)}>
                 <Download size={18} /> Checklist PDF
               </a>
-              <a className="btn teal" href={`/api/paper-editor/?tow=${activeTow.id}&return=workflow`}><Clipboard size={18} /> Edit Tow Paper</a>
+              <a className="btn teal" href={`/api/paper-editor/?tow=${activeTow.id}&return=workflow&tab=${towOriginTab}`}><Clipboard size={18} /> Edit Tow Paper</a>
               <a className="btn ghost" href={towChecklistPreviewUrl(activeTow.id)} rel="noreferrer" target="_blank">
                 <Eye size={18} /> Preview PDF
               </a>
@@ -980,7 +1003,7 @@ export default function App() {
                   {activeTow.inboundFlightNumber}
                 </p>
               </div>
-              <button className="btn ghost" onClick={() => void returnToMenu("dashboard")}>
+              <button className="btn ghost" onClick={() => void returnToMenu()}>
                 <ArrowLeft size={18} /> Menu
               </button>
             </div>
@@ -992,7 +1015,7 @@ export default function App() {
               <a className="btn green" href={towChecklistUrl(activeTow.id)}>
                 <Download size={18} /> Checklist PDF
               </a>
-              <a className="btn teal" href={`/api/paper-editor/?tow=${activeTow.id}&return=complete`}><Clipboard size={18} /> Edit Tow Paper</a>
+              <a className="btn teal" href={`/api/paper-editor/?tow=${activeTow.id}&return=complete&tab=${towOriginTab}`}><Clipboard size={18} /> Edit Tow Paper</a>
               <a className="btn ghost" href={towChecklistPreviewUrl(activeTow.id)} rel="noreferrer" target="_blank">
                 <Eye size={18} /> Preview PDF
               </a>
@@ -1081,8 +1104,8 @@ export default function App() {
               <h2>Tow History Database</h2>
               <div className="export-actions">
                 <button className="btn teal" type="button" disabled={paperDownloadDisabled} onClick={() => void downloadVisiblePapers()}><Download size={18} />{paperDownloadBusy ? 'Preparing...' : tows.length > 1 ? 'Download ZIP' : 'Download PDF'}</button>
-                <a className="btn blue" href={exportUrl(historyQuery)}><Download size={18} />CSV</a>
-                <a className="btn green" href={exportExcelUrl(historyQuery)}><Download size={18} />Excel</a>
+                <button className="btn blue" disabled={loading || paperDownloadBusy} onClick={() => void downloadHistoryData('csv')} type="button"><Download size={18} />CSV</button>
+                <button className="btn green" disabled={loading || paperDownloadBusy} onClick={() => void downloadHistoryData('xls')} type="button"><Download size={18} />Excel</button>
               </div>
             </div>
             <div className="active-search">
@@ -1096,6 +1119,12 @@ export default function App() {
               />
             </div>
             {paperDownloadError && <div className="notice error" role="alert">{paperDownloadError}</div>}
+            {exportProgress && (
+              <div className="export-progress" role="status">
+                <span>{exportProgress.label}{exportProgress.percent !== null ? ` ${exportProgress.percent}%` : ''}</span>
+                <progress max="100" {...(exportProgress.percent !== null ? { value: exportProgress.percent } : {})} />
+              </div>
+            )}
             <div className="tow-grid">
               {tows.map((tow) => <TowCard key={tow.id} tow={tow} onOpen={openTow} airlines={airlines} />)}
             </div>

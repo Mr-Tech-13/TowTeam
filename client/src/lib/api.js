@@ -2,6 +2,39 @@ import { paperArchiveFilename } from '../../../shared/paperExport.js';
 
 const headers = { "Content-Type": "application/json" };
 
+function downloadFilename(response, fallback) {
+  return response.headers.get('content-disposition')?.match(/filename="([^"]+)"/)?.[1] || fallback;
+}
+
+async function downloadResponse(response, fallbackFilename, onProgress) {
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.error || `Request failed: ${response.status}`);
+  }
+  const total = Number(response.headers.get('content-length')) || null;
+  if (!response.body) {
+    const blob = await response.blob();
+    onProgress?.({ loaded: blob.size, total: total || blob.size, percent: 100 });
+    return { blob, filename: downloadFilename(response, fallbackFilename) };
+  }
+  const reader = response.body.getReader();
+  const chunks = [];
+  let loaded = 0;
+  onProgress?.({ loaded, total, percent: total ? 0 : null });
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    loaded += value.byteLength;
+    onProgress?.({ loaded, total, percent: total ? Math.min(100, Math.round(loaded / total * 100)) : null });
+  }
+  onProgress?.({ loaded, total: total || loaded, percent: 100 });
+  return {
+    blob: new Blob(chunks, { type: response.headers.get('content-type') || 'application/octet-stream' }),
+    filename: downloadFilename(response, fallbackFilename)
+  };
+}
+
 async function request(path, options = {}) {
   let res;
   try {
@@ -61,13 +94,15 @@ export const api = {
   listTows: (params = {}) => request(`/tows?${new URLSearchParams(params)}`),
   listTowsPage: (params = {}, page = 1, pageSize = 10) => request(`/tows?${new URLSearchParams({ ...params, paginated: "true", page, pageSize })}`),
   getTow: (id) => request(`/tows/${id}`),
-  downloadTowPapers: async (ids, scope = 'history') => {
+  downloadTowPapers: async (ids, scope = 'history', onProgress) => {
     const response = await fetch('/api/tows/paper-export', { method: 'POST', credentials: 'include', headers, body: JSON.stringify({ ids, scope }) });
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({}));
-      throw new Error(body.error || 'Unable to download tow papers.');
-    }
-    return { blob: await response.blob(), filename: response.headers.get('content-disposition')?.match(/filename="([^"]+)"/)?.[1] || (response.headers.get('content-type')?.startsWith('application/pdf') ? 'tow-paper.pdf' : paperArchiveFilename(scope)) };
+    const fallback = response.headers.get('content-type')?.startsWith('application/pdf') ? 'tow-paper.pdf' : paperArchiveFilename(scope);
+    return downloadResponse(response, fallback, onProgress);
+  },
+  downloadTowData: async (format, params = {}, onProgress) => {
+    if (!['csv', 'xls'].includes(format)) throw new Error('Invalid tow export format.');
+    const response = await fetch(`/api/tows/export.${format}?${new URLSearchParams(params)}`, { credentials: 'include' });
+    return downloadResponse(response, format === 'csv' ? 'tow-history.csv' : 'tow-history.xls', onProgress);
   },
   createTow: (tow) => request("/tows", { method: "POST", body: JSON.stringify(tow) }),
   createBulk: (tows) => request("/tows/bulk", { method: "POST", body: JSON.stringify({ tows }) }),

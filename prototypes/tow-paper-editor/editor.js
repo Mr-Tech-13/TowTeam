@@ -289,8 +289,10 @@ if (!connected) { $('save').hidden = false; $('export').hidden = false; }
 if (connected) {
   $('menu').hidden = false;
   const returnView = new URLSearchParams(location.search).get('return');
+  const returnTab = new URLSearchParams(location.search).get('tab');
   const view = ['confirm','workflow','complete'].includes(returnView) ? returnView : 'confirm';
-  $('menu').href = `/?tow=${encodeURIComponent(towId || '')}&view=${view}`;
+  const tab = ['dashboard','setup','history'].includes(returnTab) ? returnTab : 'dashboard';
+  $('menu').href = `/?tow=${encodeURIComponent(towId || '')}&view=${view}&tab=${tab}`;
   $('menu').addEventListener('click', async (event) => {
     event.preventDefault();
     if (!ready || busy && !saving) return;
