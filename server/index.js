@@ -98,7 +98,7 @@ app.use("/api/tows", towRoutes);
 
 if (fs.existsSync(indexHtml)) {
   app.use(express.static(distDir));
-  app.get("*", pageRateLimit, sendIndexHtml);
+  app.get("/{*path}", pageRateLimit, sendIndexHtml);
 } else {
   app.get("/", pageRateLimit, (_req, res) => {
     res.status(503).send("TowTeam API is running. Build the web UI with `npm run build`, then run `npm run start`, or use `npm run dev` and open http://localhost:5173.");

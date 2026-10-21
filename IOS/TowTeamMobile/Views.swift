@@ -707,6 +707,10 @@ struct ChecklistItem: View {
 struct SettingsView: View {
     @EnvironmentObject var session: AppSession
     @State private var showingWorkspaces = false
+    private var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown"
+    }
+
     var body: some View {
         NavigationStack {
             Form {
@@ -732,6 +736,9 @@ struct SettingsView: View {
                 Section {
                     Button("Retry Pending Actions") { Task { await session.flushQueue() } }
                     Button("Sign Out", role: .destructive) { Task { await session.signOut() } }
+                } footer: {
+                    Text("TowTeam \(appVersion)")
+                        .frame(maxWidth: .infinity, alignment: .center)
                 }
             }
             .navigationTitle("Settings")

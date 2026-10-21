@@ -350,7 +350,7 @@
 				INFOPLIST_FILE = TowTeamMobile/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = TowTeam;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 3.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.towteam.mobile;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -375,7 +375,7 @@
 				INFOPLIST_FILE = TowTeamMobile/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = TowTeam;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.business";
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 3.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.towteam.mobile;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -397,7 +397,7 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = TowTeamLiveActivity/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 3.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.towteam.mobile.liveactivity;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -419,7 +419,7 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = TowTeamLiveActivity/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 3.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.towteam.mobile.liveactivity;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";

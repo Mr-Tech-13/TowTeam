@@ -65,7 +65,7 @@ router.post('/', async (req, res) => {
       archive.file(path.join(temporary, `${tow.id}.pdf`), { name });
     }
     writeAudit(req.user, 'tow.paper_export', { entityType: 'tow', details: { ids, scope, format: 'zip' } });
-    res.type('zip').attachment(archiveFilename);
+    res.type('zip').set('Content-Disposition', `attachment; filename="${archiveFilename}"`);
     const sending = pipeline(archive, res);
     await Promise.all([sending, archive.finalize()]);
   } catch (error) {
