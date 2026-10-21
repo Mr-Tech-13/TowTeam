@@ -109,6 +109,7 @@ struct TowListView: View {
     @State private var loadingMore = false
     @State private var page = 1
     @State private var totalPages = 1
+    @State private var airlines: [Airline] = []
     @State private var path: [Tow] = []
 
     var body: some View {
@@ -121,7 +122,9 @@ struct TowListView: View {
                     ScrollView {
                         LazyVStack(spacing: 12) {
                             ForEach(tows) { tow in
-                                NavigationLink(value: tow) { TowRow(tow: tow) }.buttonStyle(.plain)
+                                NavigationLink(value: tow) {
+                                    TowRow(tow: tow, airlineColor: color(for: tow.airline))
+                                }.buttonStyle(.plain)
                             }
                             if page < totalPages {
                                 Button { Task { await loadMore() } } label: {
@@ -154,6 +157,7 @@ struct TowListView: View {
 
     private func load() async {
         loading = true; defer { loading = false }
+        if airlines.isEmpty { airlines = await session.loadAirlines() }
         page = 1
         let result = await session.loadTowPage(status: status, search: search, page: 1)
         tows = result.tows; totalPages = result.totalPages
@@ -167,10 +171,15 @@ struct TowListView: View {
         tows.append(contentsOf: result.tows.filter { !existing.contains($0.id) })
         page = result.page; totalPages = result.totalPages
     }
+    private func color(for airlineCode: String) -> Color {
+        let configured = airlines.first { $0.code.caseInsensitiveCompare(airlineCode) == .orderedSame }?.color
+        return Color(hex: configured) ?? Color(red: 0.58, green: 0.64, blue: 0.72)
+    }
 }
 
 struct TowRow: View {
     let tow: Tow
+    let airlineColor: Color
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -184,7 +193,11 @@ struct TowRow: View {
         }
         .padding(15).frame(maxWidth: .infinity, alignment: .leading)
         .background(TowTheme.surface, in: RoundedRectangle(cornerRadius: 8))
-        .overlay { RoundedRectangle(cornerRadius: 8).stroke(tow.needsReview ? Color.red.opacity(0.8) : TowTheme.border, lineWidth: tow.needsReview ? 2 : 1) }
+        .overlay { RoundedRectangle(cornerRadius: 8).stroke(tow.needsReview ? Color.red.opacity(0.8) : TowTheme.border, lineWidth: tow.needsReview ? 3 : 1) }
+        .overlay(alignment: .top) {
+            airlineColor.frame(height: 6).clipShape(UnevenRoundedRectangle(topLeadingRadius: 7, topTrailingRadius: 7))
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }
 
@@ -678,10 +691,16 @@ struct ChecklistItem: View {
     @Binding var comment: String
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title).font(.subheadline.bold())
+            Text(title)
+                .font(.subheadline.bold())
+                .lineLimit(nil)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
             Picker(title, selection: $answer) { Text("—").tag(""); Text("Yes").tag("yes"); Text("No").tag("no") }.pickerStyle(.segmented)
             TextField("Exception comment", text: $comment, axis: .vertical)
-        }.padding(.vertical, 4)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 4)
     }
 }
 
@@ -836,6 +855,17 @@ private extension String {
     var formattedTowDate: String {
         guard let date = ISO8601DateFormatter().date(from: self) else { return self }
         return date.formatted(date: .abbreviated, time: .shortened)
+    }
+}
+private extension Color {
+    init?(hex value: String?) {
+        guard var value else { return nil }
+        value = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if value.hasPrefix("#") { value.removeFirst() }
+        guard value.count == 6, let rgb = UInt64(value, radix: 16) else { return nil }
+        self.init(red: Double((rgb >> 16) & 0xff) / 255,
+                  green: Double((rgb >> 8) & 0xff) / 255,
+                  blue: Double(rgb & 0xff) / 255)
     }
 }
 private extension Date {

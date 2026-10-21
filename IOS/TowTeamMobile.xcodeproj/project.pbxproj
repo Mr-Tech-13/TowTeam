@@ -11,6 +11,7 @@
 		A10000000000000000000002 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* Models.swift */; };
 		A10000000000000000000003 /* Services.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003 /* Services.swift */; };
 		A10000000000000000000004 /* Views.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000004 /* Views.swift */; };
+		A10000000000000000000005 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006 /* Assets.xcassets */; };
 		B10000000000000000000001 /* TowActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000001 /* TowActivityAttributes.swift */; };
 		B10000000000000000000002 /* LiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000002 /* LiveActivityManager.swift */; };
 		B10000000000000000000003 /* TowTeamLiveActivityBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000003 /* TowTeamLiveActivityBundle.swift */; };
@@ -198,6 +199,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A10000000000000000000005 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -338,6 +340,7 @@
 		A80000000000000000000003 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"TowTeamMobile/Preview Content\"";
@@ -362,6 +365,7 @@
 		A80000000000000000000004 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "\"TowTeamMobile/Preview Content\"";
