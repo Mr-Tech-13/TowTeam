@@ -111,6 +111,7 @@ struct TowListView: View {
     @State private var totalPages = 1
     @State private var airlines: [Airline] = []
     @State private var path: [Tow] = []
+    @State private var loadRevision = 0
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -141,6 +142,12 @@ struct TowListView: View {
             .navigationDestination(for: Tow.self) { tow in TowDetailView(initialTow: tow, onBackToMenu: { path.removeAll() }) }
             .searchable(text: $search, prompt: "Search tows")
             .onSubmit(of: .search) { Task { await load() } }
+            .onChange(of: search) { oldValue, newValue in
+                if !oldValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+                    newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Task { await load() }
+                }
+            }
             .refreshable { await load() }
             .task { await load() }
             .onChange(of: session.pendingCount) { oldValue, newValue in
@@ -156,10 +163,15 @@ struct TowListView: View {
     }
 
     private func load() async {
-        loading = true; defer { loading = false }
+        loadRevision += 1
+        let revision = loadRevision
+        let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
+        loading = true
+        defer { if revision == loadRevision { loading = false } }
         if airlines.isEmpty { airlines = await session.loadAirlines() }
+        let result = await session.loadTowPage(status: status, search: query, page: 1)
+        guard revision == loadRevision else { return }
         page = 1
-        let result = await session.loadTowPage(status: status, search: search, page: 1)
         tows = result.tows; totalPages = result.totalPages
     }
     private func loadMore() async {
