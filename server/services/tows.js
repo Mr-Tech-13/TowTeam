@@ -2,6 +2,7 @@ import { db, nowIso, rowToTow } from "../db/database.js";
 import { syncTowPaperDraftDetails, queueTowPaperBackup } from './towPaperDrafts.js';
 
 const fields = [
+  "clientRequestId",
   "airline",
   "inboundFlightNumber",
   "inboundStation",
@@ -39,7 +40,8 @@ function ensureTowSchemaColumns() {
     ["towPaperCompletedAt", "TEXT"],
     ["deletedAt", "TEXT"],
     ["deletedBy", "TEXT"],
-    ["deleteReason", "TEXT"]
+    ["deleteReason", "TEXT"],
+    ["clientRequestId", "TEXT"]
   ].filter(([name]) => !columns.includes(name));
 
   for (const [name, type] of missingColumns) {
@@ -54,12 +56,12 @@ ensureTowSchemaColumns();
 
 const createTowStatement = db.prepare(
   `INSERT INTO tows (
-    airline, inboundFlightNumber, inboundStation, aircraftType, eta, gate, fromLocation, toLocation, towSpot, tailNumber,
+    clientRequestId, airline, inboundFlightNumber, inboundStation, aircraftType, eta, gate, fromLocation, toLocation, towSpot, tailNumber,
     driver, leftWingWalker, rightWingWalker, otherTeamMembers, notes, status, needsReview, parserWarnings,
     setupStartedAt, goaaCalledAt, goaaArrivalAt, pushStartedAt, towStartedAt, towCompletedAt, towPaperCompletedAt,
     deletedAt, deletedBy, deleteReason
   ) VALUES (
-    @airline, @inboundFlightNumber, @inboundStation, @aircraftType, @eta, @gate, @fromLocation, @toLocation, @towSpot, @tailNumber,
+    @clientRequestId, @airline, @inboundFlightNumber, @inboundStation, @aircraftType, @eta, @gate, @fromLocation, @toLocation, @towSpot, @tailNumber,
     @driver, @leftWingWalker, @rightWingWalker, @otherTeamMembers, @notes, @status, @needsReview, @parserWarnings,
     @setupStartedAt, @goaaCalledAt, @goaaArrivalAt, @pushStartedAt, @towStartedAt, @towCompletedAt, @towPaperCompletedAt,
     @deletedAt, @deletedBy, @deleteReason
@@ -138,7 +140,7 @@ const baseWorkflowOrder = [
 ];
 const automaticMissingDetailWarnings = ["Tow from missing.", "Tow to missing."];
 const manualReviewWarning = "Manually flagged for review.";
-const nullableFields = new Set(["deletedAt", "deletedBy", "deleteReason"]);
+const nullableFields = new Set(["clientRequestId", "deletedAt", "deletedBy", "deleteReason"]);
 export const towPageSizes = [5, 10, 25, 50, 100];
 const searchDateFormat = new Intl.DateTimeFormat('en-US', { month: 'numeric', day: 'numeric', year: '2-digit', timeZone: 'America/New_York' });
 db.function('tow_search_date', { deterministic: true }, (value) => {
@@ -336,7 +338,15 @@ export function getTow(id) {
 }
 
 export function createTow(input) {
-  const tow = completeTowParams(sanitizeTow({ status: "planned", ...input, deletedAt: null, deletedBy: null, deleteReason: null }));
+  const suppliedRequestId = typeof input.clientRequestId === "string" ? input.clientRequestId.trim() : "";
+  const clientRequestId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(suppliedRequestId)
+    ? suppliedRequestId
+    : "";
+  if (clientRequestId) {
+    const existing = rowToTow(db.prepare("SELECT * FROM tows WHERE clientRequestId = ?").get(clientRequestId));
+    if (existing) return existing;
+  }
+  const tow = completeTowParams(sanitizeTow({ status: "planned", ...input, clientRequestId: clientRequestId || null, deletedAt: null, deletedBy: null, deleteReason: null }));
   const result = createTowStatement.run(tow);
   const created = getTow(result.lastInsertRowid);
   queueTowPaperBackup(created);
@@ -358,6 +368,7 @@ export function updateTow(id, input) {
     || (existing.needsReview && existing.parserWarnings.length === 0 && input.needsReview !== false);
   const tow = completeTowParams(sanitizeTow(syncEditedLocations(existing, {
     ...input,
+    clientRequestId: existing.clientRequestId,
     needsReview: manualReview,
     parserWarnings: warnings,
     deletedAt: existing.deletedAt,

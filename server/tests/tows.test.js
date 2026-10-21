@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import "../db/migrate.js";
 
 const {
@@ -38,6 +39,20 @@ test("tow is not completed until paper is complete", () => {
     assert.ok(papered.towPaperCompletedAt);
   } finally {
     deleteTow(tow.id);
+  }
+});
+
+test("mobile retries with the same client request id do not duplicate a tow", () => {
+  const clientRequestId = randomUUID();
+  const input = { clientRequestId, airline: "MX", gate: "Gate 4", towSpot: "NL614" };
+  const first = createTow(input);
+  const retry = createTow(input);
+
+  try {
+    assert.equal(retry.id, first.id);
+    assert.equal(listTows({ status: "active" }).filter((tow) => tow.clientRequestId === clientRequestId).length, 1);
+  } finally {
+    deleteTow(first.id);
   }
 });
 
