@@ -783,6 +783,22 @@ export default function App() {
     setAdminPanel(false);
   }
 
+  function resetAndRefresh() {
+    setActiveSearch("");
+    setHistorySearch("");
+    setHistoryPaging({ search: "", pageSize: historyPageSize, page: 1 });
+    setManualTow(emptyTow);
+    setManualError("");
+    setPasteText("");
+    setCandidates([]);
+    setParseAttempted(false);
+    setImportMeta(null);
+    setImportError("");
+    setPaperDownloadError("");
+    setExportProgress(null);
+    void load();
+  }
+
   async function submitIssue(event) {
     event.preventDefault();
     setIssueStatus("");
@@ -989,7 +1005,7 @@ export default function App() {
               <Users size={20} />
             </button>
           )}
-          <button className="icon-btn" onClick={load} title="Refresh" type="button">
+          <button className="icon-btn" onClick={resetAndRefresh} title="Reset filters and refresh" type="button">
             <RefreshCcw size={20} />
           </button>
           <button className="icon-btn" onClick={logout} title="Log out" type="button">
