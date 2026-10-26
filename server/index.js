@@ -97,7 +97,14 @@ app.use("/api/users", userRoutes);
 app.use("/api/tows", towRoutes);
 
 if (fs.existsSync(indexHtml)) {
-  app.use(express.static(distDir));
+  app.use(express.static(distDir, {
+    index: false,
+    setHeaders(res, filePath) {
+      if (path.dirname(filePath) === path.join(distDir, "assets")) {
+        res.set("Cache-Control", "public, max-age=31536000, immutable");
+      }
+    }
+  }));
   app.get("/{*path}", pageRateLimit, sendIndexHtml);
 } else {
   app.get("/", pageRateLimit, (_req, res) => {
