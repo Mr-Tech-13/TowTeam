@@ -1,6 +1,6 @@
 {
   "name": "towteam",
-  "version": "3.1.1",
+  "version": "3.1.2",
   "description": "Self-hostable aircraft tow planning, tracking, and history app.",
   "private": true,
   "type": "module",
