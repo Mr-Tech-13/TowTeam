@@ -16,7 +16,7 @@
     "db:seed": "node seed/seed.js"
   },
   "dependencies": {
-    "@vitejs/plugin-react": "^6.0.5",
+    "@vitejs/plugin-react": "^6.1.2",
     "archiver": "8.0.0",
     "better-sqlite3": "^13.0.3",
     "concurrently": "^10.0.6",
