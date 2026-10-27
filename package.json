@@ -36,7 +36,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "eslint": "^10.10.0",
-    "globals": "^17.8.0"
+    "globals": "^17.13.0"
   },
   "overrides": {
     "qs": "6.16.0",
