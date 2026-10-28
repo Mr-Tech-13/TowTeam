@@ -1092,7 +1092,17 @@ pre {
 }
 
 @media (max-width: 520px) {
-  .topbar { flex-wrap: wrap; }
+  .topbar {
+    flex-wrap: nowrap;
+    gap: 8px;
+    padding: 8px 2px 10px;
+  }
+  .topbar > div:first-child { gap: 8px; min-width: 0; }
+  .topbar h1 { font-size: 1.25rem; }
+  .topbar .brand-dot { width: 13px; height: 13px; }
+  .top-actions { margin-left: auto; gap: 6px; }
+  .top-actions .user-pill { display: none; }
+  .top-actions .icon-btn { width: 44px; min-height: 44px; }
   .airline-create { grid-template-columns: 90px minmax(0, 1fr); }
   .airline-row { grid-template-columns: 46px minmax(0, 1fr) 46px 46px; gap: 6px; }
   .airline-row > strong { grid-column: 1 / -1; }
