@@ -10,6 +10,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { requireAuth } from "./middleware/auth.js";
 import { router as airlineRoutes } from "./routes/airlines.js";
+import { router as announcementRoutes } from "./routes/announcements.js";
 import { router as settingsRoutes } from "./routes/settings.js";
 import { router as paperEditorRoutes } from "./routes/paperEditor.js";
 import { router as auditRoutes } from "./routes/audit.js";
@@ -67,7 +68,13 @@ if (!paperAssets) console.warn('Tow paper template is missing. Place it at data/
 else console.log(`Private tow paper assets ${paperAssets}.`);
 startPaperBackupWorker();
 
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      imgSrc: ["'self'", 'data:', 'https:', 'http:']
+    }
+  }
+}));
 app.use(cors({
   origin(origin, callback) {
     if (!origin) {
@@ -87,6 +94,7 @@ app.use(requireAuth);
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 app.get('/favicon.png', serveFavicon);
 app.use("/api/paper-editor", paperEditorRoutes);
+app.use("/api/announcements", announcementRoutes);
 app.use("/api/airlines", airlineRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/audit", auditRoutes);

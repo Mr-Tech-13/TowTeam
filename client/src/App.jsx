@@ -212,7 +212,7 @@ function saveDownload(blob, filename) {
   window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
-function AdminUsersPage({ currentUser, onBack, airlines, onAirlinesChange, settings, onSettingsChange }) {
+function AdminUsersPage({ currentUser, onBack, airlines, onAirlinesChange, settings, onSettingsChange, onAnnouncementCreated }) {
   const [adminView, setAdminView] = useState("users");
   const [users, setUsers] = useState([]);
   const [issues, setIssues] = useState([]);
@@ -446,7 +446,7 @@ function AdminUsersPage({ currentUser, onBack, airlines, onAirlinesChange, setti
           ))}
         </div>
         {adminView === "airlines" && <AirlineSettings airlines={airlines} onChange={onAirlinesChange} />}
-        {adminView === "settings" && <AppSettings settings={settings} onChange={onSettingsChange} />}
+        {adminView === "settings" && <AppSettings settings={settings} onChange={onSettingsChange} onAnnouncementCreated={onAnnouncementCreated} />}
         {adminView === "users" && (
           <>
             <form className="user-create" onSubmit={createUser}>
@@ -637,6 +637,8 @@ export default function App() {
   const [copyStatus, setCopyStatus] = useState("");
   const [pendingStepCount, setPendingStepCount] = useState(pendingWorkflowStepCount());
   const [workflowSyncStatus, setWorkflowSyncStatus] = useState("");
+  const [pendingAnnouncements, setPendingAnnouncements] = useState([]);
+  const [announcementError, setAnnouncementError] = useState("");
   const activeSearchQuery = useDebouncedSearch(activeSearch);
   const historySearchQuery = useDebouncedSearch(historySearch);
   const historyPage = historyPaging.search === historySearchQuery && historyPaging.pageSize === historyPageSize ? historyPaging.page : 1;
@@ -706,6 +708,37 @@ export default function App() {
     const interval = window.setInterval(refreshSettings, 15000);
     return () => { cancelled = true; window.clearInterval(interval); window.removeEventListener('focus', refreshSettings); };
   }, [user, adminPanel]);
+
+  async function loadPendingAnnouncements() {
+    if (!user) return;
+    try {
+      setPendingAnnouncements(await api.listPendingAnnouncements());
+      setAnnouncementError('');
+    } catch (err) {
+      setAnnouncementError(err.message);
+    }
+  }
+
+  useEffect(() => {
+    if (!user) { setPendingAnnouncements([]); return undefined; }
+    void loadPendingAnnouncements();
+    const refresh = () => void loadPendingAnnouncements();
+    window.addEventListener('focus', refresh);
+    const interval = window.setInterval(refresh, 60_000);
+    return () => { window.removeEventListener('focus', refresh); window.clearInterval(interval); };
+  }, [user]);
+
+  async function acknowledgeCurrentAnnouncement() {
+    const current = pendingAnnouncements[0];
+    if (!current) return;
+    try {
+      await api.acknowledgeAnnouncement(current.id);
+      setPendingAnnouncements((items) => items.filter((item) => item.id !== current.id));
+      setAnnouncementError('');
+    } catch (err) {
+      setAnnouncementError(err.message);
+    }
+  }
 
   useEffect(() => {
     if (settings?.bulkImportEnabled) return;
@@ -824,6 +857,18 @@ export default function App() {
       openTab("dashboard");
       await load();
     } catch (err) { setManualError(err.message); }
+  }
+
+  function startTowBack(tow) {
+    setManualTow({
+      ...emptyTow,
+      airline: tow.airline || "",
+      aircraftType: tow.aircraftType || "",
+      gate: tow.towSpot || "",
+      tailNumber: tow.tailNumber || ""
+    });
+    setManualError("");
+    openTab("setup");
   }
 
   async function parseImport() {
@@ -1032,7 +1077,7 @@ export default function App() {
       )}
 
       {adminPanel ? (
-        <AdminUsersPage currentUser={user} onBack={() => setAdminPanel(false)} airlines={airlines} onAirlinesChange={setAirlines} settings={settings} onSettingsChange={setSettings} />
+        <AdminUsersPage currentUser={user} onBack={() => setAdminPanel(false)} airlines={airlines} onAirlinesChange={setAirlines} settings={settings} onSettingsChange={setSettings} onAnnouncementCreated={loadPendingAnnouncements} />
       ) : (
       <main>
         {activeTow && towPage === "confirm" && (
@@ -1259,7 +1304,7 @@ export default function App() {
               </div>
             )}
             <div className="tow-grid">
-              {tows.map((tow) => <TowCard key={tow.id} tow={tow} onOpen={openTow} airlines={airlines} />)}
+              {tows.map((tow) => <TowCard key={tow.id} tow={tow} onOpen={openTow} onTowBack={startTowBack} airlines={airlines} />)}
             </div>
             {!loading && tows.length === 0 && <p className="muted empty-state">No completed tows match that search.</p>}
             <div className="history-pagination">
@@ -1318,6 +1363,19 @@ export default function App() {
             {issueStatus && <p className="muted">{issueStatus}</p>}
             <button className="btn green wide" type="submit">Submit Issue</button>
           </form>
+        </div>
+      )}
+      {pendingAnnouncements[0] && (
+        <div className="modal-backdrop announcement-backdrop">
+          <section aria-describedby="global-announcement-message" aria-labelledby="global-announcement-title" aria-modal="true" className={`modal announcement-modal kind-${pendingAnnouncements[0].kind}`} role="alertdialog">
+            <span className="announcement-kind">{pendingAnnouncements[0].kind}</span>
+            <h2 id="global-announcement-title">{pendingAnnouncements[0].title}</h2>
+            <p id="global-announcement-message">{pendingAnnouncements[0].message}</p>
+            {pendingAnnouncements[0].imageUrl && <img alt="" className="announcement-image" src={pendingAnnouncements[0].imageUrl} />}
+            {pendingAnnouncements.length > 1 && <span className="muted">{pendingAnnouncements.length - 1} more message{pendingAnnouncements.length === 2 ? '' : 's'} waiting</span>}
+            {announcementError && <div className="notice error" role="alert">{announcementError}</div>}
+            <button className="btn green wide" onClick={() => void acknowledgeCurrentAnnouncement()} type="button">Continue</button>
+          </section>
         </div>
       )}
       {deleteDialogOpen && activeTow && (

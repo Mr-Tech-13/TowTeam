@@ -53,3 +53,5 @@ handoff.md
 /IOS/**/xcuserdata/
 *.xcuserstate
 server/tests/mobileAuth.test.js
+IOS/TowTeamMobile/Assets.xcassets/AppIcon.appiconset/*.png
+IOS/TowTeamMobile/Assets.xcassets/favicon.imageset/
