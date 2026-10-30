@@ -60,13 +60,26 @@ remote plain-HTTP access is not a supported login setup. Restrict direct access 
 the backend port as appropriate for your proxy/network.
 
 The default Compose file uses `node:24-bookworm-slim`, mounts the checkout, and keeps
-Node dependencies in a named volume. On container startup it installs dependencies,
+Node dependencies in a named volume. On container startup it runs `npm ci`,
 builds the frontend, and starts Express. It does **not** use the repository's
 Dockerfile or build a custom image, and startup needs package-download access.
 
 ### Updating
 
-Back up the database and private files first, then run:
+The protected local administrator can use **Administration > Backup > TowTeam
+Updates** to check the configured Git upstream and install an available update.
+The updater accepts clean fast-forward updates only. After pulling, TowTeam exits;
+Compose's `restart: unless-stopped` policy starts it again, runs `npm ci`, rebuilds
+the frontend, and applies database migrations during startup. A point-in-time SQLite
+backup is created before the pull. Keep the page open and it will reload after the
+service returns.
+
+This web updater is enabled by `APP_UPDATE_ENABLED=true` in the default Compose
+configuration. It is disabled by default for direct `npm run start` installations,
+which may not have a process supervisor to restart the service. The container must
+be able to reach its configured Git remote.
+
+For a manual update, back up the database and private files first, then run:
 
 ```bash
 git pull

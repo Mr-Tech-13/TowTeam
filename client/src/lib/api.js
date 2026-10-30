@@ -88,6 +88,8 @@ export const api = {
   listDeletedTows: () => request("/tows?deleted=true"),
   restoreTow: (id) => request(`/tows/${id}/restore`, { method: "POST" }),
   permanentlyDeleteTow: (id) => request(`/tows/${id}/permanent`, { method: "DELETE" }),
+  checkForUpdates: () => request("/maintenance/updates"),
+  installUpdate: () => request("/maintenance/updates/install", { method: "POST", body: "{}" }),
   restoreDatabase: async (file) => {
     const buffer = await file.arrayBuffer();
     return request("/maintenance/restore.sqlite", {

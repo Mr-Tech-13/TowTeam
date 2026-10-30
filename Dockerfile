@@ -1,12 +1,12 @@
 FROM node:24-bookworm-slim AS build
 WORKDIR /app
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends build-essential python3 python3-pip poppler-utils \
+  && apt-get install -y --no-install-recommends build-essential git python3 python3-pip poppler-utils \
   && rm -rf /var/lib/apt/lists/*
 COPY package*.json ./
 COPY requirements.txt ./
 RUN python3 -m pip install --break-system-packages -r requirements.txt
-RUN npm install
+RUN npm ci
 COPY . .
 RUN npm run build
 
@@ -14,12 +14,12 @@ FROM node:24-bookworm-slim
 WORKDIR /app
 ENV NODE_ENV=production
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends build-essential python3 python3-pip poppler-utils \
+  && apt-get install -y --no-install-recommends build-essential git python3 python3-pip poppler-utils \
   && rm -rf /var/lib/apt/lists/*
 COPY package*.json ./
 COPY requirements.txt ./
 RUN python3 -m pip install --break-system-packages -r requirements.txt
-RUN npm install --omit=dev
+RUN npm ci --omit=dev
 COPY --from=build /app/dist ./dist
 COPY server ./server
 COPY shared ./shared

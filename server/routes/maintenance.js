@@ -2,10 +2,32 @@ import express from "express";
 import { requireAutofillManager } from "../middleware/auth.js";
 import { writeAudit } from "../services/audit.js";
 import { activatePreparedRestore, backupFilename, createDatabaseBackup, createPortableExport, importPortableExport, prepareDatabaseRestore } from "../services/maintenance.js";
+import { checkForUpdates, installUpdate, restartForUpdate } from "../services/updates.js";
 
 export const router = express.Router();
 
 router.use(requireAutofillManager);
+
+router.get("/updates", async (_req, res) => {
+  try {
+    res.json(await checkForUpdates());
+  } catch (error) {
+    res.status(500).json({ error: error.message || "Unable to check for updates." });
+  }
+});
+
+router.post("/updates/install", async (req, res) => {
+  try {
+    const status = await checkForUpdates();
+    const preUpdateBackup = status.canUpdate ? backupFilename(await createDatabaseBackup("pre-update")) : null;
+    const result = { ...await installUpdate(), preUpdateBackup };
+    writeAudit(req.user, "maintenance.update", { entityType: "application", details: result });
+    if (result.restartRequired) res.once("finish", restartForUpdate);
+    res.json(result);
+  } catch (error) {
+    res.status(409).json({ error: error.message || "Unable to install the update." });
+  }
+});
 
 router.get("/backup.sqlite", async (req, res) => {
   try {

@@ -229,6 +229,9 @@ function AdminUsersPage({ currentUser, onBack, airlines, onAirlinesChange, setti
   const [portableStatus, setPortableStatus] = useState("");
   const [portableBusy, setPortableBusy] = useState(false);
   const [portableProgress, setPortableProgress] = useState(null);
+  const [updateStatus, setUpdateStatus] = useState(null);
+  const [updateMessage, setUpdateMessage] = useState("");
+  const [updateBusy, setUpdateBusy] = useState(false);
   const [error, setError] = useState("");
 
   async function loadUsers() {
@@ -428,6 +431,58 @@ function AdminUsersPage({ currentUser, onBack, airlines, onAirlinesChange, setti
     }
   }
 
+  async function checkForUpdates() {
+    setUpdateBusy(true);
+    setUpdateMessage("Checking GitHub for updates...");
+    try {
+      const status = await api.checkForUpdates();
+      setUpdateStatus(status);
+      setUpdateMessage(status.message);
+    } catch (err) {
+      setUpdateMessage(err.message);
+    } finally {
+      setUpdateBusy(false);
+    }
+  }
+
+  async function waitForRestart() {
+    await new Promise((resolve) => window.setTimeout(resolve, 2_000));
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      try {
+        const response = await fetch(`/api/health?update=${Date.now()}`, { cache: "no-store" });
+        if (response.ok) {
+          window.location.reload();
+          return;
+        }
+      } catch {
+        // The server is expected to be unavailable while Compose restarts it.
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 2_000));
+    }
+    setUpdateBusy(false);
+    setUpdateMessage("TowTeam has not returned yet. Check the container logs, then refresh this page.");
+  }
+
+  async function installUpdate() {
+    if (!window.confirm("Install the available TowTeam update now? The service will restart and may be unavailable for a few minutes.")) return;
+    setUpdateBusy(true);
+    setUpdateMessage("Installing update. Keep this page open while TowTeam restarts...");
+    try {
+      const result = await api.installUpdate();
+      if (!result.restartRequired) {
+        setUpdateStatus(result.status || null);
+        setUpdateMessage(result.status?.message || "TowTeam is already up to date.");
+        setUpdateBusy(false);
+        return;
+      }
+      setUpdateMessage(`Update installed. Backup ${result.preUpdateBackup} created. Waiting for TowTeam to restart...`);
+      void waitForRestart();
+    } catch (err) {
+      setUpdateMessage(err.message);
+      setUpdateBusy(false);
+    }
+  }
+
   return (
     <main>
       <section className="page-panel">
@@ -535,6 +590,28 @@ function AdminUsersPage({ currentUser, onBack, airlines, onAirlinesChange, setti
         )}
         {adminView === "backup" && currentUser.canManageAutofill && (
           <div className="admin-list">
+            <article className="admin-row">
+              <div>
+                <strong>TowTeam Updates</strong>
+                <span>Current version {version}. Checks the configured Git upstream and installs fast-forward updates only.</span>
+                {updateStatus?.enabled && (
+                  <p className="muted">
+                    {updateStatus.branch} from {updateStatus.upstream}
+                    {updateStatus.remoteVersion ? ` · Available version ${updateStatus.remoteVersion}` : ""}
+                    {updateStatus.latestCommit ? ` · ${updateStatus.latestCommit}` : ""}
+                  </p>
+                )}
+                {updateMessage && <p className={updateStatus?.dirty || updateStatus?.ahead > 0 ? "warning-text" : "muted"}>{updateMessage}</p>}
+              </div>
+              <div className="portable-actions">
+                <button className="btn blue" disabled={updateBusy} onClick={() => void checkForUpdates()} type="button">
+                  <RefreshCcw size={18} /> Check for Updates
+                </button>
+                <button className="btn green" disabled={updateBusy || !updateStatus?.canUpdate} onClick={() => void installUpdate()} type="button">
+                  <Download size={18} /> Update Now
+                </button>
+              </div>
+            </article>
             <PaperBackupSettings />
             <article className="admin-row portable-transfer">
               <div>

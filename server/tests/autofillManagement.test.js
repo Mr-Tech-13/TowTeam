@@ -37,6 +37,8 @@ test('only the local administrator can manage autofill, regardless of username',
     assert.equal((await req(`/api/users/${owner.id}`,ownerToken,'PUT',{role:'user'})).status,400);
     assert.equal((await req('/api/maintenance/backup.sqlite',adminToken)).status,403);
     assert.equal((await req('/api/maintenance/restore.sqlite',adminToken,'POST',{})).status,403);
+    assert.equal((await req('/api/maintenance/updates',adminToken)).status,403);
+    assert.equal((await req('/api/maintenance/updates',ownerToken)).status,200);
     const allowed=await req(`/api/users/${member.id}`,adminToken,'PUT',{role:'user'});assert.equal(allowed.status,200);assert.equal(Object.hasOwn(await allowed.json(),'autofill'),false);
     assert.equal((await req(`/api/users/${member.id}`,ownerToken,'PUT',{autofill:false})).status,200);
     assert.equal((await req('/api/audit',adminToken)).status,403);
