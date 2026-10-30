@@ -2,7 +2,7 @@
 
 TowTeam is a self-hosted aircraft tow planning, workflow tracking, and history app.
 It uses React/Vite, Express, and SQLite, with a mobile-friendly dark interface.
-The current version is **3.1.0**. The on-screen version is read from
+The current version is **3.1.4**. The on-screen version is read from
 `package-lock.json` when the frontend is built.
 
 ## Features
