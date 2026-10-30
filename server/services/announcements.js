@@ -60,8 +60,8 @@ export function listPendingAnnouncements(userId) {
     LEFT JOIN users ON users.id = announcements.createdBy
     LEFT JOIN announcementAcknowledgements acknowledgements
       ON acknowledgements.announcementId = announcements.id AND acknowledgements.userId = ?
-    WHERE acknowledgements.announcementId IS NULL
-    ORDER BY announcements.id ASC
+    WHERE announcements.id = (SELECT MAX(id) FROM globalAnnouncements)
+      AND acknowledgements.announcementId IS NULL
   `).all(userId);
 }
 
