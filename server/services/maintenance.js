@@ -5,6 +5,9 @@ import path from "node:path";
 import { db, dbPath, nowIso } from "../db/database.js";
 
 const backupDir = path.join(path.dirname(dbPath), "backups");
+const managedBackupLabels = new Set(["pre-update", "pre-import"]);
+const backupRetentionDays = Math.max(1, Number(process.env.DATABASE_BACKUP_RETENTION_DAYS) || 30);
+const minimumManagedBackups = Math.max(1, Number(process.env.DATABASE_BACKUP_MINIMUM) || 5);
 export const portableCategories = ["tows", "airlines", "settings", "users", "issues", "audit"];
 
 const categoryTables = {
@@ -43,7 +46,37 @@ export async function createDatabaseBackup(label = "manual") {
   const safeLabel = String(label || "manual").replace(/[^a-z0-9-]+/gi, "_");
   const backupPath = path.join(backupDir, `towteam-${safeLabel}-${timestampSlug()}.sqlite`);
   await db.backup(backupPath);
+  if (managedBackupLabels.has(safeLabel)) {
+    cleanupDatabaseBackups({ label: safeLabel });
+  }
   return backupPath;
+}
+
+export function cleanupDatabaseBackups({
+  label,
+  directory = backupDir,
+  now = Date.now(),
+  retentionDays = backupRetentionDays,
+  minimum = minimumManagedBackups
+} = {}) {
+  const safeLabel = String(label || "").replace(/[^a-z0-9-]+/gi, "_");
+  if (!managedBackupLabels.has(safeLabel) || !fs.existsSync(directory)) return { deleted: 0 };
+  const prefix = `towteam-${safeLabel}-`;
+  const files = fs.readdirSync(directory)
+    .filter((name) => name.startsWith(prefix) && name.endsWith(".sqlite"))
+    .map((name) => {
+      const filePath = path.join(directory, name);
+      return { filePath, mtimeMs: fs.statSync(filePath).mtimeMs };
+    })
+    .sort((left, right) => right.mtimeMs - left.mtimeMs);
+  const cutoff = now - Math.max(1, Number(retentionDays) || 30) * 24 * 60 * 60 * 1000;
+  let deleted = 0;
+  for (const file of files.slice(Math.max(1, Number(minimum) || 5))) {
+    if (file.mtimeMs >= cutoff) continue;
+    fs.unlinkSync(file.filePath);
+    deleted += 1;
+  }
+  return { deleted };
 }
 
 export function backupFilename(filePath) {

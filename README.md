@@ -165,6 +165,8 @@ three sample tows every time it runs. Use it only for a disposable/demo database
 | `PDF_PYTHON_BIN` | `python3` | Python interpreter for PDF preparation/export. |
 | `PAPER_BACKUP_ENABLED` | `false` | Enable completed-paper folder backups. |
 | `PAPER_BACKUP_PATH` | `./data/paper-backups` in the example | Destination folder, created automatically if needed. |
+| `DATABASE_BACKUP_RETENTION_DAYS` | `30` | Maximum age for excess automatic pre-update and pre-import backups. |
+| `DATABASE_BACKUP_MINIMUM` | `5` | Minimum number retained for each managed automatic backup type. |
 
 Rate limits are configurable through the corresponding `*_RATE_LIMIT_WINDOW_MS`
 and `*_RATE_LIMIT_MAX` settings. Defaults are 300 API requests/minute, 20 login
@@ -292,6 +294,11 @@ beside the database. It includes tows, paper drafts, users/permissions, sessions
 airlines/aircraft types/colors, settings, issues, audit records, and migrations.
 It does **not** include the PDF template, generated assets, uploaded favicon,
 application code, or `.env`. Back up those private files separately.
+
+Automatic `pre-update` and `pre-import` snapshots are retained for 30 days while
+always keeping at least the newest five of each type. Configure this with
+`DATABASE_BACKUP_RETENTION_DAYS` and `DATABASE_BACKUP_MINIMUM`. Downloaded backups
+and `pre-restore` recovery snapshots are never removed automatically.
 
 Restore accepts a TowTeam SQLite backup up to 200 MB, checks required tables, creates
 a pre-restore backup, replaces the database, and exits the process. Compose's
