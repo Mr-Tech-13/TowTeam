@@ -41,7 +41,7 @@ export function getAnnouncement(id) {
 }
 
 export function listAnnouncements() {
-  return db.prepare(`
+  const announcements = db.prepare(`
     SELECT announcements.*, users.username AS createdByUsername,
       (SELECT COUNT(*) FROM announcementAcknowledgements acknowledgements
        WHERE acknowledgements.announcementId = announcements.id) AS acknowledgementCount,
@@ -51,6 +51,26 @@ export function listAnnouncements() {
     ORDER BY announcements.id DESC
     LIMIT 50
   `).all();
+  const seenRecords = db.prepare(`
+    SELECT acknowledgements.announcementId, acknowledgements.acknowledgedAt AS seenAt,
+      users.id AS userId, users.username
+    FROM announcementAcknowledgements acknowledgements
+    JOIN users ON users.id = acknowledgements.userId
+    WHERE acknowledgements.announcementId IN (
+      SELECT id FROM globalAnnouncements ORDER BY id DESC LIMIT 50
+    )
+    ORDER BY acknowledgements.acknowledgedAt DESC, users.username COLLATE NOCASE
+  `).all();
+  const seenByAnnouncement = new Map();
+  for (const record of seenRecords) {
+    const records = seenByAnnouncement.get(record.announcementId) || [];
+    records.push({ userId: record.userId, username: record.username, seenAt: record.seenAt });
+    seenByAnnouncement.set(record.announcementId, records);
+  }
+  return announcements.map((announcement) => ({
+    ...announcement,
+    seenBy: seenByAnnouncement.get(announcement.id) || []
+  }));
 }
 
 export function listPendingAnnouncements(userId) {

@@ -204,6 +204,12 @@ main {
 .announcement-history article > div > strong { flex: 1; }
 .announcement-delete { width: 40px; min-height: 40px; color: #fecaca; }
 .announcement-history p { margin: 8px 0; white-space: pre-wrap; }
+.announcement-seen { margin-top: 10px; color: #cbd5e1; }
+.announcement-seen summary { width: fit-content; cursor: pointer; font-weight: 700; }
+.announcement-seen ul { display: grid; gap: 7px; margin: 9px 0 0; padding: 0; list-style: none; }
+.announcement-seen li { display: flex; justify-content: space-between; gap: 12px; }
+.announcement-seen time { color: #94a3b8; font-size: 0.85rem; text-align: right; }
+.announcement-seen > p { margin-bottom: 0; }
 .announcement-kind {
   display: inline-flex;
   width: fit-content;

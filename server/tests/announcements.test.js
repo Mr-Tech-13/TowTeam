@@ -53,7 +53,10 @@ test('global messages require settings access and are acknowledged once per user
     assert.equal((await (await request('/pending', tokens[3])).json()).some((item) => item.id === latest.id), true);
 
     const listed = await (await request('', tokens[0])).json();
-    assert.equal(listed.find((item) => item.id === latest.id).acknowledgementCount, 1);
+    const listedLatest = listed.find((item) => item.id === latest.id);
+    assert.equal(listedLatest.acknowledgementCount, 1);
+    assert.deepEqual(listedLatest.seenBy.map((viewer) => viewer.username), [firstUser.username]);
+    assert.match(listedLatest.seenBy[0].seenAt, /^\d{4}-\d{2}-\d{2}/);
     assert.ok(db.prepare("SELECT id FROM auditLogs WHERE action = 'announcement.create' AND entityId = ?").get(String(latest.id)));
     assert.equal((await request(`/${latest.id}`, tokens[1], 'DELETE')).status, 403);
     assert.equal((await request(`/${latest.id}`, tokens[0], 'DELETE')).status, 204);

@@ -24,7 +24,7 @@ export function AppSettings({ settings, onChange, onAnnouncementCreated }) {
       const created = await api.createAnnouncement(announcement);
       setAnnouncements((current) => [{ ...created, userCount: null }, ...current]);
       setAnnouncement({ title: '', message: '', imageUrl: '', kind: 'change' });
-      setAnnouncementStatus('Global message sent. Each user will see it until they acknowledge it.');
+      setAnnouncementStatus('Global message sent. Each user will see it until they mark it as seen.');
       onAnnouncementCreated?.();
     } catch (err) { setError(err.message); }
     finally { setBusy(false); }
@@ -52,7 +52,7 @@ export function AppSettings({ settings, onChange, onAnnouncementCreated }) {
   }
 
   async function removeAnnouncement(item) {
-    if (!window.confirm(`Delete global message "${item.title}"? Users who have not acknowledged it will no longer see it.`)) return;
+    if (!window.confirm(`Delete global message "${item.title}"? Users who have not marked it as seen will no longer see it.`)) return;
     setBusy(true); setError(''); setAnnouncementStatus('');
     try {
       await api.deleteAnnouncement(item.id);
@@ -110,7 +110,7 @@ export function AppSettings({ settings, onChange, onAnnouncementCreated }) {
       </label>
       <div className="favicon-setting announcement-settings">
         <h3>Global Message</h3>
-        <p className="muted">Send a one-time message that every user must acknowledge.</p>
+        <p className="muted">Send a one-time message that every user must mark as seen.</p>
         <form className="announcement-form" onSubmit={sendAnnouncement}>
           <label>
             <span>Type</span>
@@ -148,7 +148,15 @@ export function AppSettings({ settings, onChange, onAnnouncementCreated }) {
             </div>
             <p>{item.message}</p>
             {item.imageUrl && <a href={item.imageUrl} rel="noreferrer" target="_blank">View attached image</a>}
-            <span className="muted">{item.acknowledgementCount || 0}{item.userCount === null ? '' : ` of ${item.userCount}`} acknowledged</span>
+            <details className="announcement-seen">
+              <summary>{item.acknowledgementCount || 0}{item.userCount === null ? '' : ` of ${item.userCount}`} seen</summary>
+              {item.seenBy?.length > 0
+                ? <ul>{item.seenBy.map((viewer) => <li key={viewer.userId}>
+                    <strong>{viewer.username}</strong>
+                    <time dateTime={viewer.seenAt}>{new Date(viewer.seenAt).toLocaleString()}</time>
+                  </li>)}</ul>
+                : <p className="muted">No users have marked this message as seen.</p>}
+            </details>
           </article>)}
         </div>}
       </div>
