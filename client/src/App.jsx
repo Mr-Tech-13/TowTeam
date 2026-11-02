@@ -1358,7 +1358,7 @@ export default function App() {
             <div className="section-head">
               <h2>Tow History Database</h2>
               <div className="export-actions">
-                <button className="btn teal" type="button" disabled={paperDownloadDisabled} onClick={() => void downloadVisiblePapers()}><Download size={18} />{paperDownloadBusy ? 'Preparing...' : tows.length > 1 ? 'Download ZIP' : 'Download PDF'}</button>
+                <button className="btn teal" type="button" disabled={paperDownloadDisabled} onClick={() => void downloadVisiblePapers()}><Download size={18} />{paperDownloadBusy ? 'Preparing...' : 'PDF'}</button>
                 <button className="btn blue" disabled={loading || paperDownloadBusy} onClick={() => void downloadHistoryData('csv')} type="button"><Download size={18} />CSV</button>
                 <button className="btn green" disabled={loading || paperDownloadBusy} onClick={() => void downloadHistoryData('xls')} type="button"><Download size={18} />Excel</button>
               </div>
