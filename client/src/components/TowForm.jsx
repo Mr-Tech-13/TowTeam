@@ -36,7 +36,7 @@ export function TowForm({ value, onChange, compact = false, manual = false, airl
           <span>{translate(language, ({ airline: 'airline', inboundFlightNumber: 'flight', aircraftType: 'aircraftType', eta: 'eta', gate: 'towFrom', towSpot: 'towTo', tailNumber: 'aircraftReg', driver: 'driver', headsetOperator: 'headset', leftWingWalker: 'leftWalker', rightWingWalker: 'rightWalker', otherTeamMembers: 'otherTeam' })[field]) || label}</span>
           {field === 'airline' ? (
             <select value={value.airline || ''} onChange={(event) => update(field, event.target.value)}>
-              <option value="">Select airline</option>
+              <option value="">{translate(language, 'selectAirline')}</option>
               {value.airline && !airlines.some((airline) => airline.code === value.airline) && (
                 <option value={value.airline}>{value.airline}</option>
               )}
@@ -44,7 +44,7 @@ export function TowForm({ value, onChange, compact = false, manual = false, airl
             </select>
           ) : field === 'aircraftType' ? (
             <select value={value.aircraftType || ''} onChange={(event) => update(field, event.target.value)}>
-              <option value="">Select aircraft type</option>
+              <option value="">{translate(language, 'selectAircraftType')}</option>
               {value.aircraftType && !aircraftTypes.includes(value.aircraftType) && <option value={value.aircraftType}>{value.aircraftType}</option>}
               {aircraftTypes.map((type) => <option key={type} value={type}>{type}</option>)}
             </select>

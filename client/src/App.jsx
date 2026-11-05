@@ -1180,7 +1180,7 @@ export default function App() {
             <summary aria-label={`${t('theme')} / ${t('language')}`} title={`${t('theme')} / ${t('language')}`}>Aa</summary>
             <div>
               <label><span>{t('theme')}</span><select value={preferences.theme} onChange={(event) => void changePreference({ theme: event.target.value })}><option value="system">{t('system')}</option><option value="dark">{t('dark')}</option><option value="light">{t('light')}</option><option value="contrast">{t('contrast')}</option></select></label>
-              <label><span>{t('language')}</span><select value={preferences.language} onChange={(event) => void changePreference({ language: event.target.value })}><option value="default">Station default</option><option value="en">English</option><option value="es">Español</option></select></label>
+              <label><span>{t('language')}</span><select value={preferences.language} onChange={(event) => void changePreference({ language: event.target.value })}><option value="default">{t('stationDefault')}</option><option value="en">English</option><option value="es">Español</option></select></label>
             </div>
           </details>
           {user.role === "admin" && (
@@ -1222,31 +1222,31 @@ export default function App() {
           <section className="page-panel">
             <div className="section-head">
               <div>
-                <h2>Confirm Tow Details</h2>
+                <h2>{t('confirmTowDetails')}</h2>
                 <p className="muted">
                   {activeTow.airline}
                   {activeTow.inboundFlightNumber}
                 </p>
               </div>
               <button className="btn ghost" onClick={() => void returnToMenu()}>
-                <ArrowLeft size={18} /> Menu
+                <ArrowLeft size={18} /> {t('menu')}
               </button>
             </div>
             {activeTow.parserWarnings?.length > 0 && <div className="notice warn">{activeTow.parserWarnings.join(" ")}</div>}
             <TowForm value={activeTow} onChange={setActiveTow} airlines={airlines} language={language} />
             <div className="page-actions">
               <button className="btn green" onClick={saveDetailsAndContinue}>
-                <Save size={18} /> Save and Continue
+                <Save size={18} /> {t('saveContinue')}
               </button>
               <a className="btn blue" href={towChecklistUrl(activeTow.id)}>
-                <Download size={18} /> Checklist PDF
+                <Download size={18} /> {t('checklistPdf')}
               </a>
-              <a className="btn teal" href={`/api/paper-editor/?tow=${activeTow.id}&return=confirm&tab=${towOriginTab}`}><Clipboard size={18} /> Edit Tow Paper</a>
+              <a className="btn teal" href={`/api/paper-editor/?tow=${activeTow.id}&return=confirm&tab=${towOriginTab}`}><Clipboard size={18} /> {t('editTowPaper')}</a>
               <a className="btn ghost" href={towChecklistPreviewUrl(activeTow.id)} rel="noreferrer" target="_blank">
-                <Eye size={18} /> Preview PDF
+                <Eye size={18} /> {t('previewPdf')}
               </a>
               <button className="btn red" onClick={requestDeleteActiveTow}>
-                <Trash2 size={18} /> Delete
+                <Trash2 size={18} /> {t('delete')}
               </button>
             </div>
           </section>
@@ -1258,52 +1258,52 @@ export default function App() {
               <div>
                 <h2>
                   {activeTow.airline}
-                  {activeTow.inboundFlightNumber} Workflow
+                  {activeTow.inboundFlightNumber} {t('workflow')}
                 </h2>
                 <p className="muted">
-                  {activeTow.fromLocation || "Unknown"} to {activeTow.toLocation || activeTow.towSpot || "Unknown"}
+                  {activeTow.fromLocation || t('unknown')} {t('to')} {activeTow.toLocation || activeTow.towSpot || t('unknown')}
                 </p>
               </div>
               <button className="btn ghost" onClick={() => void returnToMenu()}>
-                <ArrowLeft size={18} /> Menu
+                <ArrowLeft size={18} /> {t('menu')}
               </button>
             </div>
             <Workflow tow={activeTow} onLog={logStep} onEditTimestamp={editTimestamp} />
             {activeTow.towCompletedAt && !activeTow.towPaperCompletedAt && (
               <>
                 <div className="summary-panel">
-                  <h3>Tow Summary</h3>
+                  <h3>{t('towSummary')}</h3>
                   <pre>{completedSummary(activeTow)}</pre>
                   <button className="btn green" onClick={copySummary}>
-                    <Clipboard size={18} /> Copy Summary
+                    <Clipboard size={18} /> {t('copySummary')}
                   </button>
                   {copyStatus && <p className="muted">{copyStatus}</p>}
                 </div>
                 <div className="paper-gate">
                   <div>
-                    <strong>Tow Paper Complete</strong>
-                    <span>Required to save and complete this tow.</span>
+                    <strong>{t('towPaperComplete')}</strong>
+                    <span>{t('paperRequired')}</span>
                   </div>
                   <label className="paper-check">
                     <input type="checkbox" onChange={(event) => event.target.checked && logStep("towPaperCompletedAt")} />
-                    Complete
+                    {t('complete')}
                   </label>
                 </div>
               </>
             )}
             <div className="page-actions">
               <button className="btn ghost" onClick={undoWorkflowStep}>
-                <RotateCcw size={18} /> Undo Last Step
+                <RotateCcw size={18} /> {t('undoLastStep')}
               </button>
               <button className="btn blue" onClick={() => setTowPage("confirm")}>
-                Edit Details
+                {t('editDetails')}
               </button>
               <a className="btn green" href={towChecklistUrl(activeTow.id)}>
-                <Download size={18} /> Checklist PDF
+                <Download size={18} /> {t('checklistPdf')}
               </a>
-              <a className="btn teal" href={`/api/paper-editor/?tow=${activeTow.id}&return=workflow&tab=${towOriginTab}`}><Clipboard size={18} /> Edit Tow Paper</a>
+              <a className="btn teal" href={`/api/paper-editor/?tow=${activeTow.id}&return=workflow&tab=${towOriginTab}`}><Clipboard size={18} /> {t('editTowPaper')}</a>
               <a className="btn ghost" href={towChecklistPreviewUrl(activeTow.id)} rel="noreferrer" target="_blank">
-                <Eye size={18} /> Preview PDF
+                <Eye size={18} /> {t('previewPdf')}
               </a>
             </div>
           </section>
@@ -1313,34 +1313,34 @@ export default function App() {
           <section className="page-panel">
             <div className="section-head">
               <div>
-                <h2>Completed Tow Summary</h2>
+                <h2>{t('completedTowSummary')}</h2>
                 <p className="muted">
                   {activeTow.airline}
                   {activeTow.inboundFlightNumber}
                 </p>
               </div>
               <button className="btn ghost" onClick={() => void returnToMenu()}>
-                <ArrowLeft size={18} /> Menu
+                <ArrowLeft size={18} /> {t('menu')}
               </button>
             </div>
             <pre>{completedSummary(activeTow)}</pre>
             <div className="page-actions">
               <button className="btn green" onClick={copySummary}>
-                <Clipboard size={18} /> Copy Summary
+                <Clipboard size={18} /> {t('copySummary')}
               </button>
               <a className="btn green" href={towChecklistUrl(activeTow.id)}>
-                <Download size={18} /> Checklist PDF
+                <Download size={18} /> {t('checklistPdf')}
               </a>
-              <a className="btn teal" href={`/api/paper-editor/?tow=${activeTow.id}&return=complete&tab=${towOriginTab}`}><Clipboard size={18} /> Edit Tow Paper</a>
+              <a className="btn teal" href={`/api/paper-editor/?tow=${activeTow.id}&return=complete&tab=${towOriginTab}`}><Clipboard size={18} /> {t('editTowPaper')}</a>
               <a className="btn ghost" href={towChecklistPreviewUrl(activeTow.id)} rel="noreferrer" target="_blank">
-                <Eye size={18} /> Preview PDF
+                <Eye size={18} /> {t('previewPdf')}
               </a>
               <button className="btn blue" onClick={() => setTowPage("confirm")}>
-                Edit Tow Details
+                {t('editTowDetails')}
               </button>
               {activeTow.status === "completed" && (
                 <button className="btn red" onClick={moveCompletedTowBackToActive}>
-                  <RotateCcw size={18} /> Move Back to Active
+                  <RotateCcw size={18} /> {t('moveBackActive')}
                 </button>
               )}
             </div>
@@ -1351,15 +1351,15 @@ export default function App() {
         {!activeTow && tab === "dashboard" && (
           <section>
             <div className="section-head">
-              <h2>Active Tows</h2>
-              <span>{visibleActiveTows.length === activeTows.length ? `${activeTows.length} open` : `${visibleActiveTows.length} of ${activeTows.length}`}</span>
+              <h2>{t('activeTows')}</h2>
+              <span>{visibleActiveTows.length === activeTows.length ? `${activeTows.length} ${t('open')}` : `${visibleActiveTows.length} ${t('of')} ${activeTows.length}`}</span>
             </div>
             <div className="active-search">
               <Search aria-hidden="true" size={19} />
               <input
-                aria-label="Search active tows"
+                aria-label={t('searchActive')}
                 onChange={(event) => setActiveSearch(event.target.value)}
-                placeholder="Search active tows"
+                placeholder={t('searchActive')}
                 type="search"
                 value={activeSearch}
               />
@@ -1367,20 +1367,20 @@ export default function App() {
             <div className="tow-grid">
               {visibleActiveTows.map((tow) => <TowCard key={tow.id} tow={tow} onOpen={openTow} airlines={airlines} />)}
             </div>
-            {visibleActiveTows.length === 0 && <p className="muted empty-state">No active tows match that search.</p>}
+            {visibleActiveTows.length === 0 && <p className="muted empty-state">{t('noActiveTows')}</p>}
           </section>
         )}
 
         {!activeTow && tab === "setup" && (
           <section className={`setup-grid${settings?.bulkImportEnabled ? '' : ' manual-only'}`}>
             <div className="panel">
-              <h2>Manual Tow</h2>
+              <h2>{t('manualTow')}</h2>
               {manualError && <div className="notice error">{manualError}</div>}
               <TowForm value={manualTow} onChange={setManualTow} manual airlines={airlines} language={language} />
-              <button className="btn green wide" onClick={saveManual}><Save size={18} />Save Tow</button>
+              <button className="btn green wide" onClick={saveManual}><Save size={18} />{t('saveTow')}</button>
             </div>
             {settings?.bulkImportEnabled && <div className="panel">
-              <h2>Bulk Import</h2>
+              <h2>{t('bulkImport')}</h2>
               {importError && <div className="notice error" role="alert">{importError}</div>}
               <textarea
                 className="paste-box"
@@ -1390,7 +1390,7 @@ export default function App() {
                   setParseAttempted(false);
                 }}
               />
-              <button className="btn blue wide" onClick={parseImport}><Upload size={18} />Parse Import</button>
+              <button className="btn blue wide" onClick={parseImport}><Upload size={18} />{t('parseImport')}</button>
               {candidates.length > 0 && (
                 <div className="candidate-list">
                   {candidates.map((candidate, index) => (
@@ -1399,7 +1399,7 @@ export default function App() {
                       {candidate.parserWarnings?.length > 0 && <p className="warning-text">{candidate.parserWarnings.join(" ")}</p>}
                     </div>
                   ))}
-                  <button className="btn green wide" onClick={saveCandidates}>Save Imported Tows</button>
+                  <button className="btn green wide" onClick={saveCandidates}>{t('saveImportedTows')}</button>
                 </div>
               )}
               {parseAttempted && importMeta && (
@@ -1408,7 +1408,7 @@ export default function App() {
                 </p>
               )}
               {parseAttempted && candidates.length === 0 && (
-                <p className="muted">No importable tows found. Only flights with exact tow spots like BB113, NL614, or WR22 are imported.</p>
+                <p className="muted">{t('noImportableTows')}</p>
               )}
             </div>}
           </section>
@@ -1417,9 +1417,9 @@ export default function App() {
         {!activeTow && tab === "history" && (
           <section>
             <div className="section-head">
-              <h2>Tow History Database</h2>
+              <h2>{t('towHistory')}</h2>
               <div className="export-actions">
-                <button className="btn teal" type="button" disabled={paperDownloadDisabled} onClick={() => void downloadVisiblePapers()}><Download size={18} />{paperDownloadBusy ? 'Preparing...' : 'PDF'}</button>
+                <button className="btn teal" type="button" disabled={paperDownloadDisabled} onClick={() => void downloadVisiblePapers()}><Download size={18} />{paperDownloadBusy ? t('preparing') : 'PDF'}</button>
                 <button className="btn blue" disabled={loading || paperDownloadBusy} onClick={() => void downloadHistoryData('csv')} type="button"><Download size={18} />CSV</button>
                 <button className="btn green" disabled={loading || paperDownloadBusy} onClick={() => void downloadHistoryData('xls')} type="button"><Download size={18} />Excel</button>
               </div>
@@ -1427,8 +1427,8 @@ export default function App() {
             <div className="active-search">
               <Search aria-hidden="true" size={19} />
               <input
-                aria-label="Search tow history"
-                placeholder="Search tow history"
+                aria-label={t('searchHistory')}
+                placeholder={t('searchHistory')}
                 type="search"
                 value={historySearch}
                 onChange={(event) => { setHistorySearch(event.target.value); setPaperDownloadError(''); }}
@@ -1444,32 +1444,32 @@ export default function App() {
             <div className="tow-grid">
               {tows.map((tow) => <TowCard key={tow.id} tow={tow} onOpen={openTow} onTowBack={startTowBack} airlines={airlines} />)}
             </div>
-            {!loading && tows.length === 0 && <p className="muted empty-state">No completed tows match that search.</p>}
+            {!loading && tows.length === 0 && <p className="muted empty-state">{t('noCompletedTows')}</p>}
             <div className="history-pagination">
               <label>
-                <span>Per page</span>
+                <span>{t('perPage')}</span>
                 <select value={historyPageSize} onChange={(event) => setHistoryPageSize(Number(event.target.value))}>
                   {[5, 10, 25, 50, 100].map((size) => <option key={size} value={size}>{size}</option>)}
                 </select>
               </label>
-              <span>{pageInfo.total} tow{pageInfo.total === 1 ? "" : "s"} · Page {pageInfo.page} of {pageInfo.totalPages}</span>
+              <span>{pageInfo.total} · {t('page')} {pageInfo.page} {t('of')} {pageInfo.totalPages}</span>
               <div>
                 <button
-                  aria-label="Previous history page"
+                  aria-label={t('previousPage')}
                   className="icon-btn"
                   disabled={pageInfo.page <= 1 || loading}
                   onClick={() => setHistoryPage(pageInfo.page - 1)}
-                  title="Previous page"
+                  title={t('previousPage')}
                   type="button"
                 >
                   <ChevronLeft size={21} />
                 </button>
                 <button
-                  aria-label="Next history page"
+                  aria-label={t('nextPage')}
                   className="icon-btn"
                   disabled={pageInfo.page >= pageInfo.totalPages || loading}
                   onClick={() => setHistoryPage(pageInfo.page + 1)}
-                  title="Next page"
+                  title={t('nextPage')}
                   type="button"
                 >
                   <ChevronRight size={21} />
@@ -1488,18 +1488,18 @@ export default function App() {
         <div className="issue-panel">
           <form onSubmit={submitIssue}>
             <div className="section-head">
-              <h3>Report Issue</h3>
+              <h3>{t('reportIssueTitle')}</h3>
               <button className="icon-btn" onClick={() => setIssueOpen(false)} type="button">x</button>
             </div>
             <textarea
               autoFocus
               maxLength="2000"
-              placeholder="What went wrong?"
+              placeholder={t('issuePlaceholder')}
               value={issueText}
               onChange={(event) => setIssueText(event.target.value)}
             />
             {issueStatus && <p className="muted">{issueStatus}</p>}
-            <button className="btn green wide" type="submit">Submit Issue</button>
+            <button className="btn green wide" type="submit">{t('submitIssue')}</button>
           </form>
         </div>
       )}
@@ -1512,7 +1512,7 @@ export default function App() {
             {pendingAnnouncements[0].imageUrl && <img alt="" className="announcement-image" src={pendingAnnouncements[0].imageUrl} />}
             {pendingAnnouncements.length > 1 && <span className="muted">{pendingAnnouncements.length - 1} more message{pendingAnnouncements.length === 2 ? '' : 's'} waiting</span>}
             {announcementError && <div className="notice error" role="alert">{announcementError}</div>}
-            <button className="btn green wide" onClick={() => void acknowledgeCurrentAnnouncement()} type="button">Continue</button>
+            <button className="btn green wide" onClick={() => void acknowledgeCurrentAnnouncement()} type="button">{t('continue')}</button>
           </section>
         </div>
       )}
@@ -1521,16 +1521,16 @@ export default function App() {
           <form className="modal delete-dialog" onSubmit={deleteActiveTow}>
             <div className="section-head">
               <div>
-                <h3>Delete Tow</h3>
+                <h3>{t('deleteTow')}</h3>
                 <p className="muted">{activeTow.tailNumber || `${activeTow.airline || ""}${activeTow.inboundFlightNumber || ""}`}</p>
               </div>
             </div>
             <label>
-              <span>Reason</span>
+              <span>{t('reason')}</span>
               <textarea
                 autoFocus
                 maxLength="500"
-                placeholder="Why is this tow being deleted?"
+                placeholder={t('deleteReasonPlaceholder')}
                 required
                 value={deleteReason}
                 onChange={(event) => setDeleteReason(event.target.value)}
@@ -1538,8 +1538,8 @@ export default function App() {
             </label>
             {deleteError && <div className="notice error">{deleteError}</div>}
             <div className="modal-actions">
-              <button className="btn ghost" onClick={() => setDeleteDialogOpen(false)} type="button">Cancel</button>
-              <button className="btn red" type="submit"><Trash2 size={18} /> Move to Trash</button>
+              <button className="btn ghost" onClick={() => setDeleteDialogOpen(false)} type="button">{t('cancel')}</button>
+              <button className="btn red" type="submit"><Trash2 size={18} /> {t('moveToTrash')}</button>
             </div>
           </form>
         </div>
