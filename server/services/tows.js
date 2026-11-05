@@ -14,6 +14,7 @@ const fields = [
   "towSpot",
   "tailNumber",
   "driver",
+  "headsetOperator",
   "leftWingWalker",
   "rightWingWalker",
   "otherTeamMembers",
@@ -41,7 +42,8 @@ function ensureTowSchemaColumns() {
     ["deletedAt", "TEXT"],
     ["deletedBy", "TEXT"],
     ["deleteReason", "TEXT"],
-    ["clientRequestId", "TEXT"]
+    ["clientRequestId", "TEXT"],
+    ["headsetOperator", "TEXT NOT NULL DEFAULT ''"]
   ].filter(([name]) => !columns.includes(name));
 
   for (const [name, type] of missingColumns) {
@@ -57,12 +59,12 @@ ensureTowSchemaColumns();
 const createTowStatement = db.prepare(
   `INSERT INTO tows (
     clientRequestId, airline, inboundFlightNumber, inboundStation, aircraftType, eta, gate, fromLocation, toLocation, towSpot, tailNumber,
-    driver, leftWingWalker, rightWingWalker, otherTeamMembers, notes, status, needsReview, parserWarnings,
+    driver, headsetOperator, leftWingWalker, rightWingWalker, otherTeamMembers, notes, status, needsReview, parserWarnings,
     setupStartedAt, goaaCalledAt, goaaArrivalAt, pushStartedAt, towStartedAt, towCompletedAt, towPaperCompletedAt,
     deletedAt, deletedBy, deleteReason
   ) VALUES (
     @clientRequestId, @airline, @inboundFlightNumber, @inboundStation, @aircraftType, @eta, @gate, @fromLocation, @toLocation, @towSpot, @tailNumber,
-    @driver, @leftWingWalker, @rightWingWalker, @otherTeamMembers, @notes, @status, @needsReview, @parserWarnings,
+    @driver, @headsetOperator, @leftWingWalker, @rightWingWalker, @otherTeamMembers, @notes, @status, @needsReview, @parserWarnings,
     @setupStartedAt, @goaaCalledAt, @goaaArrivalAt, @pushStartedAt, @towStartedAt, @towCompletedAt, @towPaperCompletedAt,
     @deletedAt, @deletedBy, @deleteReason
   )`
@@ -81,6 +83,7 @@ const updateTowStatement = db.prepare(
     towSpot = @towSpot,
     tailNumber = @tailNumber,
     driver = @driver,
+    headsetOperator = @headsetOperator,
     leftWingWalker = @leftWingWalker,
     rightWingWalker = @rightWingWalker,
     otherTeamMembers = @otherTeamMembers,
@@ -149,7 +152,7 @@ db.function('tow_search_date', { deterministic: true }, (value) => {
 });
 const towSearchFields = [
   'airline', "COALESCE(airline, '') || COALESCE(inboundFlightNumber, '')", 'inboundFlightNumber',
-  'tailNumber', 'aircraftType', 'gate', 'fromLocation', 'towSpot', 'toLocation', 'driver',
+  'tailNumber', 'aircraftType', 'gate', 'fromLocation', 'towSpot', 'toLocation', 'driver', 'headsetOperator',
   'leftWingWalker', 'rightWingWalker', 'otherTeamMembers', "replace(status, '_', ' ')",
   'tow_search_date(COALESCE(NULLIF(towCompletedAt, \'\'), createdAt))'
 ];

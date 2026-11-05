@@ -41,6 +41,12 @@ test('global messages require settings access and are acknowledged once per user
     assert.equal(latestResponse.status, 201);
     const latest = await latestResponse.json();
     announcementIds.push(latest.id);
+    const futureResponse = await request('', tokens[0], 'POST', { title: 'Future change', message: 'Not visible yet.', kind: 'change', publishAt: new Date(Date.now() + 60_000).toISOString() });
+    const future = await futureResponse.json();
+    announcementIds.push(future.id);
+    const expiredResponse = await request('', tokens[0], 'POST', { title: 'Expired change', message: 'No longer visible.', kind: 'change', publishAt: new Date(Date.now() - 120_000).toISOString(), expiresAt: new Date(Date.now() - 60_000).toISOString() });
+    const expired = await expiredResponse.json();
+    announcementIds.push(expired.id);
 
     const firstPending = await (await request('/pending', tokens[2])).json();
     const secondPending = await (await request('/pending', tokens[3])).json();

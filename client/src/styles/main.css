@@ -1,4 +1,5 @@
 :root {
+  --accent: #22c55e;
   color-scheme: dark;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: #111827;
@@ -32,6 +33,16 @@ button:disabled {
   cursor: default;
   opacity: 0.65;
 }
+
+.crew-input { position: relative; display: grid; gap: 5px; }
+.crew-manage-toggle { width: fit-content; border: 0; padding: 0; background: transparent; color: #93c5fd; font-size: 0.8rem; }
+.crew-suggestions { position: absolute; z-index: 12; top: calc(100% + 4px); left: 0; right: 0; max-height: 240px; overflow: auto; padding: 6px; border: 1px solid #475569; border-radius: 7px; background: #111827; box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35); }
+.crew-suggestions > div { display: grid; grid-template-columns: 1fr 38px 38px; align-items: center; gap: 4px; }
+.crew-suggestions button { min-height: 38px; border: 0; border-radius: 5px; background: transparent; color: #e2e8f0; }
+.crew-name { padding: 7px; text-align: left; }
+.crew-name:hover { background: #1f2937; }
+.crew-favorite.active { color: #facc15; }
+.crew-remove { color: #fca5a5 !important; }
 
 .app-shell {
   width: min(1180px, 100%);
@@ -89,7 +100,7 @@ h3 {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: #22c55e;
+  background: var(--accent);
   box-shadow: 0 0 18px rgba(34, 197, 94, 0.8);
 }
 
@@ -132,7 +143,7 @@ h3 {
 .tabs a.active {
   background: rgba(31, 41, 55, 0.96);
   border-color: rgba(148, 163, 184, 0.24);
-  border-bottom-color: #22c55e;
+  border-bottom-color: var(--accent);
   color: #f8fafc;
 }
 
@@ -147,6 +158,14 @@ h3 {
   width: 46px;
   background: #1f2937;
 }
+
+.brand-logo { width: 34px; height: 34px; object-fit: contain; border-radius: 5px; }
+.brand-subtitle { display: block; color: #94a3b8; font-size: 0.75rem; line-height: 1.2; }
+.preferences-menu { position: relative; }
+.preferences-menu > summary { display: grid; place-items: center; width: 46px; min-height: 44px; border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 8px; background: #1f2937; color: #f8fafc; font-weight: 800; cursor: pointer; list-style: none; }
+.preferences-menu > summary::-webkit-details-marker { display: none; }
+.preferences-menu > div { position: absolute; z-index: 25; top: calc(100% + 7px); right: 0; display: grid; gap: 10px; width: 220px; padding: 12px; border: 1px solid #475569; border-radius: 7px; background: #111827; box-shadow: 0 14px 30px rgba(0, 0, 0, 0.4); }
+.preferences-menu label { display: grid; gap: 5px; }
 
 main {
   padding-bottom: 32px;
@@ -225,6 +244,23 @@ main {
 .announcement-modal.kind-alert > .announcement-kind { background: rgba(239, 68, 68, 0.22); color: #fecaca; }
 .announcement-kind.kind-change,
 .announcement-modal.kind-change > .announcement-kind { background: rgba(34, 197, 94, 0.2); color: #bbf7d0; }
+
+.paper-destination-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 14px 0; }
+.paper-destination-form > label:not(.check-row) { display: grid; gap: 6px; }
+.paper-destination-form .full { grid-column: 1 / -1; }
+.node-id { display: block; width: fit-content; margin: 12px 0; padding: 7px 9px; border-radius: 5px; background: #0b1220; color: #bfdbfe; overflow-wrap: anywhere; }
+.node-management-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.node-management-form > label:not(.check-row) { display: grid; gap: 6px; }
+.node-management-form .full { grid-column: 1 / -1; }
+.node-enrollment-actions { margin-top: 14px; }
+.enrollment-key { display: grid; gap: 7px; margin-top: 12px; padding: 12px; border: 1px solid #f59e0b; border-radius: 7px; background: rgba(245, 158, 11, 0.08); }
+.enrollment-key code { padding: 9px; background: #0b1220; overflow-wrap: anywhere; user-select: all; }
+.management-credentials { display: grid; gap: 7px; margin-top: 16px; }
+.management-credentials > div { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px; border: 1px solid #374151; border-radius: 6px; }
+.management-credentials span { display: grid; gap: 3px; }
+.management-credentials small { color: #94a3b8; }
+.management-jobs { margin-top: 14px; }
+.management-jobs > div { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid #374151; }
 
 .active-search svg {
   position: absolute;
@@ -655,8 +691,8 @@ textarea {
 }
 
 .btn.green {
-  background: #16a34a;
-  border-color: #4ade80;
+  background: var(--accent);
+  border-color: color-mix(in srgb, var(--accent), white 35%);
 }
 
 .btn.red {
@@ -1159,3 +1195,57 @@ pre {
 .portable-transfer input[type="file"], .portable-transfer select { display: block; width: min(620px, 100%); margin-top: 12px; }
 .app-shell:has(.paper-backup-setting) > .app-version { position: static; display: inline-block; margin-top: 18px; }
 .app-shell:has(.paper-backup-setting) > .issue-button { position: static; float: right; margin-top: 12px; }
+
+html[data-theme="light"] { color-scheme: light; background: #f1f5f9; color: #111827; }
+html[data-theme="light"] body { background: #f1f5f9; color: #111827; }
+html[data-theme="light"] .tabs { background: rgba(241, 245, 249, 0.95); }
+html[data-theme="light"] .tabs a { color: #334155; }
+html[data-theme="light"] .tabs a.active,
+html[data-theme="light"] .panel,
+html[data-theme="light"] .page-panel,
+html[data-theme="light"] .tow-card,
+html[data-theme="light"] .admin-row,
+html[data-theme="light"] .user-row,
+html[data-theme="light"] .modal,
+html[data-theme="light"] .announcement-history article,
+html[data-theme="light"] .crew-suggestions,
+html[data-theme="light"] .preferences-menu > div { background: #ffffff; color: #111827; }
+html[data-theme="light"] input,
+html[data-theme="light"] textarea,
+html[data-theme="light"] select { background: #ffffff; color: #111827; border-color: #94a3b8; }
+html[data-theme="light"] label,
+html[data-theme="light"] .muted,
+html[data-theme="light"] .admin-row span,
+html[data-theme="light"] .admin-row p,
+html[data-theme="light"] .brand-subtitle { color: #475569; }
+html[data-theme="light"] .icon-btn,
+html[data-theme="light"] .preferences-menu > summary { background: #e2e8f0; color: #111827; }
+
+html[data-theme="contrast"] { --accent: #00ff66 !important; color-scheme: dark; background: #000; color: #fff; }
+html[data-theme="contrast"] body,
+html[data-theme="contrast"] .tabs,
+html[data-theme="contrast"] .panel,
+html[data-theme="contrast"] .page-panel,
+html[data-theme="contrast"] .tow-card,
+html[data-theme="contrast"] .admin-row,
+html[data-theme="contrast"] .user-row,
+html[data-theme="contrast"] .modal,
+html[data-theme="contrast"] .announcement-history article,
+html[data-theme="contrast"] .crew-suggestions,
+html[data-theme="contrast"] .preferences-menu > div { background: #000; color: #fff; }
+html[data-theme="contrast"] input,
+html[data-theme="contrast"] textarea,
+html[data-theme="contrast"] select,
+html[data-theme="contrast"] button,
+html[data-theme="contrast"] a { border-color: #fff; }
+html[data-theme="contrast"] input,
+html[data-theme="contrast"] textarea,
+html[data-theme="contrast"] select { background: #000; color: #fff; }
+html[data-theme="contrast"] :focus-visible { outline: 3px solid #ffff00 !important; outline-offset: 2px; }
+
+@media (max-width: 700px) {
+  .paper-destination-form,
+  .node-management-form { grid-template-columns: 1fr; }
+  .paper-destination-form .full,
+  .node-management-form .full { grid-column: auto; }
+}

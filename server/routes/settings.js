@@ -4,9 +4,12 @@ import { getSettings, updateSettings } from '../services/settings.js';
 import { writeAudit } from '../services/audit.js';
 import { faviconLimit, saveFavicon, resetFavicon } from '../services/favicon.js';
 import { router as paperBackupRoutes } from './paperBackups.js';
+import { router as nodeAdminRoutes } from './nodeAdmin.js';
 
 export const router = express.Router();
 router.use('/paper-backups', paperBackupRoutes);
+router.use('/node-management', nodeAdminRoutes);
+router.get('/public', (_req, res) => res.json(getSettings()));
 router.get('/', (_req, res) => res.json(getSettings()));
 router.put('/favicon', requireSuperAdmin, express.raw({ type: ['image/png', 'application/octet-stream'], limit: faviconLimit }), (req, res) => {
   try {

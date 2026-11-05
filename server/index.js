@@ -19,10 +19,16 @@ import { router as issueRoutes } from "./routes/issues.js";
 import { router as maintenanceRoutes } from "./routes/maintenance.js";
 import { router as towRoutes } from "./routes/tows.js";
 import { router as userRoutes } from "./routes/users.js";
+import { router as nodeManagementRoutes } from './routes/nodeManagement.js';
+import { router as crewMemberRoutes } from './routes/crewMembers.js';
 import { deleteExpiredSessions, ensureDefaultAdmin } from "./services/users.js";
 import { preparePaperEditorAssets } from './services/paperEditorAssets.js';
 import { serveFavicon } from './services/favicon.js';
 import { startPaperBackupWorker } from './services/paperBackups.js';
+import { ensureNodeIdentity, nodeConfiguration } from './services/nodeManagement.js';
+import packageInfo from '../package.json' with { type: 'json' };
+
+const { version } = packageInfo;
 
 dotenv.config({ quiet: true });
 
@@ -63,6 +69,7 @@ function sendIndexHtml(_req, res) {
 
 ensureDefaultAdmin();
 deleteExpiredSessions();
+ensureNodeIdentity();
 const paperAssets = await preparePaperEditorAssets();
 if (!paperAssets) console.warn('Tow paper template is missing. Place it at data/TowPermit.pdf or configure TOW_PERMIT_TEMPLATE_PATH to enable PDF editing.');
 else console.log(`Private tow paper assets ${paperAssets}.`);
@@ -89,9 +96,13 @@ app.use(cors({
 app.use(express.json({ limit: "1mb" }));
 app.use(morgan(isProduction ? "combined" : "dev"));
 app.use("/api", apiRateLimit);
+app.use('/api/node-management', nodeManagementRoutes);
 app.use(requireAuth);
 
-app.get("/api/health", (_req, res) => res.json({ ok: true }));
+app.get("/api/health", (_req, res) => {
+  const node = nodeConfiguration();
+  res.json({ ok: true, nodeId: node.nodeId, nodeName: node.nodeName, version });
+});
 app.get('/favicon.png', serveFavicon);
 app.use("/api/paper-editor", paperEditorRoutes);
 app.use("/api/announcements", announcementRoutes);
@@ -102,6 +113,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/issues", issueRoutes);
 app.use("/api/maintenance", maintenanceRoutes);
 app.use("/api/users", userRoutes);
+app.use('/api/crew-members', crewMemberRoutes);
 app.use("/api/tows", towRoutes);
 
 if (fs.existsSync(indexHtml)) {

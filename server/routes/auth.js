@@ -6,6 +6,8 @@ import {
   createSession,
   deleteSession,
   getUserForToken,
+  getUserPreferences,
+  updateUserPreferences,
   sessionCookie
 } from "../services/users.js";
 import { requestSessionToken } from "../middleware/auth.js";
@@ -53,4 +55,14 @@ router.get("/me", (req, res) => {
   const user = getUserForToken(token);
   res.set("Cache-Control", "no-store");
   res.json({ user });
+});
+
+router.get('/preferences', (req, res) => {
+  res.set('Cache-Control', 'private, no-store');
+  res.json(getUserPreferences(req.user.id));
+});
+
+router.put('/preferences', (req, res) => {
+  try { res.json(updateUserPreferences(req.user.id, req.body || {})); }
+  catch (error) { res.status(400).json({ error: error.message }); }
 });

@@ -7,6 +7,8 @@ function validateAnnouncement(input = {}) {
   const message = typeof input.message === 'string' ? input.message.trim() : '';
   const kind = typeof input.kind === 'string' ? input.kind : 'message';
   const imageUrl = typeof input.imageUrl === 'string' ? input.imageUrl.trim() : '';
+  const publishAt = normalizeTimestamp(input.publishAt, nowIso(), 'Publish time');
+  const expiresAt = input.expiresAt ? normalizeTimestamp(input.expiresAt, null, 'Expiration time') : null;
   if (!title || title.length > 120) throw new Error('Title is required and must be 120 characters or fewer.');
   if (!message || message.length > 4000) throw new Error('Message is required and must be 4000 characters or fewer.');
   if (!announcementKinds.has(kind)) throw new Error('Announcement type must be change, message, or alert.');
@@ -17,14 +19,22 @@ function validateAnnouncement(input = {}) {
     catch { throw new Error('Image URL must be a valid HTTP or HTTPS URL.'); }
     if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('Image URL must be a valid HTTP or HTTPS URL.');
   }
-  return { title, message, kind, imageUrl };
+  if (expiresAt && Date.parse(expiresAt) <= Date.parse(publishAt)) throw new Error('Expiration time must be after the publish time.');
+  return { title, message, kind, imageUrl, publishAt, expiresAt };
+}
+
+function normalizeTimestamp(value, fallback, label) {
+  if (!value) return fallback;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) throw new Error(`${label} is invalid.`);
+  return parsed.toISOString();
 }
 
 export function createAnnouncement(input, userId) {
   const announcement = validateAnnouncement(input);
   const result = db.prepare(`
-    INSERT INTO globalAnnouncements (title, message, kind, imageUrl, createdBy, createdAt)
-    VALUES (@title, @message, @kind, @imageUrl, @createdBy, @createdAt)
+    INSERT INTO globalAnnouncements (title, message, kind, imageUrl, publishAt, expiresAt, createdBy, createdAt)
+    VALUES (@title, @message, @kind, @imageUrl, @publishAt, @expiresAt, @createdBy, @createdAt)
   `).run({ ...announcement, createdBy: userId, createdAt: nowIso() });
   return getAnnouncement(result.lastInsertRowid);
 }
@@ -74,15 +84,19 @@ export function listAnnouncements() {
 }
 
 export function listPendingAnnouncements(userId) {
+  const timestamp = nowIso();
   return db.prepare(`
     SELECT announcements.*, users.username AS createdByUsername
     FROM globalAnnouncements announcements
     LEFT JOIN users ON users.id = announcements.createdBy
     LEFT JOIN announcementAcknowledgements acknowledgements
-      ON acknowledgements.announcementId = announcements.id AND acknowledgements.userId = ?
-    WHERE announcements.id = (SELECT MAX(id) FROM globalAnnouncements)
+      ON acknowledgements.announcementId = announcements.id AND acknowledgements.userId = @userId
+    WHERE announcements.id = (
+      SELECT MAX(id) FROM globalAnnouncements
+      WHERE publishAt <= @timestamp AND (expiresAt IS NULL OR expiresAt > @timestamp)
+    )
       AND acknowledgements.announcementId IS NULL
-  `).all(userId);
+  `).all({ userId, timestamp });
 }
 
 export function acknowledgeAnnouncement(id, userId) {

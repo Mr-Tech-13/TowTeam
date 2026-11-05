@@ -11,7 +11,7 @@ The current version is **3.1.4**. The on-screen version is read from
 - Airline codes, names, colors, and airline-specific aircraft-type dropdowns.
 - Workflow timestamps, conditional GOAA controls for West Ramp tows, and undo of the last step.
 - Completed tow summaries, searchable/paginated History, and editable tow details.
-- Shared, autosaved checklist paper drafts, PDF preview/download, and History PDF/ZIP exports.
+- Shared, autosaved checklist paper drafts, PDF preview/download, and merged History PDF exports.
 - CSV and Excel-compatible tow-data exports.
 - Local user accounts, admin management, audit logs, issue reports, and tow Trash.
 - SQLite migrations, local-administrator database backup/restore, and Docker deployment.
@@ -71,8 +71,11 @@ Updates** to check the configured Git upstream and install an available update.
 The updater accepts clean fast-forward updates only. After pulling, TowTeam exits;
 Compose's `restart: unless-stopped` policy starts it again, runs `npm ci`, rebuilds
 the frontend, and applies database migrations during startup. A point-in-time SQLite
-backup is created before the pull. Keep the page open and it will reload after the
-service returns.
+backup is created before the pull. New keys from the updated `.env.example` are
+appended to an existing `.env` without changing any existing values. When keys are
+added, the previous file is retained as `.env.pre-update-<timestamp>`. Installations
+configured entirely through system environment variables do not have a new `.env`
+created. Keep the page open and it will reload after the service returns.
 
 This web updater is enabled by `APP_UPDATE_ENABLED=true` in the default Compose
 configuration. It is disabled by default for direct `npm run start` installations,
@@ -165,6 +168,8 @@ three sample tows every time it runs. Use it only for a disposable/demo database
 | `PDF_PYTHON_BIN` | `python3` | Python interpreter for PDF preparation/export. |
 | `PAPER_BACKUP_ENABLED` | `false` | Enable completed-paper folder backups. |
 | `PAPER_BACKUP_PATH` | `./data/paper-backups` in the example | Destination folder, created automatically if needed. |
+| `APP_UPDATE_PREVIEW_REF` | `origin/dev` | Git ref used by nodes on the Preview release channel. |
+| `TOWTEAM_SECRET_KEY` | empty | Optional stable encryption key for panel-managed remote paper credentials. |
 | `DATABASE_BACKUP_RETENTION_DAYS` | `30` | Maximum age for excess automatic pre-update and pre-import backups. |
 | `DATABASE_BACKUP_MINIMUM` | `5` | Minimum number retained for each managed automatic backup type. |
 
@@ -196,6 +201,62 @@ completed records before pagination, with page sizes of 5, 10, 25, 50, or 100.
 Failed workflow timestamp requests can be queued in browser storage and retried
 when connectivity returns. This is not full offline support: tow editing and
 connected paper drafts still require the server.
+
+Driver and headset fields maintain per-user recent/favorite suggestions. Suggestions
+do not alter historical tows and can be removed or unfavorited from the tow form.
+
+## Node Identity And Management
+
+> **Private security feature:** The remote-management control plane, deployment
+> manager, and its operating procedures will not be released publicly due to the
+> security risk of centrally controlling updates, restarts, backups, and machine
+> credentials across multiple TowTeam installations. Public TowTeam releases may
+> retain disabled node-side compatibility hooks, but remote management is opt-in,
+> unsupported for public deployment, and requires private manager infrastructure.
+
+### Separate Private Manager Repository
+
+The TowTeam Manager is maintained in a **separate private GitHub repository** and
+is not a subdirectory, package, container, or required dependency of this TowTeam
+node repository. Its repository URL and access are provided privately to authorized
+operators. Cloning or deploying this repository alone does not install the manager,
+and ordinary standalone TowTeam installations do not need access to it.
+
+The repositories have separate responsibilities:
+
+- **TowTeam node repository:** tow operations, users, papers, SQLite tow data,
+  node identity, Local Administrator enrollment controls, and the restricted
+  `/api/node-management` machine interface.
+- **Private manager repository:** its own login, SQLite database, encrypted node
+  credentials, node search/status dashboard, management audit trail, and signed
+  update/restart/backup job dispatch.
+
+They also use independent release numbers. A TowTeam node and manager do not need
+matching versions; compatibility is determined by the node-management API contract.
+For example, TowTeam `4.0.0` and Manager `0.0.1` are separate release lines. Upgrade
+nodes before relying on manager features that require a newer machine API.
+
+Never share the manager's `.env`, SQLite database, encryption key, session data, or
+GitHub repository access with node users. GitHub access to the private manager source
+does not itself enroll a node: enrollment still requires remote management to be
+enabled by that node's Local Administrator and a valid one-time key.
+
+Migration 021 assigns every installation a persistent UUID. Local Administrators can
+set its friendly station name, opt into remote management, select Stable/Preview/Pinned,
+and create a 20-minute one-time enrollment key under **Administration > Backup**.
+Enrollment returns a machine token once. Tokens are stored as SHA-256 hashes, are
+individually revocable, and cannot access normal tow/user APIs.
+
+Remote write operations are signed HMAC jobs with UUIDs and five-minute timestamps.
+Repeated job UUIDs return their existing result rather than executing twice. Supported
+operations are status, update check/install, backup, and restart; arbitrary commands
+are not accepted. Node-side results appear in the management job list and audit log.
+The token hash is the HMAC key and the canonical message is JSON containing `jobId`,
+`action`, `payload`, and `timestamp` in that order.
+
+Stable follows the checkout's configured upstream. Preview fast-forwards to
+`APP_UPDATE_PREVIEW_REF`. Pinned records an exact version and disables automatic Git
+movement until a deployment manager explicitly handles that release.
 
 ## Tow Paper Setup
 
@@ -246,19 +307,19 @@ TowTeam stores draft data, not immutable original PDF files for each tow.
 | --- | --- | --- |
 | CSV | All records matching the History filter, across pages | Tow-data CSV. |
 | Excel | All records matching the History filter, across pages | HTML table with an `.xls` extension, not a native XLSX workbook. |
-| Download PDF / ZIP | Only cards on the currently displayed History page | One PDF for one tow; a ZIP containing uniquely named PDFs for multiple tows. |
+| Download PDF | Only cards on the currently displayed History page | One PDF for one tow; one merged PDF for multiple tows. |
 
-PDF/ZIP exports use the current saved paper state and respect the visible search and
-pagination, with at most 100 completed tows per request. Multi-tow ZIP exports are
-limited to 200 MiB of generated PDF payload before packaging. They are not snapshots
+PDF exports use the current saved paper state and respect the visible search and
+pagination, with at most 100 completed tows per request. Multi-tow merged exports are
+limited to 200 MiB of generated PDF input before merging. They are not snapshots
 of previously downloaded papers.
 The History bulk aircraft-type panel has been removed; its API remains available.
 
 Super Admins can also use **Export Active Tow Papers** in Settings to download every
 currently active, non-deleted tow's saved paper, independent of tab search filters.
-One tow downloads a PDF; multiple tows download `activetowpermits-YYYY-MM-DD.zip`. History
-ZIPs use `towpermits-YYYY-MM-DD.zip`. The archive date is the export date in America/New_York. The same
-100-tow and ZIP payload limits apply. An empty active list produces a message rather
+One tow downloads its named PDF; multiple active tows download `activetowpermits-YYYY-MM-DD.pdf`.
+History uses `towpermits-YYYY-MM-DD.pdf`. The filename date is the export date in America/New_York. The same
+100-tow and payload limits apply. An empty active list produces a message rather
 than an empty archive.
 
 ## Administration And Backups
@@ -305,7 +366,7 @@ a pre-restore backup, replaces the database, and exits the process. Compose's
 `restart: unless-stopped` restarts it; a direct installation needs a supervisor or
 manual restart. Migrations run on the next startup.
 
-## Folder Backups
+## Tow Paper Destinations
 
 Completed-paper backups write to an ordinary folder. There is no NAS connection
 setup, marker file, or Test Connection action. Configure the destination in `.env`:
@@ -328,9 +389,9 @@ The optional `docker-compose.nas.yml` remains available for existing external-fo
 binds using `NAS_MOUNT_PATH`; it is unnecessary for the default data folder.
 
 When enabled, completing paperwork queues its saved state in SQLite. The worker
-generates a PDF in memory, writes a temporary file directly in the destination,
-reads it back to verify its SHA-256 checksum, then renames it over `YYYY-MM-DD-TAIL-HHMM.pdf`.
-Downloads and PDFs inside ZIP exports use the same naming, using the actual tow date,
+generates a PDF in memory. Local delivery writes and verifies a temporary file before
+renaming it; WebDAV delivery uploads and downloads the result for SHA-256 verification.
+Individual downloads use the tow date,
 aircraft registration, and 24-hour completion time in America/New_York. Active tows
 without completion use their start time, or creation time if not started. Exact
 duplicates receive a numeric suffix such as `-2`. Missing details use explicit unknown names.
@@ -344,7 +405,14 @@ hour, regenerating the PDF from the queued state. No local PDF cache is used.
 Old `data/paper-backup-cache/` files are cleaned up after an hour. Reopening or
 deleting a tow cancels pending work without deleting existing destination papers.
 
-Settings shows the folder, progress, pending/failed counts, and latest 50 non-uploaded
+The Local Administrator can retain the legacy environment configuration or save a
+panel-managed **Local folder** or **WebDAV/HTTP** destination. WebDAV transfers use
+PUT and download the result again for SHA-256 verification; the destination folder
+must already exist. Credentials are AES-256-GCM encrypted with a node-local key at
+`data/node-secret.key`, or with `TOWTEAM_SECRET_KEY` when configured. A database moved
+without its node key requires the password to be entered again.
+
+Settings shows the destination, progress, pending/failed counts, and latest 50 non-uploaded
 jobs. Successfully uploaded papers disappear from the list but remain counted in totals.
 **Transfer Pending** retries outstanding writes. **Replace All Completed** queues
 all completed papers again after confirmation. **Clear Queue** skips pending work
@@ -355,7 +423,8 @@ restricted to the local administrator. Write failures identify the failed operat
 The worker polls every 10 seconds and writes sequentially. Enabling it also queues
 existing completed tows without a current backup record. Run only one worker per
 database and give different databases separate folders to avoid tow-ID collisions.
-The database backup includes queue state and metadata, not the PDF files. Back up
+The database backup includes queue state and metadata, not the PDF files or generated
+node encryption key. Back up
 the destination separately. After changing destinations or restoring mismatched
 upload records, use **Replace All Completed** to repopulate the folder.
 
@@ -383,7 +452,8 @@ parsing is additionally implemented in `server/services/parser.js`.
 Node 24 is required starting with v3.0.1. Direct installations should use `npm ci`
 after changing Node versions to install the matching SQLite native dependency,
 then rebuild and restart. The original v3.0.1/v3.0.2 updates needed no new migration;
-the folder backup feature adds `016_paper_backups.sql`, applied automatically at startup.
+paper delivery adds `016_paper_backups.sql`; managed nodes and destinations add
+`021_managed_nodes_and_preferences.js`. Both apply automatically at startup.
 Back up the database before deploying it. Folder backups remain disabled by default.
 
 When upgrading from a pre-v3.0.0 database, migration
@@ -425,16 +495,19 @@ Access restrictions are also enforced server-side.
 | `POST /api/tows/:id/restore`; `DELETE /api/tows/:id/permanent` | Admin-only Trash operations. |
 | `GET /api/tows/export.csv`; `GET /api/tows/export.xls` | Filtered tow-data exports. |
 | `GET /api/tows/:id/tow-checklist.pdf` | Current saved paper; `preview=true` requests inline display. |
-| `POST /api/tows/paper-export` | Completed tow PDF/ZIP export with `{ "ids": [1, 2] }`; Super Admins can export all active papers with `{ "scope": "active" }`. |
+| `POST /api/tows/paper-export` | Completed tow PDF export with `{ "ids": [1, 2] }`; multiple papers are merged. Super Admins can export all active papers with `{ "scope": "active" }`. |
 | `GET /api/tows/:id/paper-draft`; `PUT /api/tows/:id/paper-draft` | Shared draft read/save; saves require state and revision. |
 | `POST /api/tows/:id/paper-draft/autofill` | Requires the user's Autofill permission and current revision. |
 | `GET /api/airlines`; `POST /api/airlines`; `PUT /api/airlines/:code`; `DELETE /api/airlines/:code` | Read airlines; writes are admin-only. |
-| `GET /api/settings`; `PUT /api/settings`; `PUT /api/settings/favicon`; `DELETE /api/settings/favicon` | Read settings; writes require Super Admin. Favicon upload uses binary PNG. |
+| `GET /api/settings/public`; `GET /api/settings`; `PUT /api/settings`; `PUT /api/settings/favicon`; `DELETE /api/settings/favicon` | Public branding/read settings; authenticated settings and Super Admin writes. |
 | `GET /api/users`; `POST /api/users`; `PUT /api/users/:id`; `PUT /api/users/:id/password`; `DELETE /api/users/:id` | Admin user management, subject to local-administrator protections. |
 | `POST /api/issues`; `GET /api/issues`; `PATCH /api/issues/:id` | Submit issues; listing/updating requires Super Admin. |
-| `GET /api/audit` | Super Admin audit access; Autofill details remain restricted to the local administrator. |
+| `GET /api/audit` | Super Admin audit access; `paginated=true&page=1&pageSize=10` enables server pagination. Autofill details remain restricted to the local administrator. |
 | `GET /api/maintenance/backup.sqlite`; `POST /api/maintenance/restore.sqlite` | Local administrator only; restore uses binary `application/octet-stream`. |
-| `GET /api/settings/paper-backups`; `POST /api/settings/paper-backups/retry`; `POST /api/settings/paper-backups/clear` | Local administrator folder status/retry/clear controls; retry accepts `{ "replace": true }` for replacing all completed papers. |
+| `GET /api/settings/paper-backups`; destination GET/PUT/test; retry/clear | Local Administrator paper destination and transfer controls. |
+| `GET/PUT /api/settings/node-management`; enrollment and credential revocation routes | Local Administrator node identity and manager enrollment. |
+| `POST /api/node-management/enroll`; `GET /status`; `POST /jobs` | Rate-limited machine API for enrollment, health/version, and signed jobs. |
+| `GET/PUT /api/auth/preferences`; `/api/crew-members` | Per-user theme/language and driver/headset suggestions. |
 
 Workflow step identifiers are `setupStartedAt`, `goaaCalledAt`, `goaaArrivalAt`,
 `pushStartedAt` (retained API support), `towStartedAt`, `towCompletedAt`, and

@@ -49,6 +49,7 @@ secrets/
 npm-debug.log*
 scripts/generate-stress-db.js
 handoff.md
+/manager/
 /IOS/.derivedData/
 /IOS/**/xcuserdata/
 *.xcuserstate

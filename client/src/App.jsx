@@ -7,10 +7,12 @@ import { TowCard } from "./components/TowCard.jsx";
 import { AirlineSettings } from "./components/AirlineSettings.jsx";
 import { AppSettings } from "./components/AppSettings.jsx";
 import { PaperBackupSettings } from "./components/PaperBackupSettings.jsx";
+import { NodeManagementSettings } from './components/NodeManagementSettings.jsx';
 import { TowForm } from "./components/TowForm.jsx";
 import { Workflow } from "./components/Workflow.jsx";
 import "./styles/main.css";
 import { version } from "../../package-lock.json";
+import { translate } from './lib/i18n.js';
 
 const emptyTow = {
   airline: "",
@@ -24,6 +26,7 @@ const emptyTow = {
   towSpot: "",
   tailNumber: "",
   driver: "",
+  headsetOperator: "",
   leftWingWalker: "",
   rightWingWalker: "",
   otherTeamMembers: "",
@@ -128,7 +131,7 @@ function useTows(filters, enabled = true, pagination = null) {
   return { tows, error, loading, load, pageInfo };
 }
 
-function LoginPage({ onLogin }) {
+function LoginPage({ onLogin, settings, language = 'en' }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -149,18 +152,19 @@ function LoginPage({ onLogin }) {
       <form className="panel login-panel" onSubmit={submit}>
         <div className="login-brand">
           <span className="brand-dot" />
-          <h1>TowTeam</h1>
+          {settings?.logoUrl && <img className="brand-logo" src={settings.logoUrl} alt="" />}
+          <div><h1>{settings?.nodeName || 'TowTeam'}</h1>{settings?.stationSubtitle && <span className="brand-subtitle">{settings.stationSubtitle}</span>}</div>
         </div>
         <label>
-          <span>Username</span>
+          <span>{translate(language, 'username')}</span>
           <input autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} />
         </label>
         <label>
-          <span>Password</span>
+          <span>{translate(language, 'password')}</span>
           <input autoComplete="current-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
         </label>
         {error && <div className="notice error">{error}</div>}
-        <button className="btn green wide" type="submit">Log In</button>
+        <button className="btn green wide" type="submit">{translate(language, 'login')}</button>
       </form>
     </div>
   );
@@ -217,6 +221,9 @@ function AdminUsersPage({ currentUser, onBack, airlines, onAirlinesChange, setti
   const [users, setUsers] = useState([]);
   const [issues, setIssues] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
+  const [auditPage, setAuditPage] = useState(1);
+  const [auditPageSize, setAuditPageSize] = useState(10);
+  const [auditPageInfo, setAuditPageInfo] = useState({ page: 1, pageSize: 10, total: 0, totalPages: 1 });
   const [deletedTows, setDeletedTows] = useState([]);
   const [newUser, setNewUser] = useState({ username: "", password: "", role: "user" });
   const [passwords, setPasswords] = useState({});
@@ -247,7 +254,6 @@ function AdminUsersPage({ currentUser, onBack, airlines, onAirlinesChange, setti
     loadUsers();
     if (currentUser.canManageSettings) {
       loadIssues();
-      loadAudit();
     }
     loadDeletedTows();
   }, [currentUser.canManageSettings]);
@@ -261,13 +267,20 @@ function AdminUsersPage({ currentUser, onBack, airlines, onAirlinesChange, setti
     }
   }
 
-  async function loadAudit() {
+  async function loadAudit(page = auditPage, pageSize = auditPageSize) {
     try {
-      setAuditLogs(await api.listAudit());
+      const result = await api.listAuditPage(page, pageSize);
+      setAuditLogs(result.logs);
+      setAuditPage(result.page);
+      setAuditPageInfo({ page: result.page, pageSize: result.pageSize, total: result.total, totalPages: result.totalPages });
     } catch (err) {
       setError(err.message);
     }
   }
+
+  useEffect(() => {
+    if (currentUser.canManageSettings) void loadAudit(auditPage, auditPageSize);
+  }, [auditPage, auditPageSize, currentUser.canManageSettings]);
 
   async function loadDeletedTows() {
     try {
@@ -559,18 +572,33 @@ function AdminUsersPage({ currentUser, onBack, airlines, onAirlinesChange, setti
           </div>
         )}
         {adminView === "audit" && (
-          <div className="admin-list">
-            {auditLogs.map((log) => (
-              <article className="admin-row" key={log.id}>
-                <div>
-                  <strong>{log.action}</strong>
-                  <span>{log.username || "system"} - {log.createdAt}</span>
-                  <p>{log.entityType} {log.entityId}</p>
-                  <AuditDetails details={log.details} />
-                </div>
-              </article>
-            ))}
-          </div>
+          <>
+            <div className="admin-list">
+              {auditLogs.map((log) => (
+                <article className="admin-row" key={log.id}>
+                  <div>
+                    <strong>{log.action}</strong>
+                    <span>{log.username || "system"} - {log.createdAt}</span>
+                    <p>{log.entityType} {log.entityId}</p>
+                    <AuditDetails details={log.details} />
+                  </div>
+                </article>
+              ))}
+            </div>
+            <div className="history-pagination">
+              <label>
+                <span>Per page</span>
+                <select value={auditPageSize} onChange={(event) => { setAuditPageSize(Number(event.target.value)); setAuditPage(1); }}>
+                  {[5, 10, 25, 50, 100].map((size) => <option key={size} value={size}>{size}</option>)}
+                </select>
+              </label>
+              <span>{auditPageInfo.total} entr{auditPageInfo.total === 1 ? 'y' : 'ies'} · Page {auditPageInfo.page} of {auditPageInfo.totalPages}</span>
+              <div>
+                <button aria-label="Previous audit page" className="icon-btn" disabled={auditPageInfo.page <= 1} onClick={() => setAuditPage(auditPageInfo.page - 1)} title="Previous page" type="button"><ChevronLeft size={21} /></button>
+                <button aria-label="Next audit page" className="icon-btn" disabled={auditPageInfo.page >= auditPageInfo.totalPages} onClick={() => setAuditPage(auditPageInfo.page + 1)} title="Next page" type="button"><ChevronRight size={21} /></button>
+              </div>
+            </div>
+          </>
         )}
         {adminView === "trash" && (
           <div className="admin-list">
@@ -590,6 +618,7 @@ function AdminUsersPage({ currentUser, onBack, airlines, onAirlinesChange, setti
         )}
         {adminView === "backup" && currentUser.canManageAutofill && (
           <div className="admin-list">
+            <NodeManagementSettings />
             <article className="admin-row">
               <div>
                 <strong>TowTeam Updates</strong>
@@ -683,6 +712,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [airlines, setAirlines] = useState([]);
   const [settings, setSettings] = useState(null);
+  const [preferences, setPreferences] = useState({ theme: 'system', language: 'default' });
   const [settingsError, setSettingsError] = useState('');
   const [importError, setImportError] = useState('');
   const [airlineError, setAirlineError] = useState('');
@@ -727,6 +757,8 @@ export default function App() {
   const activeTows = useMemo(() => tows.filter((tow) => tow.status !== "completed"), [tows]);
   const visibleActiveTows = activeTows;
   const paperDownloadDisabled = loading || paperDownloadBusy || !tows.length || tows.some(tow => tow.status !== 'completed') || historySearch.trim() !== historySearchQuery;
+  const language = preferences.language === 'default' ? (settings?.defaultLanguage || 'en') : preferences.language;
+  const t = (key) => translate(language, key);
   function saveBrowserDownload(blob, filename) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a'); link.href = url; link.download = filename;
@@ -762,6 +794,27 @@ export default function App() {
     if (icon && settings?.faviconUrl) icon.href = settings.faviconUrl;
   }, [settings?.faviconUrl]);
   useEffect(() => {
+    api.getPublicSettings().then((next) => setSettings((current) => current || next)).catch(() => {});
+  }, []);
+  useEffect(() => {
+    const selected = preferences.theme === 'system' ? (settings?.defaultTheme || 'dark') : preferences.theme;
+    const resolved = selected === 'system' ? (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : selected;
+    document.documentElement.dataset.theme = resolved;
+    document.documentElement.lang = language;
+    document.documentElement.style.setProperty('--accent', settings?.accentColor || '#22c55e');
+  }, [preferences.theme, language, settings?.defaultTheme, settings?.accentColor]);
+  useEffect(() => {
+    if (!user) return;
+    api.getPreferences().then(setPreferences).catch(() => {});
+  }, [user]);
+
+  async function changePreference(next) {
+    const optimistic = { ...preferences, ...next };
+    setPreferences(optimistic);
+    try { setPreferences(await api.updatePreferences(next)); }
+    catch { /* Keep the browser selection if preference syncing is temporarily unavailable. */ }
+  }
+  useEffect(() => {
     setHistoryPaging({ search: historySearchQuery, pageSize: historyPageSize, page: 1 });
   }, [historySearchQuery, historyPageSize]);
 
@@ -772,7 +825,7 @@ export default function App() {
   }, [user, adminPanel]);
 
   useEffect(() => {
-    if (!user) { setSettings(null); return undefined; }
+    if (!user) return undefined;
     let cancelled = false;
     async function refreshSettings() {
       try {
@@ -1106,11 +1159,11 @@ export default function App() {
   }
 
   if (authLoading) {
-    return <div className="notice app-loading">Loading...</div>;
+    return <div className="notice app-loading">{t('loading')}</div>;
   }
 
   if (!user) {
-    return <><LoginPage onLogin={setUser} /><span className="app-version">v{version}</span></>;
+    return <><LoginPage onLogin={setUser} settings={settings} language={language} /><span className="app-version">v{version}</span></>;
   }
 
   return (
@@ -1118,34 +1171,42 @@ export default function App() {
       <header className="topbar">
         <div>
           <span className="brand-dot" />
-          <h1>TowTeam</h1>
+          {settings?.logoUrl && <img className="brand-logo" src={settings.logoUrl} alt="" />}
+          <div><h1>{settings?.nodeName || 'TowTeam'}</h1>{settings?.stationSubtitle && <span className="brand-subtitle">{settings.stationSubtitle}</span>}</div>
         </div>
         <div className="top-actions">
           <span className="user-pill">{user.username} ({user.accountType === "local_admin" ? "local admin" : user.accountType === "super_admin" ? "super admin" : user.role})</span>
+          <details className="preferences-menu">
+            <summary aria-label={`${t('theme')} / ${t('language')}`} title={`${t('theme')} / ${t('language')}`}>Aa</summary>
+            <div>
+              <label><span>{t('theme')}</span><select value={preferences.theme} onChange={(event) => void changePreference({ theme: event.target.value })}><option value="system">{t('system')}</option><option value="dark">{t('dark')}</option><option value="light">{t('light')}</option><option value="contrast">{t('contrast')}</option></select></label>
+              <label><span>{t('language')}</span><select value={preferences.language} onChange={(event) => void changePreference({ language: event.target.value })}><option value="default">Station default</option><option value="en">English</option><option value="es">Español</option></select></label>
+            </div>
+          </details>
           {user.role === "admin" && (
             <button className="icon-btn" onClick={() => { setActiveTow(null); setAdminPanel(true); }} title="Users" type="button">
               <Users size={20} />
             </button>
           )}
-          <button className="icon-btn" onClick={resetAndRefresh} title="Reset filters and refresh" type="button">
+          <button className="icon-btn" onClick={resetAndRefresh} title={t('refresh')} type="button">
             <RefreshCcw size={20} />
           </button>
-          <button className="icon-btn" onClick={logout} title="Log out" type="button">
+          <button className="icon-btn" onClick={logout} title={t('logout')} type="button">
             <LogOut size={20} />
           </button>
         </div>
       </header>
 
       <nav aria-label="Primary" className="tabs" role="tablist">
-        {tabLink("dashboard", "Active", LayoutDashboard)}
-        {tabLink("setup", "Setup", Plus)}
-        {tabLink("history", "History", History)}
+        {tabLink("dashboard", t('active'), LayoutDashboard)}
+        {tabLink("setup", t('setup'), Plus)}
+        {tabLink("history", t('history'), History)}
       </nav>
 
       {error && <div className="notice error">{error}</div>}
       {airlineError && <div className="notice error">{airlineError}</div>}
       {settingsError && <div className="notice error">{settingsError}</div>}
-      {loading && <div className="notice">Loading...</div>}
+      {loading && <div className="notice">{t('loading')}</div>}
       {(workflowSyncStatus || pendingStepCount > 0) && (
         <div className={pendingStepCount > 0 ? "notice warn" : "notice"}>
           {workflowSyncStatus || "Pending tow times are waiting to sync."}
@@ -1172,7 +1233,7 @@ export default function App() {
               </button>
             </div>
             {activeTow.parserWarnings?.length > 0 && <div className="notice warn">{activeTow.parserWarnings.join(" ")}</div>}
-            <TowForm value={activeTow} onChange={setActiveTow} airlines={airlines} />
+            <TowForm value={activeTow} onChange={setActiveTow} airlines={airlines} language={language} />
             <div className="page-actions">
               <button className="btn green" onClick={saveDetailsAndContinue}>
                 <Save size={18} /> Save and Continue
@@ -1315,7 +1376,7 @@ export default function App() {
             <div className="panel">
               <h2>Manual Tow</h2>
               {manualError && <div className="notice error">{manualError}</div>}
-              <TowForm value={manualTow} onChange={setManualTow} manual airlines={airlines} />
+              <TowForm value={manualTow} onChange={setManualTow} manual airlines={airlines} language={language} />
               <button className="btn green wide" onClick={saveManual}><Save size={18} />Save Tow</button>
             </div>
             {settings?.bulkImportEnabled && <div className="panel">
@@ -1334,7 +1395,7 @@ export default function App() {
                 <div className="candidate-list">
                   {candidates.map((candidate, index) => (
                     <div className="candidate" key={`${candidate.inboundFlightNumber}-${index}`}>
-                      <TowForm compact value={candidate} airlines={airlines} onChange={(next) => setCandidates(candidates.map((item, i) => (i === index ? next : item)))} />
+                      <TowForm compact value={candidate} airlines={airlines} language={language} onChange={(next) => setCandidates(candidates.map((item, i) => (i === index ? next : item)))} />
                       {candidate.parserWarnings?.length > 0 && <p className="warning-text">{candidate.parserWarnings.join(" ")}</p>}
                     </div>
                   ))}
@@ -1421,7 +1482,7 @@ export default function App() {
       )}
       <span className="app-version">v{version}</span>
       <button className="issue-button" onClick={() => setIssueOpen(true)} type="button">
-        <Bug size={16} /> Report Issue
+        <Bug size={16} /> {t('reportIssue')}
       </button>
       {issueOpen && (
         <div className="issue-panel">

@@ -82,7 +82,7 @@ export function towPaperDetails(tow) {
     "Wing Walker LH": fitText(tow.leftWingWalker, 28),
     "Brake Operator": "MX",
     "Wing Walker RH": fitText(tow.rightWingWalker, 28),
-    "Headset Operator": fitText(tow.driver, 28),
+    "Headset Operator": fitText(tow.headsetOperator || tow.driver, 28),
     "Other team": fitText(tow.otherTeamMembers, 62)
   };
 }

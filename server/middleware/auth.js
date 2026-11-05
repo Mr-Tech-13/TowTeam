@@ -1,6 +1,6 @@
 import { bearerToken, getUserForToken, parseCookie, sessionCookieName } from "../services/users.js";
 
-const publicApiPaths = new Set(["/api/health", "/api/auth/login", "/api/auth/token", "/api/auth/logout", "/api/auth/me"]);
+const publicApiPaths = new Set(["/api/health", "/api/auth/login", "/api/auth/token", "/api/auth/logout", "/api/auth/me", "/api/settings/public"]);
 
 export function requestSessionToken(req) {
   return bearerToken(req.get("authorization")) || parseCookie(req.get("cookie"), sessionCookieName());

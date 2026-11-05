@@ -154,6 +154,23 @@ export function deleteExpiredSessions() {
   db.prepare("DELETE FROM sessions WHERE expiresAt <= ?").run(new Date().toISOString());
 }
 
+export function getUserPreferences(userId) {
+  return db.prepare('SELECT theme, language, updatedAt FROM userPreferences WHERE userId = ?').get(userId)
+    || { theme: 'system', language: 'default', updatedAt: null };
+}
+
+export function updateUserPreferences(userId, input = {}) {
+  const current = getUserPreferences(userId);
+  const theme = input.theme ?? current.theme;
+  const language = input.language ?? current.language;
+  if (!['system', 'dark', 'light', 'contrast'].includes(theme)) throw new Error('Invalid theme preference.');
+  if (!['default', 'en', 'es'].includes(language)) throw new Error('Invalid language preference.');
+  db.prepare(`INSERT INTO userPreferences (userId, theme, language, updatedAt) VALUES (?, ?, ?, ?)
+    ON CONFLICT(userId) DO UPDATE SET theme = excluded.theme, language = excluded.language, updatedAt = excluded.updatedAt`)
+    .run(userId, theme, language, nowIso());
+  return getUserPreferences(userId);
+}
+
 export function sessionCookieName() {
   return SESSION_COOKIE;
 }

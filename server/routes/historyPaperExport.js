@@ -1,9 +1,5 @@
 import express from 'express';
-import fs from 'node:fs/promises';
-import os from 'node:os';
-import path from 'node:path';
-import { pipeline } from 'node:stream/promises';
-import { ZipArchive } from 'archiver';
+import { PDFDocument } from 'pdf-lib';
 import { maxPaperExportTows, paperArchiveFilename } from '../../shared/paperExport.js';
 import { getTow, listTows } from '../services/tows.js';
 import { getTowPaperDraft } from '../services/towPaperDrafts.js';
@@ -27,9 +23,9 @@ router.post('/', async (req, res) => {
   if (tows.some(tow => !tow || tow.deletedAt)) return res.status(404).json({ error: 'A selected tow no longer exists. Refresh History and select again.' });
   if (scope === 'history' && tows.some(tow => tow.status !== 'completed')) return res.status(400).json({ error: 'Only completed tows can be downloaded from History.' });
   const papers = tows.map(tow => ({ tow, state: getTowPaperDraft(tow.id).state }));
-  let temporary, archive, cancelled = false;
+  let cancelled = false;
   res.once('close', () => {
-    if (!res.writableFinished) { cancelled = true; archive?.abort(); }
+    if (!res.writableFinished) cancelled = true;
   });
   try {
     res.set('Cache-Control', 'private, no-store');
@@ -40,8 +36,8 @@ router.post('/', async (req, res) => {
       writeAudit(req.user, 'tow.paper_export', { entityType: 'tow', entityId: tow.id, details: { ids, scope, format: 'pdf' } });
       return res.type('pdf').attachment(towPermitFilename(tow)).send(pdf);
     }
-    // Prepare every paper before sending headers, so failures never produce a partial ZIP.
-    temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'towteam-paper-export-'));
+    // Prepare and merge every paper before sending headers, so failures never produce a partial PDF.
+    const merged = await PDFDocument.create();
     let bytes = 0;
     for (const { tow, state } of papers) {
       if (cancelled) return;
@@ -49,30 +45,16 @@ router.post('/', async (req, res) => {
       if (cancelled) return;
       bytes += pdf.length;
       if (bytes > 200 * 1024 * 1024) throw new Error('Download exceeds 200 MB. Select fewer tows.');
-      await fs.writeFile(path.join(temporary, `${tow.id}.pdf`), pdf, { mode: 0o600 });
+      const source = await PDFDocument.load(pdf);
+      const pages = await merged.copyPages(source, source.getPageIndices());
+      for (const page of pages) merged.addPage(page);
     }
-    archive = new ZipArchive({ store: true });
-    const names = new Set();
-    for (const { tow } of papers) {
-      const base = towPermitFilename(tow);
-      let name = base;
-      let collision = 0;
-      while (names.has(name)) {
-        name = `${base.slice(0, -4)}-${collision + 2}.pdf`;
-        collision += 1;
-      }
-      names.add(name);
-      archive.file(path.join(temporary, `${tow.id}.pdf`), { name });
-    }
-    writeAudit(req.user, 'tow.paper_export', { entityType: 'tow', details: { ids, scope, format: 'zip' } });
-    res.type('zip').set('Content-Disposition', `attachment; filename="${archiveFilename}"`);
-    const sending = pipeline(archive, res);
-    await Promise.all([sending, archive.finalize()]);
+    const output = Buffer.from(await merged.save());
+    writeAudit(req.user, 'tow.paper_export', { entityType: 'tow', details: { ids, scope, format: 'pdf', merged: true } });
+    res.type('pdf').attachment(archiveFilename).send(output);
   } catch (error) {
     if (cancelled || res.destroyed) return;
     if (res.headersSent) { res.destroy(error); return; }
     res.status(500).json({ error: error.message.startsWith('Download exceeds') ? error.message : 'Unable to generate tow papers. Check the private PDF template assets and Python dependencies.' });
-  } finally {
-    if (temporary) await fs.rm(temporary, { recursive: true, force: true });
-  }
+  } finally { /* No generated export files are retained on disk. */ }
 });

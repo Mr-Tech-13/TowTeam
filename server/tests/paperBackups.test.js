@@ -124,7 +124,7 @@ test('completed papers write directly without cache, replace edited tows, and re
   }
 });
 
-test('folder backup controls are local-administrator-only and have no connection-test endpoint', async () => {
+test('paper backup controls and destination settings are local-administrator-only', async () => {
   const admin = createUser({ username: 'nas-local', password: 'test-only', role: 'admin' });
   const other = createUser({ username: 'nas-other', password: 'test-only', role: 'admin' });
   db.prepare('UPDATE users SET isLocalAdmin = 1 WHERE id = ?').run(admin.id);
@@ -134,12 +134,16 @@ test('folder backup controls are local-administrator-only and have no connection
   const headers = id => ({ Cookie: `towteam_session=${createSession(id).token}`, 'Content-Type': 'application/json' });
   try {
     assert.equal((await fetch(base)).status, 401);
-    for (const suffix of ['', '/retry', '/clear']) {
+    for (const suffix of ['', '/retry', '/clear', '/destination', '/destination/test']) {
       assert.equal((await fetch(base + suffix, { method: suffix ? 'POST' : 'GET', headers: headers(other.id), ...(suffix ? { body: '{}' } : {}) })).status, 403);
     }
     const response = await fetch(base, { headers: headers(admin.id) }); assert.equal(response.status, 200);
     const body = await response.json(); assert.equal(body.enabled, false); assert.equal(path.basename(body.directory), 'paper-backups');
-    assert.equal((await fetch(base + '/test', { method: 'POST', headers: headers(admin.id), body: '{}' })).status, 404);
+    const destination = await fetch(base + '/destination', { headers: headers(admin.id) }); assert.equal(destination.status, 200);
+    const destinationBody = await destination.json(); assert.equal(Object.hasOwn(destinationBody, 'password'), false);
+    const destinationTest = await fetch(base + '/destination/test', { method: 'POST', headers: headers(admin.id), body: '{}' });
+    assert.equal(destinationTest.status, 400);
+    assert.match((await destinationTest.json()).error, /enable and save the destination/i);
     assert.equal(Object.hasOwn(body, 'password'), false);
     assert.equal((await fetch(base + '/clear', { method: 'POST', headers: headers(admin.id), body: '{}' })).status, 200);
     assert.equal((await fetch(base + '/retry', { method: 'POST', headers: headers(admin.id), body: '{"replace":"true"}' })).status, 400);

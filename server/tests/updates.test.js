@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { checkForUpdates, installUpdate } from "../services/updates.js";
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { checkForUpdates, installUpdate, mergeEnvironmentTemplate } from "../services/updates.js";
 
 function gitRunner(overrides = {}) {
   const calls = [];
@@ -46,7 +49,7 @@ test("update check blocks tracked local changes", async () => {
 
 test("install update only performs a fast-forward pull", async () => {
   const { calls, run } = gitRunner({ "rev-parse HEAD": "remote-commit" });
-  const result = await installUpdate({ run, enabled: true });
+  const result = await installUpdate({ run, enabled: true, mergeEnvironment: () => ({ changed: false, added: [] }) });
   assert.equal(result.updated, true);
   assert.equal(result.restartRequired, true);
   assert.ok(calls.includes("pull --ff-only"));
@@ -56,4 +59,44 @@ test("web updates are disabled unless explicitly configured", async () => {
   const status = await checkForUpdates({ enabled: false });
   assert.equal(status.enabled, false);
   assert.equal(status.canUpdate, false);
+});
+
+test('environment template merge appends new keys without changing existing values', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'towteam-env-merge-'));
+  try {
+    fs.writeFileSync(path.join(directory, '.env'), '# Local values\nPORT=9000\nexport ADMIN_PASSWORD=private-value\n');
+    fs.writeFileSync(path.join(directory, '.env.example'), 'PORT=8080\nADMIN_PASSWORD=change-me\nNEW_SETTING=enabled\nEMPTY_SETTING=\n');
+    const timestamp = new Date('2026-11-05T15:30:00.000Z');
+    const result = mergeEnvironmentTemplate({ directory, timestamp });
+    assert.deepEqual(result.added, ['NEW_SETTING', 'EMPTY_SETTING']);
+    assert.equal(result.backup, '.env.pre-update-2026-11-05T15-30-00-000Z');
+    const merged = fs.readFileSync(path.join(directory, '.env'), 'utf8');
+    assert.match(merged, /PORT=9000/);
+    assert.match(merged, /export ADMIN_PASSWORD=private-value/);
+    assert.doesNotMatch(merged, /ADMIN_PASSWORD=change-me/);
+    assert.match(merged, /NEW_SETTING=enabled\nEMPTY_SETTING=/);
+    assert.equal(fs.readFileSync(path.join(directory, result.backup), 'utf8'), '# Local values\nPORT=9000\nexport ADMIN_PASSWORD=private-value\n');
+    assert.deepEqual(mergeEnvironmentTemplate({ directory, timestamp: new Date('2026-11-05T15:31:00.000Z') }), { changed: false, added: [] });
+  } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+});
+
+test('environment template merge does not create an environment file for system-configured installs', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'towteam-env-skip-'));
+  try {
+    fs.writeFileSync(path.join(directory, '.env.example'), 'NEW_SETTING=enabled\n');
+    assert.deepEqual(mergeEnvironmentTemplate({ directory }), { changed: false, added: [], skipped: '.env does not exist' });
+    assert.equal(fs.existsSync(path.join(directory, '.env')), false);
+  } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+});
+
+test('an environment merge failure does not prevent an installed update from restarting', async () => {
+  const { run } = gitRunner({ "rev-parse HEAD": "remote-commit" });
+  const result = await installUpdate({
+    run,
+    enabled: true,
+    mergeEnvironment: () => { throw new Error('read-only filesystem'); }
+  });
+  assert.equal(result.updated, true);
+  assert.equal(result.restartRequired, true);
+  assert.match(result.environment.error, /read-only filesystem/);
 });

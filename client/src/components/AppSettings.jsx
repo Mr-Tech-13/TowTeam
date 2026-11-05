@@ -8,7 +8,8 @@ export function AppSettings({ settings, onChange, onAnnouncementCreated }) {
   const [exporting, setExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(null);
   const [announcements, setAnnouncements] = useState([]);
-  const [announcement, setAnnouncement] = useState({ title: '', message: '', imageUrl: '', kind: 'change' });
+  const [announcement, setAnnouncement] = useState({ title: '', message: '', imageUrl: '', kind: 'change', publishAt: '', expiresAt: '' });
+  const [appearance, setAppearance] = useState({ nodeName: 'TowTeam', stationSubtitle: '', accentColor: '#22c55e', logoUrl: '', defaultTheme: 'dark', defaultLanguage: 'en' });
   const [announcementStatus, setAnnouncementStatus] = useState('');
   const [previewAnnouncement, setPreviewAnnouncement] = useState(null);
   const input = useRef(null);
@@ -16,6 +17,12 @@ export function AppSettings({ settings, onChange, onAnnouncementCreated }) {
   useEffect(() => {
     api.listAnnouncements().then(setAnnouncements).catch((err) => setError(err.message));
   }, []);
+  useEffect(() => {
+    if (settings) setAppearance({
+      nodeName: settings.nodeName || 'TowTeam', stationSubtitle: settings.stationSubtitle || '', accentColor: settings.accentColor || '#22c55e',
+      logoUrl: settings.logoUrl || '', defaultTheme: settings.defaultTheme || 'dark', defaultLanguage: settings.defaultLanguage || 'en'
+    });
+  }, [settings]);
 
   async function sendAnnouncement(event) {
     event.preventDefault();
@@ -23,10 +30,17 @@ export function AppSettings({ settings, onChange, onAnnouncementCreated }) {
     try {
       const created = await api.createAnnouncement(announcement);
       setAnnouncements((current) => [{ ...created, userCount: null }, ...current]);
-      setAnnouncement({ title: '', message: '', imageUrl: '', kind: 'change' });
+      setAnnouncement({ title: '', message: '', imageUrl: '', kind: 'change', publishAt: '', expiresAt: '' });
       setAnnouncementStatus('Global message sent. Each user will see it until they mark it as seen.');
       onAnnouncementCreated?.();
     } catch (err) { setError(err.message); }
+    finally { setBusy(false); }
+  }
+
+  async function saveAppearance(event) {
+    event.preventDefault(); setBusy(true); setError('');
+    try { onChange(await api.updateSettings(appearance)); }
+    catch (err) { setError(err.message); }
     finally { setBusy(false); }
   }
 
@@ -132,6 +146,14 @@ export function AppSettings({ settings, onChange, onAnnouncementCreated }) {
             <span>Image URL (optional)</span>
             <input inputMode="url" maxLength="2048" placeholder="https://example.com/update.png" type="url" value={announcement.imageUrl} onChange={(event) => setAnnouncement({ ...announcement, imageUrl: event.target.value })} />
           </label>
+          <label>
+            <span>Publish at (optional)</span>
+            <input type="datetime-local" value={announcement.publishAt} onChange={(event) => setAnnouncement({ ...announcement, publishAt: event.target.value })} />
+          </label>
+          <label>
+            <span>Expires at (optional)</span>
+            <input type="datetime-local" value={announcement.expiresAt} onChange={(event) => setAnnouncement({ ...announcement, expiresAt: event.target.value })} />
+          </label>
           <div className="announcement-actions">
             <button className="btn blue" disabled={busy} onClick={previewGlobalMessage} type="button">Preview Message</button>
             <button className="btn green" disabled={busy} type="submit"><Megaphone size={18} />Send Global Message</button>
@@ -147,6 +169,7 @@ export function AppSettings({ settings, onChange, onAnnouncementCreated }) {
               <button aria-label={`Delete ${item.title}`} className="icon-btn announcement-delete" disabled={busy} onClick={() => void removeAnnouncement(item)} title="Delete message" type="button"><Trash2 size={17} /></button>
             </div>
             <p>{item.message}</p>
+            <span className="muted">Publishes {new Date(item.publishAt || item.createdAt).toLocaleString()}{item.expiresAt ? ` · Expires ${new Date(item.expiresAt).toLocaleString()}` : ''}</span>
             {item.imageUrl && <a href={item.imageUrl} rel="noreferrer" target="_blank">View attached image</a>}
             <details className="announcement-seen">
               <summary>{item.acknowledgementCount || 0}{item.userCount === null ? '' : ` of ${item.userCount}`} seen</summary>
@@ -159,6 +182,18 @@ export function AppSettings({ settings, onChange, onAnnouncementCreated }) {
             </details>
           </article>)}
         </div>}
+      </div>
+      <div className="favicon-setting">
+        <h3>Station Branding and Defaults</h3>
+        <form className="announcement-form" onSubmit={saveAppearance}>
+          <label><span>Node / station name</span><input maxLength="80" required value={appearance.nodeName} onChange={(event) => setAppearance({ ...appearance, nodeName: event.target.value })} /></label>
+          <label><span>Subtitle</span><input maxLength="120" value={appearance.stationSubtitle} onChange={(event) => setAppearance({ ...appearance, stationSubtitle: event.target.value })} /></label>
+          <label><span>Accent color</span><input aria-label="Accent color" type="color" value={appearance.accentColor} onChange={(event) => setAppearance({ ...appearance, accentColor: event.target.value })} /></label>
+          <label><span>Logo URL (optional)</span><input inputMode="url" maxLength="2048" type="url" value={appearance.logoUrl} onChange={(event) => setAppearance({ ...appearance, logoUrl: event.target.value })} /></label>
+          <label><span>Default theme</span><select value={appearance.defaultTheme} onChange={(event) => setAppearance({ ...appearance, defaultTheme: event.target.value })}><option value="system">Device setting</option><option value="dark">Dark</option><option value="light">Light</option><option value="contrast">High contrast</option></select></label>
+          <label><span>Default language</span><select value={appearance.defaultLanguage} onChange={(event) => setAppearance({ ...appearance, defaultLanguage: event.target.value })}><option value="en">English</option><option value="es">Español</option></select></label>
+          <button className="btn green" disabled={busy} type="submit">Save Branding</button>
+        </form>
       </div>
       <div className="favicon-setting">
         <h3>Active Tow Papers</h3>

@@ -3,6 +3,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { db, dbPath, nowIso } from '../db/database.js';
 import { generateTowPermitPdf, towPaperDetails, towPermitFilename } from './towPermit.js';
+import { decryptSecret, encryptSecret } from './secretStore.js';
 
 const retention = 60 * 60 * 1000;
 const cacheDirectory = path.join(path.dirname(dbPath), 'paper-backup-cache');
@@ -10,9 +11,32 @@ let running = false;
 let timer;
 let lastCleanup = 0;
 
-function config() {
+function legacyConfig() {
   const directory = process.env.PAPER_BACKUP_PATH || process.env.NAS_PDF_PATH || path.join(path.dirname(dbPath), 'paper-backups');
-  return { enabled: (process.env.PAPER_BACKUP_ENABLED ?? process.env.NAS_BACKUP_ENABLED) === 'true', directory: path.resolve(directory) };
+  return { configured: false, enabled: (process.env.PAPER_BACKUP_ENABLED ?? process.env.NAS_BACKUP_ENABLED) === 'true', type: 'local', directory: path.resolve(directory), url: '', username: '', password: '' };
+}
+
+function setting(key, fallback = '') {
+  return db.prepare('SELECT value FROM app_settings WHERE key = ?').get(key)?.value ?? fallback;
+}
+
+function setSetting(key, value) {
+  db.prepare(`INSERT INTO app_settings (key, value) VALUES (?, ?)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value`).run(key, String(value));
+}
+
+function config() {
+  if (setting('paperDestinationConfigured') !== 'true') return legacyConfig();
+  const type = setting('paperDestinationType', 'local');
+  return {
+    configured: true,
+    enabled: setting('paperDestinationEnabled') === 'true',
+    type,
+    directory: setting('paperDestinationPath') ? path.resolve(setting('paperDestinationPath')) : path.join(path.dirname(dbPath), 'paper-backups'),
+    url: setting('paperDestinationUrl'),
+    username: setting('paperDestinationUsername'),
+    password: decryptSecret(setting('paperDestinationPassword'))
+  };
 }
 export const paperBackupsEnabled = () => config().enabled;
 const checksum = buffer => crypto.createHash('sha256').update(buffer).digest('hex');
@@ -65,12 +89,31 @@ function ioCode(error) {
   return ['ENOENT', 'EEXIST', 'EACCES', 'EPERM', 'ENOTDIR', 'ENOTCONN', 'EIO', 'ESTALE', 'EROFS', 'ENOSPC', 'ETIMEDOUT'].includes(error?.code) ? error.code : 'IO_ERROR';
 }
 
-async function destination() {
-  const { enabled, directory } = config();
-  if (!enabled) throw new Error('Folder backups are disabled in .env.');
+async function localDestination(current) {
+  const { directory } = current;
   try { await fs.mkdir(directory, { recursive: true, mode: 0o700 }); }
   catch (error) { throw new Error(`Cannot prepare backup folder (${ioCode(error)}). Check the configured path and write permissions.`, { cause: error }); }
   return directory;
+}
+
+function webdavHeaders(current, extra = {}) {
+  const headers = { ...extra };
+  if (current.username || current.password) headers.Authorization = `Basic ${Buffer.from(`${current.username}:${current.password}`).toString('base64')}`;
+  return headers;
+}
+
+function destinationUrl(current, filename) {
+  const base = new URL(current.url.endsWith('/') ? current.url : `${current.url}/`);
+  return new URL(encodeURIComponent(filename), base).toString();
+}
+
+async function writeRemotePdf(current, filename, pdf, hash) {
+  const url = destinationUrl(current, filename);
+  const response = await fetch(url, { method: 'PUT', headers: webdavHeaders(current, { 'Content-Type': 'application/pdf' }), body: pdf, signal: AbortSignal.timeout(60_000) });
+  if (!response.ok) throw new Error(`Remote destination returned HTTP ${response.status}.`);
+  const verification = await fetch(url, { headers: webdavHeaders(current), signal: AbortSignal.timeout(60_000) });
+  if (!verification.ok) throw new Error(`Remote verification returned HTTP ${verification.status}.`);
+  if (checksum(Buffer.from(await verification.arrayBuffer())) !== hash) throw new Error('Remote backup verification failed.');
 }
 
 function isCurrent(job) {
@@ -89,19 +132,25 @@ async function transfer(job, generatePdf) {
     const hash = checksum(pdf);
     db.prepare(`UPDATE paperBackups SET checksum = ?, status = 'transferring', updatedAt = ?
       WHERE towId = ? AND generation = ?`).run(hash, nowIso(), job.towId, job.generation);
-    stage = 'preparing backup folder';
-    const directory = await destination();
-    temporary = path.join(directory, `.towteam-upload-${crypto.randomUUID()}.tmp`);
-    stage = 'writing PDF';
-    await fs.writeFile(temporary, pdf, { flag: 'wx', mode: 0o600 });
-    stage = 'verifying PDF';
-    if (checksum(await fs.readFile(temporary)) !== hash) throw new Error('Backup verification failed.');
-    if (!isCurrent(job)) return;
-    // Verified temporary files replace only this tow's destination, never the whole archive.
-    stage = 'replacing destination PDF';
     if (!/^[a-z0-9_-]+\.pdf$/i.test(job.filename)) throw new Error('Invalid backup filename.');
-    await fs.rename(temporary, path.join(directory, job.filename));
-    temporary = null;
+    const current = config();
+    if (!current.enabled) throw new Error('Paper destination is disabled.');
+    if (current.type === 'webdav') {
+      stage = 'uploading and verifying remote PDF';
+      await writeRemotePdf(current, job.filename, pdf, hash);
+    } else {
+      stage = 'preparing backup folder';
+      const directory = await localDestination(current);
+      temporary = path.join(directory, `.towteam-upload-${crypto.randomUUID()}.tmp`);
+      stage = 'writing PDF';
+      await fs.writeFile(temporary, pdf, { flag: 'wx', mode: 0o600 });
+      stage = 'verifying PDF';
+      if (checksum(await fs.readFile(temporary)) !== hash) throw new Error('Backup verification failed.');
+      if (!isCurrent(job)) return;
+      stage = 'replacing destination PDF';
+      await fs.rename(temporary, path.join(directory, job.filename));
+      temporary = null;
+    }
     db.prepare(`UPDATE paperBackups SET status = 'uploaded', uploadedAt = ?, error = NULL,
       nextAttemptAt = NULL, updatedAt = ? WHERE towId = ? AND generation = ?`)
       .run(nowIso(), nowIso(), job.towId, job.generation);
@@ -159,7 +208,7 @@ export function startPaperBackupWorker() {
 }
 
 export function retryPaperBackups(replace = false) {
-  if (!config().enabled) { const error = new Error('Folder backups are disabled in .env.'); error.status = 400; throw error; }
+  if (!config().enabled) { const error = new Error('Paper destination is disabled.'); error.status = 400; throw error; }
   const count = reconcile(replace);
   if (!replace) db.prepare("UPDATE paperBackups SET nextAttemptAt = NULL WHERE status = 'failed'").run();
   void runPaperBackupWorker().catch(() => {});
@@ -174,12 +223,74 @@ export function clearPaperBackupQueue() {
 }
 
 export function paperBackupStatus() {
+  const current = config();
   const rows = db.prepare(`SELECT b.towId, b.status, b.filename, b.checksum, b.uploadedAt, b.error,
     b.attempts, b.nextAttemptAt, b.updatedAt, t.tailNumber FROM paperBackups b JOIN tows t ON t.id = b.towId
     WHERE t.status = 'completed' AND t.deletedAt IS NULL ORDER BY b.updatedAt DESC`).all();
   const total = rows.filter(row => row.status !== 'cleared').length;
   const uploaded = rows.filter(row => row.status === 'uploaded').length;
-  return { enabled: config().enabled, configured: Boolean(config().directory), directory: config().directory, running,
+  return { enabled: current.enabled, configured: current.configured || Boolean(current.directory), type: current.type,
+    destination: current.type === 'webdav' ? current.url : current.directory, directory: current.type === 'local' ? current.directory : '', running,
     total, uploaded, pending: total - uploaded, failed: rows.filter(row => row.status === 'failed').length,
     progress: total ? Math.round(uploaded / total * 100) : 0, jobs: rows.filter(row => row.status !== 'uploaded').slice(0, 50) };
+}
+
+export function paperDestinationSettings() {
+  const current = config();
+  return {
+    configured: current.configured,
+    enabled: current.enabled,
+    type: current.type,
+    path: current.type === 'local' ? current.directory : '',
+    url: current.type === 'webdav' ? current.url : '',
+    username: current.type === 'webdav' ? current.username : '',
+    hasPassword: Boolean(current.password),
+    legacyEnvironment: !current.configured
+  };
+}
+
+export function updatePaperDestination(input = {}) {
+  if (typeof input.enabled !== 'boolean') throw new Error('Enabled must be true or false.');
+  if (!['local', 'webdav'].includes(input.type)) throw new Error('Destination type must be local or WebDAV.');
+  const destinationPath = typeof input.path === 'string' ? input.path.trim() : '';
+  const url = typeof input.url === 'string' ? input.url.trim() : '';
+  const username = typeof input.username === 'string' ? input.username.trim() : '';
+  if (input.type === 'local' && input.enabled && !destinationPath) throw new Error('Local destination path is required.');
+  if (input.type === 'webdav') {
+    let parsed;
+    try { parsed = new URL(url); } catch { throw new Error('WebDAV URL must be valid.'); }
+    if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('WebDAV URL must use HTTP or HTTPS.');
+    if (username.length > 200) throw new Error('WebDAV username is too long.');
+  }
+  setSetting('paperDestinationConfigured', true);
+  setSetting('paperDestinationEnabled', input.enabled);
+  setSetting('paperDestinationType', input.type);
+  setSetting('paperDestinationPath', destinationPath);
+  setSetting('paperDestinationUrl', url);
+  setSetting('paperDestinationUsername', username);
+  if (typeof input.password === 'string' && input.password) setSetting('paperDestinationPassword', encryptSecret(input.password));
+  if (input.clearPassword === true) setSetting('paperDestinationPassword', '');
+  return paperDestinationSettings();
+}
+
+export async function testPaperDestination() {
+  const current = config();
+  if (!current.enabled) throw new Error('Enable and save the destination before testing it.');
+  const filename = `.towteam-test-${crypto.randomUUID()}.txt`;
+  const content = Buffer.from(`TowTeam destination test ${nowIso()}\n`);
+  if (current.type === 'webdav') {
+    const url = destinationUrl(current, filename);
+    const put = await fetch(url, { method: 'PUT', headers: webdavHeaders(current, { 'Content-Type': 'text/plain' }), body: content, signal: AbortSignal.timeout(30_000) });
+    if (!put.ok) throw new Error(`WebDAV test upload returned HTTP ${put.status}.`);
+    const get = await fetch(url, { headers: webdavHeaders(current), signal: AbortSignal.timeout(30_000) });
+    if (!get.ok || !Buffer.from(await get.arrayBuffer()).equals(content)) throw new Error('WebDAV test verification failed.');
+    await fetch(url, { method: 'DELETE', headers: webdavHeaders(current), signal: AbortSignal.timeout(30_000) }).catch(() => {});
+  } else {
+    const directory = await localDestination(current);
+    const file = path.join(directory, filename);
+    await fs.writeFile(file, content, { flag: 'wx', mode: 0o600 });
+    if (!Buffer.from(await fs.readFile(file)).equals(content)) throw new Error('Local destination test verification failed.');
+    await fs.unlink(file);
+  }
+  return { ok: true, testedAt: nowIso(), type: current.type };
 }

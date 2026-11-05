@@ -37,6 +37,7 @@ const exportColumns = [
   ["towSpot", "Tow To"],
   ["tailNumber", "Aircraft Reg"],
   ["driver", "Tractor Driver"],
+  ["headsetOperator", "Headset Operator"],
   ["leftWingWalker", "Wing Walker LH"],
   ["rightWingWalker", "Wing Walker RH"],
   ["otherTeamMembers", "Other Team"],
