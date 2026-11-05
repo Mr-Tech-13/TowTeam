@@ -14,6 +14,8 @@ test('user appearance preferences and crew recents remain user-scoped', () => {
     assert.equal(preferences.theme, 'contrast');
     assert.equal(preferences.language, 'es');
     assert.ok(preferences.updatedAt);
+    assert.equal(updateUserPreferences(user.id, { language: 'pl' }).language, 'pl');
+    assert.equal(updateUserPreferences(user.id, { language: 'ar-EG' }).language, 'ar-EG');
     let members = rememberCrewMember(user.id, 'driver', 'Maxx', true);
     assert.equal(members[0].name, 'Maxx');
     assert.equal(members[0].favorite, true);

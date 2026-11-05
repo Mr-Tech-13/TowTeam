@@ -191,7 +191,7 @@ export function AppSettings({ settings, onChange, onAnnouncementCreated }) {
           <label><span>Accent color</span><input aria-label="Accent color" type="color" value={appearance.accentColor} onChange={(event) => setAppearance({ ...appearance, accentColor: event.target.value })} /></label>
           <label><span>Logo URL (optional)</span><input inputMode="url" maxLength="2048" type="url" value={appearance.logoUrl} onChange={(event) => setAppearance({ ...appearance, logoUrl: event.target.value })} /></label>
           <label><span>Default theme</span><select value={appearance.defaultTheme} onChange={(event) => setAppearance({ ...appearance, defaultTheme: event.target.value })}><option value="system">Device setting</option><option value="dark">Dark</option><option value="light">Light</option><option value="contrast">High contrast</option></select></label>
-          <label><span>Default language</span><select value={appearance.defaultLanguage} onChange={(event) => setAppearance({ ...appearance, defaultLanguage: event.target.value })}><option value="en">English</option><option value="es">Español</option></select></label>
+          <label><span>Default language</span><select value={appearance.defaultLanguage} onChange={(event) => setAppearance({ ...appearance, defaultLanguage: event.target.value })}><option value="en">English</option><option value="es">Español</option><option value="pl">Polski</option><option value="ar-EG">العربية (مصر)</option></select></label>
           <button className="btn green" disabled={busy} type="submit">Save Branding</button>
         </form>
       </div>

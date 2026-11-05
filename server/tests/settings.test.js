@@ -36,6 +36,9 @@ test('bulk import is a persistent Super Admin setting enforced for all users', a
     assert.equal((await request('/api/settings', tokens[2], 'PUT', { bulkImportEnabled: false })).status, 403);
     assert.equal((await request('/api/settings', tokens[0], 'PUT', { bulkImportEnabled: 'false' })).status, 400);
     assert.equal((await request('/api/settings', tokens[0], 'PUT', { bulkImportEnabled: false })).status, 200);
+    assert.equal((await request('/api/settings', tokens[0], 'PUT', { defaultLanguage: 'pl' })).status, 200);
+    assert.equal((await request('/api/settings', tokens[0], 'PUT', { defaultLanguage: 'ar-EG' })).status, 200);
+    assert.equal((await request('/api/settings', tokens[0], 'PUT', { defaultLanguage: 'unsupported' })).status, 400);
     assert.equal(db.prepare("SELECT value FROM app_settings WHERE key = 'bulkImportEnabled'").get().value, 'false');
     assert.equal((await (await request('/api/settings', tokens[1])).json()).bulkImportEnabled, false);
     for (const token of tokens) {

@@ -68,7 +68,7 @@ export function updateSettings(input) {
     setValue('defaultTheme', input.defaultTheme);
   }
   if (input.defaultLanguage !== undefined) {
-    if (!['en', 'es'].includes(input.defaultLanguage)) throw new Error('Invalid default language.');
+    if (!['en', 'es', 'pl', 'ar-EG'].includes(input.defaultLanguage)) throw new Error('Invalid default language.');
     setValue('defaultLanguage', input.defaultLanguage);
   }
   return getSettings();

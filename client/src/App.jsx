@@ -12,7 +12,7 @@ import { TowForm } from "./components/TowForm.jsx";
 import { Workflow } from "./components/Workflow.jsx";
 import "./styles/main.css";
 import { version } from "../../package-lock.json";
-import { translate } from './lib/i18n.js';
+import { isRtlLanguage, translate } from './lib/i18n.js';
 
 const emptyTow = {
   airline: "",
@@ -801,6 +801,7 @@ export default function App() {
     const resolved = selected === 'system' ? (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : selected;
     document.documentElement.dataset.theme = resolved;
     document.documentElement.lang = language;
+    document.documentElement.dir = isRtlLanguage(language) ? 'rtl' : 'ltr';
     document.documentElement.style.setProperty('--accent', settings?.accentColor || '#22c55e');
   }, [preferences.theme, language, settings?.defaultTheme, settings?.accentColor]);
   useEffect(() => {
@@ -1180,7 +1181,7 @@ export default function App() {
             <summary aria-label={`${t('theme')} / ${t('language')}`} title={`${t('theme')} / ${t('language')}`}>Aa</summary>
             <div>
               <label><span>{t('theme')}</span><select value={preferences.theme} onChange={(event) => void changePreference({ theme: event.target.value })}><option value="system">{t('system')}</option><option value="dark">{t('dark')}</option><option value="light">{t('light')}</option><option value="contrast">{t('contrast')}</option></select></label>
-              <label><span>{t('language')}</span><select value={preferences.language} onChange={(event) => void changePreference({ language: event.target.value })}><option value="default">{t('stationDefault')}</option><option value="en">English</option><option value="es">Español</option></select></label>
+              <label><span>{t('language')}</span><select value={preferences.language} onChange={(event) => void changePreference({ language: event.target.value })}><option value="default">{t('stationDefault')}</option><option value="en">English</option><option value="es">Español</option><option value="pl">Polski</option><option value="ar-EG">العربية (مصر)</option></select></label>
             </div>
           </details>
           {user.role === "admin" && (

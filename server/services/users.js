@@ -164,7 +164,7 @@ export function updateUserPreferences(userId, input = {}) {
   const theme = input.theme ?? current.theme;
   const language = input.language ?? current.language;
   if (!['system', 'dark', 'light', 'contrast'].includes(theme)) throw new Error('Invalid theme preference.');
-  if (!['default', 'en', 'es'].includes(language)) throw new Error('Invalid language preference.');
+  if (!['default', 'en', 'es', 'pl', 'ar-EG'].includes(language)) throw new Error('Invalid language preference.');
   db.prepare(`INSERT INTO userPreferences (userId, theme, language, updatedAt) VALUES (?, ?, ?, ?)
     ON CONFLICT(userId) DO UPDATE SET theme = excluded.theme, language = excluded.language, updatedAt = excluded.updatedAt`)
     .run(userId, theme, language, nowIso());
