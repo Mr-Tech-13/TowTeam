@@ -1,4 +1,4 @@
-# TowTeam
+# TowTeam [![CI/Build](https://github.com/Mr-Tech-13/TowTeam/actions/workflows/ci.yml/badge.svg)](https://github.com/Mr-Tech-13/TowTeam/actions/workflows/ci.yml) [![CodeQL](https://github.com/Mr-Tech-13/TowTeam/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/Mr-Tech-13/TowTeam/actions/workflows/github-code-scanning/codeql) [![Security](https://github.com/Mr-Tech-13/TowTeam/actions/workflows/security.yml/badge.svg)](https://github.com/Mr-Tech-13/TowTeam/actions/workflows/security.yml) 
 
 TowTeam is a self-hosted aircraft tow planning, workflow tracking, and history app.
 It uses React/Vite, Express, and SQLite, with a mobile-friendly dark interface.
