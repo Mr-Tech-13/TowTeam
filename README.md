@@ -28,7 +28,7 @@ Python with the packages in `requirements.txt` plus Poppler's `pdftoppm` executa
 Native C/C++ build tools are needed if `better-sqlite3` cannot use a prebuilt binary.
 The Docker configurations include these tools and PDF dependencies.
 
-The private checklist template is not included in the repository. See
+The private checklist template is not included in the repository! See
 [Tow Paper Setup](#tow-paper-setup) before enabling the editor.
 
 ## Docker Compose
